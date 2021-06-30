@@ -1,0 +1,3 @@
+\contentsline {section}{\numberline {1}Terminology}{1}{}%
+\contentsline {subsection}{\numberline {1.1}Distribution}{1}{}%
+\contentsline {subsubsection}{\numberline {1.1.1}Joint Distribution}{1}{}%
