@@ -105,11 +105,15 @@ Note that $r$ means the **rank** of $A$, which equals the number of the pivot co
 Meanwhile, the **image** of $A$ is the vector subspace that is spanned by the **columns of $A$**, i.e. $$r = \mathsf{dim}(\mathsf{img}(f))$$
 
 Also, if we regard $A\in \mathbb{R}^{m\times n}$ as a transformation matrix to convert the basis $\boldsymbol{\phi} = \{\phi_1,\cdots, \phi_n\}$ which spans $V\subseteq \mathbb{R}^n$ to the basis $\boldsymbol{\psi} = \{\psi_1,\cdots, \psi_m\}$ which spans $W\subseteq \mathbb{R}^m$ to , i.e.
-$$f: V\rightarrow W\implies f(\phi_i) = \sum_{i = 1}^m a_i\psi_i$$
+$$f: V\rightarrow W\implies f(\phi_i) = \sum_{j = 1}^m a_{ji}\psi_i$$
 
-Note that the **number of elements in $\phi_i$** (i.e. $k, \phi_i \in k$) is **not** necessarily equal to $m$. The same holds for $\psi_i$. However, the number of elements in $\phi_i$ is equal to the number of elements in $\psi_i$, which is $k$. Further, $$k \ge \max(m,n)$$
+Therefore, the matrix representation of $f$ can be expressed by:
+$$f(\boldsymbol{\phi}) = \boldsymbol{\psi} A$$
 
-The most important thing to perceive vector is that **it indicates the coordinates of the point with regard to the basis which it lies in.** That is to say, the dimension of the vector space that the vector $x$ is in equals to the number of the elements in $x$.
+The most important thing to perceive vector is that **it indicates the coordinates of the point with regard to the basis which it lies in.** Consider a vector $v\in V$, it points to a point in $V$, thus the dimension of $V$ equals to the number of the elements in $v$. Moreover, $v$ can be transformed to the vector in $W$ by $A$:
+$$w = Av,$$ where $w\in R^{m}$ indicates the **same point** with respect to a new set of basis $\boldsymbol{\psi}$.
+
+Note that the **number of elements in $\phi_i$** (i.e. $k, \phi_i \in \mathbb{R}^k$) is **not** necessarily equal to $m$. The same holds for $\psi_i$. However, the number of elements in $\phi_i$ is equal to the number of elements in $\psi_i$, which is $k$. Further, $$k \ge \max(m,n)$$
 
 ## Intuition of Eigenvalues and Eigenvectors
 
