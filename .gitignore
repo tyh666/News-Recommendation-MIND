@@ -1,3 +1,7 @@
-.aux
-.gz
-.toc
+*.aux
+*.gz
+*.toc
+*.nav
+*.out
+*.snm
+*.log
