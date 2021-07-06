@@ -14,8 +14,8 @@ $$y = Ax, $$ where $x\in \mathbb{R}^{n\times 1}, A\in \mathbb{R}^{m\times n}$. T
 
 - the **image** is spanned by the columns of the **transformation matrix**
 
-An important euqation holds:
-
+### Similar and Equivalent Matrix
+![](../../Resources/mml/similar%20matrix.png)
 
 ### Positive Symmetric Matrix and Inner Product
 
@@ -33,6 +33,8 @@ then $A$ is a **positive definite matrix**. If $A$ is symmetric, then $A$ is a *
 There are properties of $A$ in case of inner product:
 ![](../../Resources/mml/property%20of%20inner%20product.png)
 
+
+![](../../Resources/mml/positive%20semidefinite%20matrix.png)
 #### Distance (Metric)
 
 ![](../../Resources/mml/distance%20definition.png)
@@ -54,25 +56,73 @@ There are properties of orthogonal matrix:
 There are properties of affine transformation:
 ![](../../Resources/mml/property%20of%20hyperplane.png)
 
-## Vector Space
-A vector space $\mathbb{R}^n$ is spanned by a set of linearly independent vectors $\mathcal{X} = \{x_1,\cdots,x_k\}$ i.e. $$\sum_{i = 1}^k a_i x_i = \mathbf{0}$$ has the only solution that $x_i = \mathbf{0}$. $\mathcal{X}$ is called the **basis** of $\mathbb{R}^n$, and $k$ is the dimension of vector space $\mathbb{R}^n$.
+### Trace
+![](../../Resources/mml/trace.png)
 
-Let's consider the example of $Ax = \mathbf{b}$, where $A\in \mathbb{R}^{m\times n}$. The solution of the augmented equation system $(A\mid \mathbf{b})$ is calculated as:
+### Characteristic Polynomial
+![](../../Resources/mml/polynomial.png)
+
+### Eigenvalue and Eigenvectors
+![](../../Resources/mml/eigenvalue.png)
+
+There are properties of eigenvalue and its associated eigenvectors:
+![](../../Resources/mml/property%20of%20eigenvalue.png)
+![](../../Resources/mml/geometric%20multiplicity.png)
+
+#### Defective Matrix
+![](../../Resources/mml/defective.png)
+
+#### Spectrum Theorum
+![](../../Resources/mml/spectral%20theorem.png)
+
+#### Association with Determinant and Trace
+![](../../Resources/mml/property%20of%20eigenvalue%203.png)
+![](../../Resources/mml/property%20of%20eigenvalue%202.png)
+
+### Diagnalization
+#### Diagonalizable Matrix
+![](../../Resources/mml/diagnalizable.png)
+
+#### Eigen Decomposition
+![](../../Resources/mml/eigendecomposition.png)
+
+## Intuition of Vector Space
+A vector space $\mathbb{R}^n$ is spanned by a set of linearly independent vectors $\mathcal{X} = \{x_1,\cdots,x_k\}, x_i\in \mathbb{R}^n$ i.e. $$\sum_{i = 1}^k a_i x_i = \mathbf{0}$$ has the only solution that $x_i = \mathbf{0}$. $\mathcal{X}$ is called the **basis** of $\mathbb{R}^n$, and $k$ is the **dimension** of vector space $\mathbb{R}^n$.
+
+Let's consider the example of $Ax = \mathbf{b}$, where $A\in \mathbb{R}^{m\times n}$. The solution of this equation system can be found by:
 - find a particular solution to $Ax = \mathbf{b}$
 - find all solutions to $Ax = \mathbf{0}$
 - combine (add) the solutions from the last two steps
 
 In order to find all solutions to $Ax = \mathbf{0}$, we have to:
-- using **Gaussian Elimination** to transform the augmented matrix $(A\mid \mathbf{0})$ to the **Reduced Row Echelon Form**
-- express the **non-pivot** the column by the linear combination of columns on their left, obtaining a vector $\lambda_i$
+- using **Gaussian Elimination** to transform the **coefficient matrix** $A$ to the **Reduced Row Echelon Form**
+- express the **non-pivot** column by the linear combination of **pivot columns on their left**, obtaining a vector $\lambda_i$
 - repeat last step until all non-pivot columns are processed, leading to a set of vectors $\mathcal{O} = \{\lambda_1, \cdots, \lambda_{n-r}\}$
 - the final solution for $Ax = \mathbf{0}$ is $$\sum_{i = 1}^{n-r}a_i\lambda_i$$
 
 Note that $r$ means the **rank** of $A$, which equals the number of the pivot columns of the reduced echelon form. Therefore, the solution for $Ax = \mathbf{b}$ is an **affine space** of $\mathbb{R}^n$ whose dimension is $n-r$.
 
-Also, if we regard $A$ as a transformation matrix to convert the basis $\psi$ which spans $W\in \mathbb{R}^m$ to the basis $\phi$ which spans $V\in \mathbb{R}^n$, (**the dimension of the two vector space is equal to $k$**) $$f: V\rightarrow W\qquad\psi = A\phi.$$ Then the **image** of $f$ is the vector subspace that is spanned by the **columns of $A$**, i.e. $$r = \mathsf{dim}(\mathsf{img}(f))$$
+Meanwhile, the **image** of $A$ is the vector subspace that is spanned by the **columns of $A$**, i.e. $$r = \mathsf{dim}(\mathsf{img}(f))$$
 
-The most important thing to perceive vector is that **it indicates the coordinates of the point with regard to the basis which it lies in.** As a result, mapping $V$ to $W$, although $n$ may less than $m$, the dimension of the vector space $W$ is equal to that of $V$. Consiquently, it makes no change when we want to describe a point in the new vector space $W$, because we still have to use $k$ coordinates to indicate it.
+Also, if we regard $A\in \mathbb{R}^{m\times n}$ as a transformation matrix to convert the basis $\boldsymbol{\phi} = \{\phi_1,\cdots, \phi_n\}$ which spans $V\subseteq \mathbb{R}^n$ to the basis $\boldsymbol{\psi} = \{\psi_1,\cdots, \psi_m\}$ which spans $W\subseteq \mathbb{R}^m$ to , i.e.
+$$f: V\rightarrow W\implies f(\phi_i) = \sum_{i = 1}^m a_i\psi_i$$
 
-Natually, **the dimension of a vector space** is always less than or equal to **the elments number of the vector in it**. i.e.
-$$k\le \mathsf{min}(n,m)$$
+Note that the **number of elements in $\phi_i$** (i.e. $k, \phi_i \in k$) is **not** necessarily equal to $m$. The same holds for $\psi_i$. However, the number of elements in $\phi_i$ is equal to the number of elements in $\psi_i$, which is $k$. Further, $$k \ge \max(m,n)$$
+
+The most important thing to perceive vector is that **it indicates the coordinates of the point with regard to the basis which it lies in.** That is to say, the dimension of the vector space that the vector $x$ is in equals to the number of the elements in $x$.
+
+## Intuition of Eigenvalues and Eigenvectors
+
+Given the matrix $A\in \mathbb{R}^{n\times n}$ and its eigenvalues $\{\lambda_1, \cdots, \lambda_k\}$, where $k\le n$. The following holds: $$Ax = \lambda_i x$$
+
+Let's review some basic definitions:
+- the **algebraic multiplicity** equals to how many times that $\lambda_i$ appearing in the characteristic polynomial of $A$
+- the **geometric multiplicity** equals to the **dimension** of the vector subspace spanned by the eigenvectors associated with a specific eigenvalue
+- the eigenvectors associated with different eigenvalues are **linearly independent**, particularly, those of the **symmetric matrix** are **orthogonal**
+
+From the equation, if we regard $A$ as the transformation matrix from $V\in \mathbb{R}^n$, which is **spanned by the eigenvectors associated with $\lambda_i$**, to $W\in \mathbb{R}^n$, then the vector $v\in V$ is transformed into $w\in W$, and $$w=Av = \lambda_i v$$
+
+## Tips
+- for matrix $A\in \mathbb{R}^{m\times n}$, without loss of generalness, $A^\top A$ is always symmetric
+  - if $r = \mathsf{rank}(A) < n$, then $A$ is positive semi-definite
+  - if $r = \mathsf{rank}(A) = n$, then $A$ is positive definite
