@@ -111,9 +111,7 @@ Therefore, the matrix representation of $f$ can be expressed by:
 $$f(\boldsymbol{\phi}) = \boldsymbol{\psi} A$$
 
 The most important thing to perceive vector is that **it indicates the coordinates of the point with regard to the basis which it lies in.** Consider a vector $v\in V$, it points to a point in $V$, thus the dimension of $V$ equals to the number of the elements in $v$. Moreover, $v$ can be transformed to the vector in $W$ by $A$:
-$$w = Av,$$ where $w\in R^{m}$ indicates the **same point** with respect to a new set of basis $\boldsymbol{\psi}$.
-
-Note that the **number of elements in $\phi_i$** (i.e. $k, \phi_i \in \mathbb{R}^k$) is **not** necessarily equal to $m$. The same holds for $\psi_i$. However, the number of elements in $\phi_i$ is equal to the number of elements in $\psi_i$, which is $k$. Further, $$k \ge \max(m,n)$$
+$$w = Av,$$ where $w\in R^{m}$ indicates the **transformed point** with respect to a new set of basis $\boldsymbol{\psi}$.
 
 ## Intuition of Eigenvalues and Eigenvectors
 
