@@ -85,6 +85,7 @@ There are properties of eigenvalue and its associated eigenvectors:
 
 #### Eigen Decomposition
 ![](../../Resources/mml/eigendecomposition.png)
+- Only when $A$ is non-defective, eigendecomposition can be conduct.
 
 ## Intuition of Vector Space
 A vector space $\mathbb{R}^n$ is spanned by a set of linearly independent vectors $\mathcal{X} = \{x_1,\cdots,x_k\}, x_i\in \mathbb{R}^n$ i.e. $$\sum_{i = 1}^k a_i x_i = \mathbf{0}$$ has the only solution that $x_i = \mathbf{0}$. $\mathcal{X}$ is called the **basis** of $\mathbb{R}^n$, and $k$ is the **dimension** of vector space $\mathbb{R}^n$.

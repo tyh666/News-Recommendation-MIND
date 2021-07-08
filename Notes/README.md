@@ -4,7 +4,7 @@
 - [Document Summarization](https://medium.com/luisfredgs/automatic-text-summarization-with-machine-learning-an-overview-68ded5717a25)
 - [Makov Chain](https://towardsdatascience.com/brief-introduction-to-markov-chains-2c8cab9c98ab)
 - [Capsule Net](https://jhui.github.io/2017/11/03/Dynamic-Routing-Between-Capsules/)
-- [Cross Entropy](https://glassboxmedicine.com/2019/12/07/connections-log-likelihood-cross-entropy-kl-divergence-logistic-regression-and-neural-networks/)
+- [Cross Entropy](https://machinelearningmastery.com/cross-entropy-for-machine-learning/)
 
 # Insights
 - multi-task, one for document compression, another for recommendation
