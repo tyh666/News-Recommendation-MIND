@@ -7,4 +7,5 @@
 *.log
 *.tex
 *.lbf
-Retrieval Models.pdf
+.vector_cache/
+*.pyc

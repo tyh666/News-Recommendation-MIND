@@ -6,6 +6,7 @@
 - [Capsule Net](https://jhui.github.io/2017/11/03/Dynamic-Routing-Between-Capsules/)
 - [Cross Entropy](https://machinelearningmastery.com/cross-entropy-for-machine-learning/)
 - [Policy Gradient](https://towardsdatascience.com/an-intuitive-explanation-of-policy-gradient-part-1-reinforce-aa4392cbfd3c)
+- [lda2vec](https://multithreaded.stitchfix.com/blog/2016/05/27/lda2vec/#topic=38&lambda=1&term=)
 
 ## Insights
 - multi-task, one for document compression, another for recommendation
