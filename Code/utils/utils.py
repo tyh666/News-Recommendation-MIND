@@ -503,7 +503,7 @@ def load_config(config):
                         help="metrics for evaluating the model, if multiple metrics are needed, seperate with ','", type=str, default="auc,mean_mrr,ndcg@5,ndcg@10")
 
     parser.add_argument(
-        "--topk", dest="k", help="intend for sfi model, if clarified, top k history are involved in interaction calculation", type=int, default=0)
+        '-k', dest="k", help="intend for sfi model, if clarified, top k history are involved in interaction calculation", type=int, default=0)
     parser.add_argument(
         "--contra_num", dest="contra_num", help="sample number for contrasive selection aware network", type=int, default=0)
     parser.add_argument("--coarse", dest="coarse", help="if clarified, coarse-level matching signals will be taken into consideration",action='store_true')
@@ -514,6 +514,8 @@ def load_config(config):
     parser.add_argument("--threshold", dest="threshold", help="if clarified, SFI will dynamically mask attention weights smaller than threshold with 0", default=-float("inf"), type=float)
     parser.add_argument("--multiview", dest="multiview", help="if clarified, SFI-MultiView will be called", action="store_true")
     parser.add_argument("--ensemble", dest="ensemble", help="choose ensemble strategy for SFI-ensemble", type=str, default=None)
+
+    parser.add_argument("--spadam", dest="spadam", default=False)
 
 
     parser.add_argument("--bert", dest="bert", help="choose bert model(encoder)",
@@ -557,7 +559,7 @@ def load_config(config):
     config.metrics = args.metrics
     config.val_freq = args.val_freq
     config.schedule = args.schedule
-    config.spadam = True
+    config.spadam = args.spadam
     config.contra_num = args.contra_num
     config.head_num = args.head_num
     config.value_dim = args.value_dim
@@ -654,7 +656,7 @@ def prepare(config, path="/home/peitian_zhang/Data/MIND", shuffle=True, news=Fal
         vocab
         loaders(list of dataloaders): 0-loader_train/test/dev, 1-loader_dev, 2-loader_validate
     """
-    logging.info("Hyper Parameters are\n{}".format(config))
+    logging.info("Hyper Parameters are {}".format(config.info()))
 
     logging.info("preparing dataset...")
 

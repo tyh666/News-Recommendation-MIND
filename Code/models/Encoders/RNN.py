@@ -35,6 +35,15 @@ class RNN_Encoder(nn.Module):
         return news_embedding.view(news_batch.shape + (self.level, self.hidden_dim)), news_repr
 
 class RNN_User_Encoder(nn.Module):
+    """
+        encode user history into a representation vector
+
+    Args:
+        news_reprs: batch of news representations, [batch_size, *, hidden_dim]
+
+    Returns:
+        user_repr: user representation (coarse), [batch_size, 1, hidden_dim]
+    """
     def __init__(self, hidden_dim):
         super().__init__()
         self.name = 'rnn-user-encoder'
@@ -43,14 +52,5 @@ class RNN_User_Encoder(nn.Module):
         self.lstm = nn.LSTM(self.hidden_dim, self.hidden_dim, batch_first=True)
 
     def forward(self, news_reprs):
-        """
-            encode user history into a representation vector
-
-        Args:
-            news_reprs: batch of news representations, [batch_size, *, hidden_dim]
-
-        Returns:
-            user_repr: user representation (coarse), [batch_size, hidden_dim]
-        """
         _, user_repr = self.lstm(news_reprs)
         return user_repr[0].transpose(0,1)

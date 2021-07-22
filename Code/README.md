@@ -36,3 +36,7 @@
 - [ ] extract terms from every historical news when the history is updated
 - [ ] extract terms incrementally
 - [ ] long and short term extraction
+
+
+## Issue
+- the gradient after docReducer is sharp

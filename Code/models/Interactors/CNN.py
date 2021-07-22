@@ -37,6 +37,5 @@ class CNN_Interactor(nn.Module):
 
         # [bs, cs, sl, tn]
         matching_tensor = cdd_news_embedding.matmul(ps_terms.transpose(-2,-1).unsqueeze(1)).view(-1, 1, self.signal_length, self.term_num) / math.sqrt(self.hidden_dim)
-        reduced_tensor = self.SeqCNN2D(matching_tensor).view(matching_tensor.size(0), matching_tensor.size(1), -1)
-
+        reduced_tensor = self.SeqCNN2D(matching_tensor).view(cdd_news_embedding.size(0), cdd_news_embedding.size(1), self.final_dim)
         return reduced_tensor

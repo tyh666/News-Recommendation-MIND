@@ -1,4 +1,5 @@
-class config:
+from .base_config import BaseConfig
+class config(BaseConfig):
     scale = 'demo'
     mode = 'train'
     batch_size = 10
@@ -22,8 +23,8 @@ class config:
     save_step = [0]
     validate = False
     interval = 10
-    spadam = True
-    val_freq = 1
+    spadam = False
+    val_freq = 2
     schedule = None
 
     # deprecated

@@ -13,7 +13,7 @@ import subprocess
 
 import numpy as np
 import scipy.stats as ss
-from tqdm.notebook import tqdm
+from tqdm import tqdm
 
 from utils.utils import cal_metric, parameter
 
@@ -112,21 +112,24 @@ class BaseModel(nn.Module):
 
     def _log(self, res, config):
         """
-            wrap logging
+            wrap logging, skip logging results on MINDdemo
         """
-        # logger.info("evaluation results:{}".format(res))
-        with open("performance.log", "a+") as f:
-            d = {"name": self.name}
-            for k, v in dict(vars(config)).items():
-                if k in hparam_list:
-                    d[k] = v
-            for name, param in self.named_parameters():
-                if name in param_list:
-                    d[name] = tuple(param.shape)
+        if config.scale == 'demo':
+            pass
+        else:
+            # logger.info("evaluation results:{}".format(res))
+            with open("performance.log", "a+") as f:
+                d = {"name": self.name}
+                for k, v in dict(vars(config)).items():
+                    if k in hparam_list:
+                        d[k] = v
+                for name, param in self.named_parameters():
+                    if name in param_list:
+                        d[name] = tuple(param.shape)
 
-            f.write(str(d)+"\n")
-            f.write(str(res) + "\n")
-            f.write("\n")
+                f.write(str(d)+"\n")
+                f.write(str(res) + "\n")
+                f.write("\n")
 
 
     def _get_loss(self):

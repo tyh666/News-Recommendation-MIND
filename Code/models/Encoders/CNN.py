@@ -3,6 +3,15 @@ import torch.nn as nn
 from ..Attention import Attention
 
 class CNN_Encoder(nn.Module):
+    """ encode news through 1-d CNN and combine embeddings with personalized attention
+
+    Args:
+        news_batch: tensor of [batch_size, *, signal_length]
+
+    Returns:
+        news_embedding: hidden vector of each token in news, of size [batch_size, *, signal_length, hidden_dim]
+        news_repr: hidden vector of each news, of size [batch_size, *, hidden_dim]
+    """
     def __init__(self, config, vocab):
         super().__init__()
         self.name = 'cnn-encoder'
@@ -32,15 +41,6 @@ class CNN_Encoder(nn.Module):
 
 
     def forward(self, news_batch, **kwargs):
-        """ encode news through 1-d CNN and combine embeddings with personalized attention
-
-        Args:
-            news_batch: tensor of [batch_size, *, signal_length]
-
-        Returns:
-            news_embedding: hidden vector of each token in news, of size [batch_size, *, signal_length, hidden_dim]
-            news_repr: hidden vector of each news, of size [batch_size, *, hidden_dim]
-        """
         news_embedding_pretrained = self.DropOut(self.embedding(
             news_batch)).view(-1, news_batch.shape[-1], self.embedding_dim).transpose(-2, -1)
         news_embedding = self.RELU(self.LayerNorm(self.CNN(
