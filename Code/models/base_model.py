@@ -27,6 +27,7 @@ class BaseModel(nn.Module):
     def __init__(self, config):
         super().__init__()
 
+        # save and load function needs this attribute
         self.scale = config.scale
         # self.attrs = config.attrs
         # FIXME, checkpoint is not clear
@@ -48,12 +49,15 @@ class BaseModel(nn.Module):
         """
         # parse checkpoint
         # if "checkpoint" in config:
-        #     save_path = "data/model_params/{}/{}_epoch{}_step{}_ck{}_[hs={},topk={}].model".format(
-        #         config.name, config.scale, epoch, step, config.checkpoint, config.his_size, config.k, ",".join(config.attrs))
+        #     save_path = "data/model_params/{}/{}_epoch{}_step{}_ck{}_[k={}].model".format(
+        #         self.name, config.scale, epoch, step, config.checkpoint, config.his_size, config.k, ",".join(config.attrs))
         # else:
 
-        save_path = "data/model_params/{}/{}_epoch{}_step{}_[hs={},topk={}].model".format(
-            self.name, self.scale, epoch, step, self.his_size, self.k)
+        if self.scale == 'demo':
+            return
+
+        save_path = "data/model_params/{}/{}_epoch{}_step{}_[k={}].model".format(
+            self.name, self.scale, epoch, step, self.k)
 
         state_dict = self.state_dict()
 
@@ -87,8 +91,8 @@ class BaseModel(nn.Module):
             shortcut for loading model and optimizer parameters
         """
 
-        save_path = "data/model_params/{}/{}_epoch{}_step{}_[hs={},topk={}].model".format(
-            self.name, self.scale, epoch, step, self.his_size, self.k)
+        save_path = "data/model_params/{}/{}_epoch{}_step{}_[k={}].model".format(
+            self.name, self.scale, epoch, step, self.k)
 
         state_dict = torch.load(save_path, map_location=self.device)
         if re.search("pipeline",self.name):
@@ -120,7 +124,7 @@ class BaseModel(nn.Module):
             # logger.info("evaluation results:{}".format(res))
             with open("performance.log", "a+") as f:
                 d = {"name": self.name}
-                for k, v in dict(vars(config)).items():
+                for k, v in vars(config).items():
                     if k in hparam_list:
                         d[k] = v
                 for name, param in self.named_parameters():
@@ -253,9 +257,9 @@ class BaseModel(nn.Module):
             res(dict): A dictionary contains evaluation metrics.
         """
         # multiple evaluation steps
-        if len(config.save_step) > 1:
-            for step in config.save_step[1:]:
-                command = re.sub(",".join([str(i) for i in config.save_step]), str(
+        if len(config.step) > 1:
+            for step in config.step[1:]:
+                command = re.sub(",".join([str(i) for i in config.step]), str(
                     step), config.command)
                 subprocess.Popen(command, shell=True)
 
@@ -264,7 +268,7 @@ class BaseModel(nn.Module):
         self.eval()
 
         if load:
-            self.load(config, config.epochs, config.save_step[0])
+            self.load(config, config.epochs, config.step[0])
 
         logger.info("evaluating...")
 
@@ -274,7 +278,7 @@ class BaseModel(nn.Module):
 
         if log:
             res["epoch"] = config.epochs
-            res["step"] = config.save_step[0]
+            res["step"] = config.step[0]
 
             self._log(res, config)
 
@@ -362,19 +366,19 @@ class BaseModel(nn.Module):
 
         if tb:
             writer = SummaryWriter("data/tb/{}/{}/{}/".format(
-                config.name, config.scale, datetime.now().strftime("%Y%m%d-%H")))
+                self.name, config.scale, datetime.now().strftime("%Y%m%d-%H")))
 
         # in case the folder does not exists, create one
-        save_derectory = "data/model_params/{}".format(config.name)
-        if not os.path.exists(save_derectory):
-            os.mkdir(save_derectory)
+        save_directory = "data/model_params/{}".format(self.name)
+        if not os.path.exists(save_directory):
+            os.mkdir(save_directory)
 
         logger.info("training...")
         loss_func = self._get_loss()
         optimizers, schedulers = self._get_optim(config, loaders[0])
 
         self._run_train(loaders[0], optimizers, loss_func, config.epochs, schedulers=schedulers,
-                        writer=writer, interval=config.interval, save_step=config.save_step[0])
+                        writer=writer, interval=config.interval, save_step=config.step[0])
 
 
     def _run_tune(self, loaders, optimizers, loss_func, config, schedulers=[], writer=None, interval=100, save_step=None):
@@ -472,12 +476,12 @@ class BaseModel(nn.Module):
 
         if tb:
             writer = SummaryWriter("data/tb/{}/{}/{}/".format(
-                self.name, self.scale, datetime.now().strftime("%Y%m%d-%H")))
+                self.name, config.scale, datetime.now().strftime("%Y%m%d-%H")))
 
         # in case the folder does not exists, create one
-        save_derectory = "data/model_params/{}".format(self.name)
-        if not os.path.exists(save_derectory):
-            os.mkdir(save_derectory)
+        save_directory = "data/model_params/{}".format(self.name)
+        if not os.path.exists(save_directory):
+            os.mkdir(save_directory)
 
         logger.info("training...")
         loss_func = self._get_loss()
@@ -497,27 +501,31 @@ class BaseModel(nn.Module):
             config
             loader_test: DataLoader of MINDlarge_test
         """
-        self.load(config.epochs, config.save_step[0])
+        self.load(config.epochs, config.step[0])
 
         logger.info("testing...")
         self.cdd_size = 1
         self.eval()
 
-        with open("performance.log", "a+") as f:
-            d = {}
-            for k, v in self.named_buffers():
-                if k in hparam_list:
-                    d[k] = v
-            for name, param in self.named_parameters():
-                if name in param_list:
-                    d[name] = tuple(param.shape)
+        # with open("performance.log", "a+") as f:
+        #     d = {"name": self.name}
+        #     for k, v in vars(config).items():
+        #         if k in hparam_list:
+        #             d[k] = v
+        #     for name, param in self.named_parameters():
+        #         if name in param_list:
+        #             d[name] = tuple(param.shape)
 
-            f.write(str(d)+"\n")
-            f.write("\n")
-            f.write("\n")
+        #     f.write(str(d)+"\n")
+        #     f.write("\n\n")
 
-        save_path = "data/results/prediction={}_{}_epoch{}_step{}_[hs={},topk={}].txt".format(
-            self.name, self.scale, config.epochs, config.save_step[0], self.his_size, self.k)
+        save_directory = "data/results/{}".format(self.name)
+        if not os.path.exists(save_directory):
+            os.mkdir(save_directory)
+
+        save_path = save_directory + "/{}_epoch{}_step{}_[k={}].txt".format(
+            config.scale, config.epochs, config.step[0], self.k)
+
         with open(save_path, "w") as f:
             preds = []
             imp_indexes = []

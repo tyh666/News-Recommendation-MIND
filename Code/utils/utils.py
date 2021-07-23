@@ -484,10 +484,10 @@ def load_config(config):
     parser.add_argument("-hs", "--his_size", dest="his_size",
                         help="history size", type=int, default=50)
 
-    parser.add_argument("--device", dest="device",
+    parser.add_argument("-d","--device", dest="device",
                         help="device to run on", choices=["0", "1", "cpu"], default="0")
     parser.add_argument("--interval", dest="interval", help="the step interval to update processing bar", default=0, type=int)
-    parser.add_argument("--save_step", dest="save_step",
+    parser.add_argument("-st","--step", dest="step",
                         help="if clarified, save model at the interval of given steps", type=str, default="0")
     parser.add_argument("--val_freq", dest="val_freq", help="the frequency to validate during training in one epoch", type=int, default=0)
 
@@ -545,7 +545,7 @@ def load_config(config):
     config.mode = args.mode
     if config.mode == "train":
         # 2000 by default
-        config.save_step = 2000
+        config.step = 2000
     if len(args.device) > 1:
         config.device = args.device
     else:
@@ -572,7 +572,7 @@ def load_config(config):
     config.threshold = args.threshold
 
     config.attrs = args.attrs.split(",")
-    config.save_step = [int(i) for i in args.save_step.split(",")]
+    config.step = [int(i) for i in args.step.split(",")]
 
     if not args.learning_rate:
         if config.scale == "demo":
@@ -639,13 +639,13 @@ def load_config(config):
         logging.warning("k should always be larger than 4")
         config.k = 5
 
-    if len(config.save_step) > 1:
+    if len(config.step) > 1:
         config.command = "python " + " ".join(sys.argv)
 
     return config
 
 
-def prepare(config, path="/home/peitian_zhang/Data/MIND", shuffle=True, news=False, pin_memory=True, num_workers=8, impr=False):
+def prepare(config, path="/home/peitian_zhang/Data/MIND", shuffle=True, news=False, pin_memory=True, num_workers=4, impr=False):
     from .MIND import MIND,MIND_news,MIND_all,MIND_impr
     """ prepare dataloader and several paths
 
@@ -670,7 +670,7 @@ def prepare(config, path="/home/peitian_zhang/Data/MIND", shuffle=True, news=Fal
                                 num_workers=num_workers, drop_last=False, collate_fn=my_collate)
         vocab = dataset_dev.vocab
         if not hasattr(config,"bert"):
-            embedding = GloVe(dim=300, cache="/home/peitian_zhang/Data/.vector_cache")
+            embedding = GloVe(dim=300, cache="/home/peitian_zhang/Codes/News-Recommendation/.vector_cache")
             vocab.load_vectors(embedding)
 
         return vocab, [loader_dev]

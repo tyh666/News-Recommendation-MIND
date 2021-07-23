@@ -9,12 +9,12 @@ class CNN_Encoder(nn.Module):
         news_batch: tensor of [batch_size, *, signal_length]
 
     Returns:
-        news_embedding: hidden vector of each token in news, of size [batch_size, *, signal_length, hidden_dim]
+        news_embedding: hidden vector of each token in news, of size [batch_size, *, signal_length, level, hidden_dim]
         news_repr: hidden vector of each news, of size [batch_size, *, hidden_dim]
     """
     def __init__(self, config, vocab):
         super().__init__()
-        self.name = 'cnn-encoder'
+        self.name = 'cnn'
 
         self.dropout_p = config.dropout_p
 
@@ -25,7 +25,6 @@ class CNN_Encoder(nn.Module):
         # pretrained embedding
         self.embedding = nn.Embedding.from_pretrained(vocab.vectors,sparse=config.spadam,freeze=False)
 
-        # project preference query to vector of hidden_dim
         self.wordQueryProject = nn.Linear(self.hidden_dim, self.hidden_dim)
 
         self.CNN = nn.Conv1d(in_channels=self.embedding_dim,
@@ -36,8 +35,8 @@ class CNN_Encoder(nn.Module):
             (1, self.hidden_dim), requires_grad=True))
 
         self.RELU = nn.ReLU()
-        self.Tanh = nn.Tanh()
         self.DropOut = nn.Dropout(p=config.dropout_p)
+        self.Tanh = nn.Tanh()
 
 
     def forward(self, news_batch, **kwargs):
@@ -47,4 +46,4 @@ class CNN_Encoder(nn.Module):
             news_embedding_pretrained).transpose(-2, -1))).view(news_batch.shape + (self.hidden_dim,))
 
         news_repr = Attention.ScaledDpAttention(self.query_words, self.Tanh(self.wordQueryProject(news_embedding)), news_embedding).squeeze(dim=-2)
-        return news_embedding, news_repr
+        return news_embedding.unsqueeze(dim=-2), news_repr

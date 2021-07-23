@@ -14,6 +14,8 @@ class ESM(BaseModel):
         self.termFuser = termFuser
         self.interactor = interactor
 
+        self.level = self.encoderN.level
+
         self.hidden_dim = encoderN.hidden_dim
         self.final_dim = interactor.final_dim
 
@@ -23,7 +25,7 @@ class ESM(BaseModel):
             nn.Linear(int(self.final_dim/2),1)
         )
 
-        self.name = '-'.join(['esm', self.encoderN.name, self.encoderU.name, self.docReducer.name, self.interactor.name])
+        self.name = '_'.join(['esm', self.encoderN.name, self.encoderU.name, self.docReducer.name, self.interactor.name])
 
     def clickPredictor(self, reduced_tensor):
         """ calculate batch of click probabolity
@@ -54,9 +56,10 @@ class ESM(BaseModel):
         if self.termFuser:
             ps_terms = self.termFuser(ps_terms, ps_term_ids, his_news)
         else:
-            ps_terms = ps_terms.view(self.batch_size, -1, self.hidden_dim)
+            ps_terms = ps_terms.view(self.batch_size, -1, self.level, self.hidden_dim)
 
-        reduced_tensor = self.interactor(torch.cat([cdd_news_repr.unsqueeze(-2), cdd_news_embedding], dim=-2), torch.cat([user_repr, ps_terms], dim=-2))
+        # reduced_tensor = self.interactor(torch.cat([cdd_news_repr.unsqueeze(-2), cdd_news_embedding], dim=-2), torch.cat([user_repr, ps_terms], dim=-2))
+        reduced_tensor = self.interactor(cdd_news_embedding, ps_terms)
 
         return self.clickPredictor(reduced_tensor)
 
