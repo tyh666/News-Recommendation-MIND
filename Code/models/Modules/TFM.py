@@ -24,13 +24,13 @@ class TFM(nn.Module):
         fused_terms_all = torch.empty(ps_terms.size(0), self.size, ps_terms.size(-1), device=ps_terms.device, requires_grad=True)
         i = 0
 
-        for batch_i,batch_t in zip(vocab_index, ps_terms):
-            fuser = defaultdict(int)
+        for batch_i,batch_t in zip(vocab_index, ps_term_ids):
+            fuser = defaultdict(list)
             for news_i,news_t in zip(batch_i, batch_t):
                 for index, term in zip(news_i, news_t):
-                    fuser[index.item()] += term
+                    fuser[index.item()].append(term)
 
-            fused_terms = torch.stack([v for v in fuser.values()], dim=0).view(-1, ps_terms.size(-1))
+            fused_terms = torch.stack([torch.sum(ps_terms[i][v],dim=0) for v in fuser.values()], dim=0).view(-1, ps_terms.size(-1)))
             fused_terms_all[i] = F.pad(fused_terms, [0,0,0,self.size - fused_terms.size(0)], "constant", 0)
             i += 1
 

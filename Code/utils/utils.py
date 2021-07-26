@@ -635,10 +635,6 @@ def load_config(config):
         config.bert = args.bert
         config.level = args.level
 
-    if args.k < 5 and args.k > 0:
-        logging.warning("k should always be larger than 4")
-        config.k = 5
-
     if len(config.step) > 1:
         config.command = "python " + " ".join(sys.argv)
 
