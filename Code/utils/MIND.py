@@ -32,7 +32,7 @@ class MIND(Dataset):
         self.scale = config.scale
 
         # there are only two types of vocabulary
-        self.vocab = getVocab('data/dictionaries/vocab.pkl')
+        self.vocab = getVocab('data/dictionaries/vocab_whole.pkl')
 
         self.nid2index = getId2idx(
             'data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, self.mode))
