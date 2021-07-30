@@ -13,7 +13,7 @@ class MIND(Dataset):
         shuffle(bool): whether to shuffle the order of impressions
     """
 
-    def __init__(self, config, news_file, behaviors_file, shuffle_pos=False, validate=False):
+    def __init__(self, config, news_file, behaviors_file, shuffle_pos=False):
         # initiate the whole iterator
         self.npratio = config.npratio
         self.shuffle_pos = shuffle_pos
@@ -32,7 +32,7 @@ class MIND(Dataset):
         self.scale = config.scale
 
         # there are only two types of vocabulary
-        self.vocab = getVocab('data/dictionaries/vocab_whole.pkl')
+        self.vocab = getVocab('data/dictionaries/vocab.pkl')
 
         self.nid2index = getId2idx(
             'data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, self.mode))
@@ -44,9 +44,6 @@ class MIND(Dataset):
         self.subvert2onehot = getId2idx(
             'data/dictionaries/subvert2onehot.json'
         )
-
-        if validate:
-            self.mode = 'dev'
 
         self.init_news()
         self.init_behaviors()
@@ -87,6 +84,8 @@ class MIND(Dataset):
         # list of impression indexes
         # self.impr_indexes = []
 
+        impr_index = 0
+
         # only store positive behavior
         if self.mode == 'train':
             # list of list of clicked candidate news index along with its impression index
@@ -96,9 +95,8 @@ class MIND(Dataset):
 
             with open(self.behaviors_file, "r", encoding='utf-8') as rd:
                 for idx in rd:
-                    impr_index, uid, time, history, impr = idx.strip("\n").split(self.col_spliter)
+                    _, uid, time, history, impr = idx.strip("\n").split(self.col_spliter)
                     # important to subtract 1 because all list related to behaviors start from 0
-                    impr_index = int(impr_index) - 1
 
                     history = [self.nid2index[i] for i in history.split()]
                     if self.k:
@@ -129,6 +127,8 @@ class MIND(Dataset):
                     self.negtives[impr_index] = negatives
                     self.uindexes.append(uindex)
 
+                    impr_index += 1
+
         # store every behaviors
         elif self.mode == 'dev':
             # list of every candidate news index along with its impression index and label
@@ -136,8 +136,7 @@ class MIND(Dataset):
 
             with open(self.behaviors_file, "r", encoding='utf-8') as rd:
                 for idx in rd:
-                    impr_index, uid, time, history, impr = idx.strip("\n").split(self.col_spliter)
-                    impr_index = int(impr_index) - 1
+                    _, uid, time, history, impr = idx.strip("\n").split(self.col_spliter)
 
                     history = [self.nid2index[i] for i in history.split()]
                     if self.k:
@@ -162,6 +161,9 @@ class MIND(Dataset):
                     self.histories.append(history)
                     self.uindexes.append(uindex)
 
+                    impr_index += 1
+
+
         # store every behaviors
         elif self.mode == 'test':
             # list of every candidate news index along with its impression index and label
@@ -169,8 +171,7 @@ class MIND(Dataset):
 
             with open(self.behaviors_file, "r", encoding='utf-8') as rd:
                 for idx in rd:
-                    impr_index, uid, time, history, impr = idx.strip("\n").split(self.col_spliter)
-                    impr_index = int(impr_index) - 1
+                    _, uid, time, history, impr = idx.strip("\n").split(self.col_spliter)
 
                     history = [self.nid2index[i] for i in history.split()]
                     if self.k:
@@ -193,6 +194,9 @@ class MIND(Dataset):
                     # 1 impression correspond to 1 of each of the following properties
                     self.histories.append(history)
                     self.uindexes.append(uindex)
+
+                    impr_index += 1
+
 
     def __len__(self):
         """
@@ -440,6 +444,8 @@ class MIND_all(Dataset):
         # list of impression indexes
         # self.impr_indexes = []
 
+        impr_index = 0
+
         # only store positive behavior
         if self.mode == 'train':
             # list of list of clicked candidate news index along with its impression index
@@ -449,9 +455,8 @@ class MIND_all(Dataset):
 
             with open(self.behaviors_file, "r", encoding='utf-8') as rd:
                 for idx in rd:
-                    impr_index, uid, time, history, impr = idx.strip("\n").split(self.col_spliter)
+                    _, uid, time, history, impr = idx.strip("\n").split(self.col_spliter)
                     # important to subtract 1 because all list related to behaviors start from 0
-                    impr_index = int(impr_index) - 1
 
                     history = [self.nid2index[i] for i in history.split()]
                     if self.k:
@@ -482,6 +487,8 @@ class MIND_all(Dataset):
                     self.negtives[impr_index] = negatives
                     self.uindexes.append(uindex)
 
+                    impr_index += 1
+
         # store every behaviors
         elif self.mode == 'dev':
             # list of every candidate news index along with its impression index and label
@@ -489,8 +496,7 @@ class MIND_all(Dataset):
 
             with open(self.behaviors_file, "r", encoding='utf-8') as rd:
                 for idx in rd:
-                    impr_index, uid, time, history, impr = idx.strip("\n").split(self.col_spliter)
-                    impr_index = int(impr_index) - 1
+                    _, uid, time, history, impr = idx.strip("\n").split(self.col_spliter)
 
                     history = [self.nid2index[i] for i in history.split()]
                     if self.k:
@@ -515,6 +521,8 @@ class MIND_all(Dataset):
                     self.histories.append(history)
                     self.uindexes.append(uindex)
 
+                    impr_index += 1
+
         # store every behaviors
         elif self.mode == 'test':
             # list of every candidate news index along with its impression index and label
@@ -522,8 +530,7 @@ class MIND_all(Dataset):
 
             with open(self.behaviors_file, "r", encoding='utf-8') as rd:
                 for idx in rd:
-                    impr_index, uid, time, history, impr = idx.strip("\n").split(self.col_spliter)
-                    impr_index = int(impr_index) - 1
+                    _, uid, time, history, impr = idx.strip("\n").split(self.col_spliter)
 
                     history = [self.nid2index[i] for i in history.split()]
                     if self.k:
@@ -546,6 +553,9 @@ class MIND_all(Dataset):
                     # 1 impression correspond to 1 of each of the following properties
                     self.histories.append(history)
                     self.uindexes.append(uindex)
+
+                    impr_index += 1
+
 
     def __len__(self):
         """
@@ -939,10 +949,11 @@ class MIND_impr(Dataset):
         # list of every candidate news index along with its impression index and label
         self.imprs = []
 
+        impr_index = 0
+
         with open(self.behaviors_file, "r", encoding='utf-8') as rd:
             for idx in rd:
-                impr_index, uid, time, history, impr = idx.strip("\n").split(self.col_spliter)
-                impr_index = int(impr_index) - 1
+                _, uid, time, history, impr = idx.strip("\n").split(self.col_spliter)
 
                 history = [self.nid2index[i] for i in history.split()]
                 # tailor user's history or pad 0
@@ -958,6 +969,8 @@ class MIND_impr(Dataset):
                 # 1 impression correspond to 1 of each of the following properties
                 self.histories.append(history)
                 self.uindexes.append(uindex)
+
+                impr_index += 1
 
     def __len__(self):
         """

@@ -11,6 +11,7 @@ import pandas as pd
 import numpy as np
 # import torch.multiprocessing as mp
 from collections import defaultdict
+from datetime import datetime
 # from itertools import product
 from sklearn.metrics import roc_auc_score, log_loss, mean_squared_error, accuracy_score, f1_score
 from torchtext.data.utils import get_tokenizer
@@ -89,6 +90,11 @@ def constructVocab(news_file_list, attrs):
     tokenizer = get_tokenizer("basic_english")
     vocab = build_vocab_from_iterator(
         news_token_generator(news_file_list, tokenizer, attrs))
+
+    # adjustments for torchtext >= 0.10.0
+    vocab.insert_token('[PAD]', 0)
+    vocab.insert_token('[UNK]', 0)
+    vocab.set_default_index(0)
 
     output = open(
         "data/dictionaries/vocab_{}.pkl".format(",".join(attrs)), "wb")
@@ -266,6 +272,46 @@ def expandData():
 
     c.to_csv(r"D:\Data\MIND\MINDlarge_whole\behaviors.tsv",
              index=True, sep="\t", header=False)
+
+
+def construct_sequential_behaviors(path):
+    """ construct sequential behavior logs and save to the input directory
+
+    Args:
+        path: the directory of MINDscale (with slash)
+
+    """
+    behaviors = defaultdict(list)
+    train_path = path + 'behaviors.tsv'
+
+    with open(train_path, "r", encoding='utf-8') as rd:
+        for idx in rd:
+            impr_index, uid, time, history, impr = idx.strip("\n").split('\t')
+            # important to subtract 1 because all list related to behaviors start from 0
+
+            behaviors[uid].append([impr_index, uid, time, history, impr])
+
+    for k,v in behaviors.items():
+        behaviors[k] = sorted(v,key=lambda x: datetime.strptime(x[2], '%m/%d/%Y %X %p'))
+
+    for k,v in behaviors.items():
+        tmp = []
+        for i,behav in enumerate(v):
+            impr = behav[-1].split()
+            impr_news = [i.split("-")[0] for i in impr]
+            labels = [i.split("-")[1] for i in impr]
+
+            for news,label in zip(impr_news, labels):
+                if(label == '1'):
+                    tmp.append(news)
+
+            if(i > 0 and tmp):
+                behav[3] = behav[3] + ' ' +' '.join(tmp)
+
+    with open(path + 'behaviors_sequential.tsv','w',encoding='utf-8') as f:
+        for k,v in behaviors.items():
+            for behav in v:
+                f.write('\t'.join(behav) + '\n')
 
 
 def getId2idx(file):
@@ -507,8 +553,6 @@ def load_config(config):
     parser.add_argument(
         "--contra_num", dest="contra_num", help="sample number for contrasive selection aware network", type=int, default=0)
     parser.add_argument("--coarse", dest="coarse", help="if clarified, coarse-level matching signals will be taken into consideration",action='store_true')
-    parser.add_argument("--integrate", dest="integration",
-                        help="the way history filter is combined", choices=["gate", "harmony"], default="gate")
     parser.add_argument("--encoder", dest="encoder", help="choose encoder", default="fim")
     parser.add_argument("--interactor", dest="interactor", help="choose interactor", default="fim")
     parser.add_argument("--threshold", dest="threshold", help="if clarified, SFI will dynamically mask attention weights smaller than threshold with 0", default=-float("inf"), type=float)
@@ -535,8 +579,6 @@ def load_config(config):
 
     parser.add_argument("--attrs", dest="attrs",
                         help="clarified attributes of news will be yielded by dataloader, seperate with comma", type=str, default="title")
-    parser.add_argument("--validate", dest="validate",
-                        help="if clarified, evaluate the model on training set", action="store_true")
     parser.add_argument("--onehot", dest="onehot", help="if clarified, one hot encode of category/subcategory will be returned by dataloader", action="store_true")
 
     args = parser.parse_args()
@@ -595,8 +637,7 @@ def load_config(config):
             config.val_freq = 4
     else:
         config.val_freq = args.val_freq
-    if args.validate:
-        config.validate = args.validate
+
     if args.onehot:
         config.onehot = args.onehot
         config.vert_num = 18
@@ -623,7 +664,6 @@ def load_config(config):
     if args.ensemble:
         config.ensemble = args.ensemble
     if args.coarse:
-        config.integration = args.integration
         config.coarse = "coarse"
     if args.pipeline:
         config.pipeline = args.pipeline
@@ -641,7 +681,7 @@ def load_config(config):
     return config
 
 
-def prepare(config, path="/home/peitian_zhang/Data/MIND", shuffle=True, news=False, pin_memory=True, num_workers=4, impr=False):
+def prepare(config, path="/home/peitian_zhang/Data/MIND", shuffle=False, news=False, pin_memory=True, num_workers=4, impr=False):
     from .MIND import MIND,MIND_news,MIND_all,MIND_impr
     """ prepare dataloader and several paths
 
