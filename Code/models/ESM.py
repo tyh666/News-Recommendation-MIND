@@ -3,11 +3,11 @@ import torch.nn as nn
 from .base_model import BaseModel
 
 class ESM(BaseModel):
-    def __init__(self, config, encoderN, encoderU, docReducer, termFuser, interactor):
+    def __init__(self, config, embedding, encoderN, encoderU, docReducer, termFuser, interactor):
         super().__init__(config)
-        self.title_size = config.title_size
         self.k = config.k
 
+        self.embedding = embedding
         self.encoderN = encoderN
         self.encoderU = encoderU
         self.docReducer = docReducer
@@ -39,24 +39,24 @@ class ESM(BaseModel):
         return self.learningToRank(reduced_tensor).squeeze(dim=-1)
 
     def _forward(self,x):
-        if x['candidate_title'].size(0) != self.batch_size:
-            self.batch_size = x['candidate_title'].size(0)
+        if x["cdd_encoded_index"].size(0) != self.batch_size:
+            self.batch_size = x["cdd_encoded_index"].size(0)
 
-        cdd_news = x['candidate_title'].long().to(self.device)
+        cdd_news = x["cdd_encoded_index"].long().to(self.device)
         cdd_news_embedding, cdd_news_repr = self.encoderN(
-            cdd_news)
-        his_news = x['clicked_title'].long().to(self.device)
+            self.embedding(cdd_news))
+        his_news = x["his_encoded_index"].long().to(self.device)
         his_news_embedding, his_news_repr = self.encoderN(
-            his_news)
+            self.embedding(his_news))
 
         user_repr = self.encoderU(his_news_repr)
 
         ps_terms, ps_term_ids = self.docReducer(his_news_embedding, user_repr)
 
-        if self.termFuser:
-            ps_terms = self.termFuser(ps_terms, ps_term_ids, his_news)
-        else:
-            ps_terms = ps_terms.view(self.batch_size, -1, self.level, self.hidden_dim)
+        # if self.termFuser:
+        #     ps_terms = self.termFuser(ps_terms, ps_term_ids, his_news)
+        # else:
+        #     ps_terms = ps_terms.view(self.batch_size, -1, self.level, self.hidden_dim)
 
         # reduced_tensor = self.interactor(torch.cat([cdd_news_repr.unsqueeze(-2), cdd_news_embedding], dim=-2), torch.cat([user_repr, ps_terms], dim=-2))
         reduced_tensor = self.interactor(cdd_news_embedding, ps_terms)

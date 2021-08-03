@@ -1,13 +1,19 @@
 ## Preprocess
-- [ ] remove stop words
-- [ ] add special [END] token
+- [x] remove stop words
+  - not necessary
+- [ ] check the average length of title+abstract+vert
+  - [ ] propotion > 200
+  - [ ] propotion > 300
+  - [ ] propotion > 400
 
 ## News Encoder
 - [x] CNN encoder
+  - [ ] output hidden_dim=768
 - [ ] FIM encoder
 - [ ] Bert encoder
   - [ ] [CLS] as news repr
   - [ ] attention over the last layer as news repr
+- [ ] **how to deal with the categories**
 
 ## User Encoder
 - [x] RNN encoder
@@ -17,12 +23,13 @@
 
 ## Document Reducer
 - [ ] matching based
-  - [ ] only topk
+  - [x] only topk
   - [ ] topk with threshold
   - [ ] diversified
     - [ ] use document vector as an extraction input
     - [ ] design methods to extract non-duplicated terms within an article
   - [ ] dynamic allocation of top k
+    - [ ] read paper of yi xiaoyuan
 - [ ] Seq2Seq based
 - [ ] RL based
 
@@ -31,19 +38,29 @@
 
 ## Interactor
 - [ ] Bert
-  - [ ] position embedding within each news
-  - [ ] order embedding across the whole user history
+  - [x] position embedding within each news
+  - [x] order embedding across the whole user history
+  - [ ] pooling
+    - [x] pool with cls
+    - [ ] pool with mean
 - [ ] FIM
 - [ ] KNRM
 
 ## Workflow
-- [ ] extract terms from every historical news when the history is updated
+- [x] extract terms from every historical news when the history is updated
 - [ ] extract terms incrementally
 - [ ] long and short term extraction
 - [ ] auto-regressive user modeling
-
+- [ ] distributed training
+- [x] **config.filter_num -> config.hidden_dim**
+- [x] **config.signal_length**
+- [x] **config.embedding_dim**
+- [ ] modify load_config
 
 ## Issue
 - the gradient after docReducer is sharp
-- bert tokenizer and regular tokenizer are different
-- input words is wrong, we can only input embeddings
+- if we concat title with abstract, then there must be many duplicated words, how about removing them when preprocessing?
+- bert tokenize in stream or in bunch?
+
+## Need to update
+- [ ] Encoders.MHA, NPA, Pipeline

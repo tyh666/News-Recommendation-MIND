@@ -36,13 +36,13 @@ class CNN_RNN_Dot(BaseModel):
         return cdd_news_repr.matmul(user_repr.transpose(-1,-2)).squeeze(-1)
 
     def _forward(self,x):
-        if x['candidate_title'].size(0) != self.batch_size:
-            self.batch_size = x['candidate_title'].size(0)
+        if x['cdd_encoded_index'].size(0) != self.batch_size:
+            self.batch_size = x['cdd_encoded_index'].size(0)
 
-        cdd_news = x['candidate_title'].long().to(self.device)
+        cdd_news = x['cdd_encoded_index'].long().to(self.device)
         cdd_news_embedding, cdd_news_repr = self.encoderN(
             cdd_news)
-        his_news = x['clicked_title'].long().to(self.device)
+        his_news = x["his_encoded_index"].long().to(self.device)
         his_news_embedding, his_news_repr = self.encoderN(
             his_news)
 

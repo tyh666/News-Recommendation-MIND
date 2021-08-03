@@ -112,17 +112,17 @@ class SFI(BaseModel):
         return score
 
     def _forward(self, x):
-        if x['candidate_title'].shape[0] != self.batch_size:
-            self.batch_size = x['candidate_title'].shape[0]
+        if x['cdd_encoded_index'].shape[0] != self.batch_size:
+            self.batch_size = x['cdd_encoded_index'].shape[0]
 
-        cdd_news = x['candidate_title'].long().to(self.device)
+        cdd_news = x['cdd_encoded_index'].long().to(self.device)
         cdd_news_embedding, cdd_news_repr = self.encoder(
             cdd_news,
             user_index=x['user_index'].long().to(self.device),
             news_id=x['cdd_id'].long().to(self.device))
-            # attn_mask=x['candidate_title_pad'].to(self.device))
+            # attn_mask=x['cdd_encoded_index_pad'].to(self.device))
 
-        his_news = x['clicked_title'].long().to(self.device)
+        his_news = x["his_encoded_index"].long().to(self.device)
         his_news_embedding, his_news_repr = self.encoder(
             his_news,
             user_index=x['user_index'].long().to(self.device),
@@ -137,7 +137,7 @@ class SFI(BaseModel):
         # t3 = time.time()
 
         if self.interactor.name == 'knrm':
-            cdd_pad = x['candidate_title_pad'].float().to(self.device).view(self.batch_size, self.cdd_size, 1, 1, -1, 1)
+            cdd_pad = x['cdd_encoded_index_pad'].float().to(self.device).view(self.batch_size, self.cdd_size, 1, 1, -1, 1)
             if output[1] is not None:
                 his_pad = x['clicked_title_pad'].float().to(self.device).unsqueeze(dim=1).expand(self.batch_size, self.cdd_size, self.his_size, self.title_size).gather(dim=2, index=output[1].unsqueeze(dim=-1).expand(self.batch_size, self.cdd_size, self.k, self.title_size)).view(self.batch_size, self.cdd_size, self.k, 1, 1, self.title_size, 1)
             else:
@@ -282,17 +282,17 @@ class SFI_unified(BaseModel):
     def _forward(self, x):
         # t1 = time.time()
 
-        if x['candidate_title'].shape[0] != self.batch_size:
-            self.batch_size = x['candidate_title'].shape[0]
+        if x['cdd_encoded_index'].shape[0] != self.batch_size:
+            self.batch_size = x['cdd_encoded_index'].shape[0]
 
-        cdd_news = x['candidate_title'].long().to(self.device)
+        cdd_news = x['cdd_encoded_index'].long().to(self.device)
         cdd_news_embedding, cdd_news_repr = self.encoder(
             cdd_news,
             user_index=x['user_index'].long().to(self.device),
             news_id=x['cdd_id'].long().to(self.device),
-            attn_mask=x['candidate_title_pad'].to(self.device))
+            attn_mask=x['cdd_encoded_index_pad'].to(self.device))
 
-        his_news = x['clicked_title'].long().to(self.device)
+        his_news = x["his_encoded_index"].long().to(self.device)
         his_news_embedding, his_news_repr = self.encoder(
             his_news,
             user_index=x['user_index'].long().to(self.device),
@@ -307,7 +307,7 @@ class SFI_unified(BaseModel):
         # t3 = time.time()
 
         if self.interactor.name == 'knrm':
-            cdd_pad = x['candidate_title_pad'].float().to(self.device).view(self.batch_size, self.cdd_size, 1, 1, -1, 1)
+            cdd_pad = x['cdd_encoded_index_pad'].float().to(self.device).view(self.batch_size, self.cdd_size, 1, 1, -1, 1)
             if output[1] is not None:
                 his_pad = x['clicked_title_pad'].float().to(self.device).unsqueeze(dim=1).expand(self.batch_size, self.cdd_size, self.his_size, self.title_size).gather(dim=2, index=output[1].unsqueeze(dim=-1).expand(self.batch_size, self.cdd_size, self.k, self.title_size)).view(self.batch_size, self.cdd_size, self.k, 1, 1, self.title_size, 1)
             else:
@@ -453,18 +453,18 @@ class SFI_MultiView(BaseModel):
         return score
 
     def _forward(self, x):
-        if x['candidate_title'].shape[0] != self.batch_size:
-            self.batch_size = x['candidate_title'].shape[0]
+        if x['cdd_encoded_index'].shape[0] != self.batch_size:
+            self.batch_size = x['cdd_encoded_index'].shape[0]
 
         # FIXME, according to FIM, the category is concatenated into title before padding
-        cdd_title = torch.cat([x['candidate_title'], x['candidate_vert'], x['candidate_subvert']], dim=-1).long().to(self.device)
+        cdd_title = torch.cat([x['cdd_encoded_index'], x['candidate_vert'], x['candidate_subvert']], dim=-1).long().to(self.device)
         cdd_title_embedding, cdd_title_repr = self.encoder(
             cdd_title,
             user_index=x['user_index'].long().to(self.device),
             news_id=x['cdd_id'].long().to(self.device))
-            # attn_mask=x['candidate_title_pad'].to(self.device))
+            # attn_mask=x['cdd_encoded_index_pad'].to(self.device))
 
-        his_title = torch.cat([x['clicked_title'], x['clicked_vert'], x['clicked_subvert']], dim=-1).long().to(self.device)
+        his_title = torch.cat([x["his_encoded_index"], x['clicked_vert'], x['clicked_subvert']], dim=-1).long().to(self.device)
         his_title_embedding, his_title_repr = self.encoder(
             his_title,
             user_index=x['user_index'].long().to(self.device),

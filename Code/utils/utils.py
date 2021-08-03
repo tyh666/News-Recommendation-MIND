@@ -509,10 +509,13 @@ def cal_metric(labels, preds, metrics):
     return res
 
 
-def load_config(config):
+def load_config():
     """
         customize hyper parameters in command line
     """
+    from data.configs.base_config import BaseConfig
+    config = BaseConfig()
+
     parser = argparse.ArgumentParser()
     parser.add_argument("-s", "--scale", dest="scale", help="data scale",
                         choices=["demo", "small", "large", "whole"], required=True)
@@ -525,16 +528,16 @@ def load_config(config):
                         help="batch size", type=int, default=100)
     parser.add_argument("-ts", "--title_size", dest="title_size",
                         help="news title size", type=int, default=20)
-    parser.add_argument("--abs_size", dest="abs_size",
+    parser.add_argument("-as", "--abs_size", dest="abs_size",
                         help="news abstract length", type=int, default=40)
     parser.add_argument("-hs", "--his_size", dest="his_size",
                         help="history size", type=int, default=50)
 
     parser.add_argument("-d","--device", dest="device",
                         help="device to run on", choices=["0", "1", "cpu"], default="0")
-    parser.add_argument("--interval", dest="interval", help="the step interval to update processing bar", default=0, type=int)
     parser.add_argument("-st","--step", dest="step",
                         help="if clarified, save model at the interval of given steps", type=str, default="0")
+    parser.add_argument("--interval", dest="interval", help="the step interval to update processing bar", default=0, type=int)
     parser.add_argument("--val_freq", dest="val_freq", help="the frequency to validate during training in one epoch", type=int, default=0)
 
     parser.add_argument("-ck", "--checkpoint", dest="checkpoint",
@@ -545,30 +548,29 @@ def load_config(config):
 
     parser.add_argument("--npratio", dest="npratio",
                         help="the number of unclicked news to sample when training", type=int, default=4)
-    parser.add_argument("-mc", "--metrics", dest="metrics",
+    parser.add_argument("--metrics", dest="metrics",
                         help="metrics for evaluating the model, if multiple metrics are needed, seperate with ','", type=str, default="auc,mean_mrr,ndcg@5,ndcg@10")
 
-    parser.add_argument(
-        '-k', dest="k", help="intend for sfi model, if clarified, top k history are involved in interaction calculation", type=int, default=0)
-    parser.add_argument(
-        "--contra_num", dest="contra_num", help="sample number for contrasive selection aware network", type=int, default=0)
-    parser.add_argument("--coarse", dest="coarse", help="if clarified, coarse-level matching signals will be taken into consideration",action='store_true')
-    parser.add_argument("--encoder", dest="encoder", help="choose encoder", default="fim")
-    parser.add_argument("--interactor", dest="interactor", help="choose interactor", default="fim")
-    parser.add_argument("--threshold", dest="threshold", help="if clarified, SFI will dynamically mask attention weights smaller than threshold with 0", default=-float("inf"), type=float)
-    parser.add_argument("--multiview", dest="multiview", help="if clarified, SFI-MultiView will be called", action="store_true")
-    parser.add_argument("--ensemble", dest="ensemble", help="choose ensemble strategy for SFI-ensemble", type=str, default=None)
+    parser.add_argument("-emb", "--embedding", dest="embedding", help="choose embedding", choices=['bert','glove'])
+    parser.add_argument("-nenc", "--encoderN", dest="encoderN", help="choose news encoder", choices=['cnn','rnn','npa','fim','mha','bert'], default="cnn")
+    parser.add_argument("-uenc", "--encoderU", dest="encoderU", help="choose user encoder", choices=['rnn','lstur'], default="rnn")
+    parser.add_argument("-intr", "--interactor", dest="interactor", help="choose interactor", choices=['bert','fim','2dcnn','knrm'], default="fim")
 
+    parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=0)
+    # parser.add_argument("--multiview", dest="multiview", help="if clarified, SFI-MultiView will be called", action="store_true")
+    # parser.add_argument("--threshold", dest="threshold", help="if clarified, SFI will dynamically mask attention weights smaller than threshold with 0", default=-float("inf"), type=float)
+    # parser.add_argument("--coarse", dest="coarse", help="if clarified, coarse-level matching signals will be taken into consideration",action='store_true')
+
+    # parser.add_argument("--ensemble", dest="ensemble", help="choose ensemble strategy for SFI-ensemble", type=str, default=None)
     parser.add_argument("--spadam", dest="spadam", default=False)
 
-
-    parser.add_argument("--bert", dest="bert", help="choose bert model(encoder)",
-                        choices=["bert-base-uncased", "albert-base-v2"], default=None)
+    parser.add_argument("--bert", dest="bert", help="choose bert model",
+                        choices=["bert-base-uncased"], default=None)
     parser.add_argument("--level", dest="level",
                         help="intend for bert encoder, if clarified, level representations will be kept for a token", type=int, default=1)
 
     # FIXME, clarify all choices
-    parser.add_argument("--pipeline", dest="pipeline", help="choose pipeline-encoder", default=None)
+    # parser.add_argument("--pipeline", dest="pipeline", help="choose pipeline encoder", default=None)
 
     parser.add_argument("-hn", "--head_num", dest="head_num",
                         help="number of multi-heads", type=int, default=16)
@@ -577,9 +579,7 @@ def load_config(config):
     parser.add_argument("-qd", "--query_dim", dest="query_dim",
                         help="dimension of projected query", type=int, default=200)
 
-    parser.add_argument("--attrs", dest="attrs",
-                        help="clarified attributes of news will be yielded by dataloader, seperate with comma", type=str, default="title")
-    parser.add_argument("--onehot", dest="onehot", help="if clarified, one hot encode of category/subcategory will be returned by dataloader", action="store_true")
+    # parser.add_argument("--onehot", dest="onehot", help="if clarified, one hot encode of category/subcategory will be returned by dataloader", action="store_true")
 
     args = parser.parse_args()
 
@@ -594,6 +594,7 @@ def load_config(config):
         config.device = "cuda:" + args.device
     config.epochs = args.epochs
     config.batch_size = args.batch_size
+    config.his_size = args.his_size
     config.interval = args.interval
     config.title_size = args.title_size
     config.abs_size = args.abs_size
@@ -602,18 +603,13 @@ def load_config(config):
     config.val_freq = args.val_freq
     config.schedule = args.schedule
     config.spadam = args.spadam
-    config.contra_num = args.contra_num
     config.head_num = args.head_num
     config.value_dim = args.value_dim
     config.query_dim = args.query_dim
-    config.interactor = args.interactor
 
-    config.his_size = args.his_size
     config.k = args.k
-
     config.threshold = args.threshold
 
-    config.attrs = args.attrs.split(",")
     config.step = [int(i) for i in args.step.split(",")]
 
     if not args.learning_rate:
@@ -638,38 +634,41 @@ def load_config(config):
     else:
         config.val_freq = args.val_freq
 
-    if args.onehot:
-        config.onehot = args.onehot
-        config.vert_num = 18
-        config.subvert_num = 293
-    else:
-        config.onehot = False
+    # if args.onehot:
+    #     config.onehot = args.onehot
+    #     config.vert_num = 18
+    #     config.subvert_num = 293
+    # else:
+    #     config.onehot = False
     if args.checkpoint:
         config.checkpoint = args.checkpoint
-    if args.encoder:
-        config.encoder = args.encoder
-    if args.multiview:
-        config.multiview = args.multiview
-        config.attrs = "title,vert,subvert,abs".split(",")
-        logging.info("automatically set True for onehot encoding of (sub)categories")
-        config.onehot = True
-        config.vert_num = 18
-        config.subvert_num = 293
-    else:
-        config.multiview = False
-    if args.coarse:
-        config.coarse = 'coarse'
-    else:
-        config.coarse = None
-    if args.ensemble:
-        config.ensemble = args.ensemble
-    if args.coarse:
-        config.coarse = "coarse"
-    if args.pipeline:
-        config.pipeline = args.pipeline
-        config.encoder = "pipeline"
-        config.name = args.pipeline
-        config.spadam = False
+
+    config.embedding = args.embedding
+    config.encoderN = args.encoderN
+    config.encoderU = args.encoderU
+    config.interactor = args.interactor
+    config.bert = args.bert
+
+    # if args.multiview:
+    #     config.multiview = args.multiview
+    #     config.attrs = "title,vert,subvert,abs".split(",")
+    #     logging.info("automatically set True for onehot encoding of (sub)categories")
+    #     config.onehot = True
+    #     config.vert_num = 18
+    #     config.subvert_num = 293
+    # else:
+    #     config.multiview = False
+    # if args.coarse:
+    #     config.coarse = 'coarse'
+    # else:
+    #     config.coarse = None
+    # if args.ensemble:
+    #     config.ensemble = args.ensemble
+    # if args.pipeline:
+    #     config.pipeline = args.pipeline
+    #     config.encoder = "pipeline"
+    #     config.name = args.pipeline
+    #     config.spadam = False
     if args.bert:
         config.encoder = "bert"
         config.bert = args.bert
@@ -681,8 +680,8 @@ def load_config(config):
     return config
 
 
-def prepare(config, path="/home/peitian_zhang/Data/MIND", shuffle=False, news=False, pin_memory=True, num_workers=4, impr=False):
-    from .MIND import MIND,MIND_news,MIND_all,MIND_impr
+def prepare(config, path="/home/peitian_zhang/Data/MIND", cache="/home/peitian_zhang/Codes/News-Recommendation/.vector_cache", shuffle=False, news=False, pin_memory=True, num_workers=4, impr=False):
+    from .MIND import MIND,MIND_news,MIND_bert,MIND_impr
     """ prepare dataloader and several paths
 
     Args:
@@ -696,7 +695,10 @@ def prepare(config, path="/home/peitian_zhang/Data/MIND", shuffle=False, news=Fa
 
     logging.info("preparing dataset...")
 
+    vocab = None
+
     if impr:
+        # FIXME: if config.bert
         news_file_dev = path+"/MIND"+config.scale+"_dev/news.tsv"
         behavior_file_dev = path+"/MIND"+config.scale+"_dev/behaviors.tsv"
 
@@ -705,18 +707,17 @@ def prepare(config, path="/home/peitian_zhang/Data/MIND", shuffle=False, news=Fa
         loader_dev = DataLoader(dataset_dev, batch_size=config.batch_size, pin_memory=pin_memory,
                                 num_workers=num_workers, drop_last=False, collate_fn=my_collate)
         vocab = dataset_dev.vocab
-        if not hasattr(config,"bert"):
-            embedding = GloVe(dim=300, cache="/home/peitian_zhang/Codes/News-Recommendation/.vector_cache")
+        if not config.bert:
+            embedding = GloVe(dim=300, cache=cache)
             vocab.load_vectors(embedding)
 
         return vocab, [loader_dev]
 
     if news:
-        path = "/home/peitian_zhang/Data/MIND"
         news_file_train = path + \
             "/MIND{}_train/news.tsv".format(config.scale)
         news_file_dev = path+"/MIND{}_dev/news.tsv".format(config.scale)
-
+        # FIXME: if config.bert
         dataset_train = MIND_news(config, news_file_train)
         loader_news_train = DataLoader(
             dataset_train, batch_size=config.batch_size, pin_memory=pin_memory, num_workers=num_workers, drop_last=False, collate_fn=my_collate)
@@ -726,7 +727,7 @@ def prepare(config, path="/home/peitian_zhang/Data/MIND", shuffle=False, news=Fa
             dataset_dev, batch_size=config.batch_size, pin_memory=pin_memory, num_workers=num_workers, drop_last=False, collate_fn=my_collate)
 
         vocab = dataset_train.vocab
-        embedding = GloVe(dim=300, cache="/home/peitian_zhang/Data/.vector_cache")
+        embedding = GloVe(dim=300, cache=cache)
         vocab.load_vectors(embedding)
 
         if config.scale == "large":
@@ -747,71 +748,62 @@ def prepare(config, path="/home/peitian_zhang/Data/MIND", shuffle=False, news=Fa
         news_file_dev = path+"/MIND"+config.scale+"_dev/news.tsv"
         behavior_file_dev = path+"/MIND"+config.scale+"_dev/behaviors.tsv"
 
-        if config.multiview:
-            dataset_train = MIND_all(config=config, news_file=news_file_train,
+        if config.embedding == 'bert':
+            dataset_train = MIND_bert(config=config, news_file=news_file_train,
                             behaviors_file=behavior_file_train)
-            dataset_dev = MIND_all(config=config, news_file=news_file_dev,
+            dataset_dev = MIND_bert(config=config, news_file=news_file_dev,
                             behaviors_file=behavior_file_dev)
         else:
             dataset_train = MIND(config=config, news_file=news_file_train,
                                 behaviors_file=behavior_file_train)
             dataset_dev = MIND(config=config, news_file=news_file_dev,
                             behaviors_file=behavior_file_dev)
-
-        vocab = dataset_train.vocab
-        if not hasattr(config,"bert"):
-            embedding = GloVe(dim=300, cache="/home/peitian_zhang/Data/.vector_cache")
+            vocab = dataset_train.vocab
+            embedding = GloVe(dim=300, cache=cache)
             vocab.load_vectors(embedding)
+
+        # multi view dataset
+
         loader_train = DataLoader(dataset_train, batch_size=config.batch_size, pin_memory=pin_memory,
                                 num_workers=num_workers, drop_last=False, shuffle=shuffle, collate_fn=my_collate)
         loader_dev = DataLoader(dataset_dev, batch_size=config.batch_size, pin_memory=pin_memory,
                                 num_workers=num_workers, drop_last=False, collate_fn=my_collate)
 
-        if hasattr(config,"validate") and config.validate:
-            if config.multiview:
-                dataset_validate = MIND_all(
-                    config=config, news_file=news_file_train, behaviors_file=behavior_file_train, validate=True)
-            else:
-                dataset_validate = MIND(
-                    config=config, news_file=news_file_train, behaviors_file=behavior_file_train, validate=True)
-            loader_validate = DataLoader(dataset_validate, batch_size=config.batch_size, pin_memory=pin_memory,
-                                        num_workers=num_workers, drop_last=False, collate_fn=my_collate)
-            return vocab, [loader_train, loader_dev, loader_validate]
-        else:
-            return vocab, [loader_train, loader_dev]
+        return vocab, [loader_train, loader_dev]
 
     elif config.mode == "dev":
         news_file_dev = path+"/MIND"+config.scale+"_dev/news.tsv"
         behavior_file_dev = path+"/MIND"+config.scale+"_dev/behaviors.tsv"
 
-        if config.multiview:
-            dataset_dev = MIND_all(config=config, news_file=news_file_dev,
+        if config.embedding == 'bert':
+            dataset_dev = MIND_bert(config=config, news_file=news_file_dev,
                             behaviors_file=behavior_file_dev)
         else:
             dataset_dev = MIND(config=config, news_file=news_file_dev,
                             behaviors_file=behavior_file_dev)
+            vocab = dataset_dev.vocab
+            embedding = GloVe(dim=300, cache=cache)
+            vocab.load_vectors(embedding)
+
         loader_dev = DataLoader(dataset_dev, batch_size=config.batch_size, pin_memory=pin_memory,
                                 num_workers=num_workers, drop_last=False, collate_fn=my_collate)
-        vocab = dataset_dev.vocab
-        if not hasattr(config,"bert"):
-            embedding = GloVe(dim=300, cache="/home/peitian_zhang/Data/.vector_cache")
-            vocab.load_vectors(embedding)
 
         return vocab, [loader_dev]
 
     elif config.mode == "test":
-        if config.multiview:
-            dataset_test = MIND_all(config, "/home/peitian_zhang/Data/MIND/MINDlarge_test/news.tsv",
-                                    "/home/peitian_zhang/Data/MIND/MINDlarge_test/behaviors.tsv")
+        news_file_test = path+"/MIND"+config.scale+"_test/news.tsv"
+        behavior_file_test = path+"/MIND"+config.scale+"_test/behaviors.tsv"
+
+        if config.embedding == 'bert':
+            dataset_test = MIND_bert(config, news_file_test, behavior_file_test)
         else:
-            dataset_test = MIND(config, "/home/peitian_zhang/Data/MIND/MINDlarge_test/news.tsv",
-                                    "/home/peitian_zhang/Data/MIND/MINDlarge_test/behaviors.tsv")
+            dataset_test = MIND(config, news_file_test, behavior_file_test)
+            vocab = dataset_test.vocab
+            embedding = GloVe(dim=300, cache=cache)
+            vocab.load_vectors(embedding)
+
         loader_test = DataLoader(dataset_test, batch_size=config.batch_size, pin_memory=pin_memory,
                                  num_workers=num_workers, drop_last=False, collate_fn=my_collate)
-        vocab = dataset_test.vocab
-        if not hasattr(config,"bert"):
-            embedding = GloVe(dim=300, cache="/home/peitian_zhang/Data/.vector_cache")
-            vocab.load_vectors(embedding)
 
         return vocab, [loader_test]
 

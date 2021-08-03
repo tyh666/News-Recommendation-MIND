@@ -258,11 +258,11 @@ class MIND(Dataset):
                 "user_index": np.asarray(user_index),
                 # "cdd_mask": np.asarray(neg_pad),
                 'cdd_id': np.asarray(cdd_ids),
-                "candidate_title": candidate_title_index,
-                "candidate_title_pad": np.asarray(candidate_title_pad),
+                "cdd_encoded_index": candidate_title_index,
+                "cdd_attn_mask": np.asarray(candidate_title_pad),
                 'his_id': np.asarray(his_ids),
-                "clicked_title": clicked_title_index,
-                "clicked_title_pad": np.asarray(clicked_title_pad),
+                "his_encoded_index": clicked_title_index,
+                "his_attn_mask": np.asarray(clicked_title_pad),
                 "his_mask": his_mask,
                 "labels": label
             }
@@ -294,11 +294,11 @@ class MIND(Dataset):
                 "impression_index": impr_index + 1,
                 "user_index": np.asarray(user_index),
                 'cdd_id': np.asarray(cdd_ids),
-                "candidate_title": np.asarray(candidate_title_index),
-                "candidate_title_pad": np.asarray(candidate_title_pad),
+                "cdd_encoded_index": np.asarray(candidate_title_index),
+                "cdd_attn_mask": np.asarray(candidate_title_pad),
                 'his_id': np.asarray(his_ids),
-                "clicked_title": clicked_title_index,
-                "clicked_title_pad": np.asarray(clicked_title_pad),
+                "his_encoded_index": clicked_title_index,
+                "his_attn_mask": np.asarray(clicked_title_pad),
                 "his_mask": his_mask,
                 "labels": np.asarray([label])
             }
@@ -329,11 +329,11 @@ class MIND(Dataset):
                 "impression_index": impr_index + 1,
                 "user_index": np.asarray(user_index),
                 'cdd_id': np.asarray(cdd_ids),
-                "candidate_title": np.asarray(candidate_title_index),
-                "candidate_title_pad": np.asarray(candidate_title_pad),
+                "cdd_encoded_index": np.asarray(candidate_title_index),
+                "cdd_attn_mask": np.asarray(candidate_title_pad),
                 'his_id': np.asarray(his_ids),
-                "clicked_title": clicked_title_index,
-                "clicked_title_pad": np.asarray(clicked_title_pad),
+                "his_encoded_index": clicked_title_index,
+                "his_attn_mask": np.asarray(clicked_title_pad),
                 "his_mask": his_mask
             }
 
@@ -343,8 +343,8 @@ class MIND(Dataset):
             raise ValueError("Mode {} not defined".format(self.mode))
 
 
-class MIND_all(Dataset):
-    """ Map Style Dataset for MIND, return positive samples with negative sampling when training, or return each sample when developing.
+class MIND_bert(Dataset):
+    """ Map Style Dataset for MIND, use bert tokenizer
 
     Args:
         config(dict): pre-defined dictionary of hyper parameters
@@ -354,6 +354,7 @@ class MIND_all(Dataset):
     """
 
     def __init__(self, config, news_file, behaviors_file, shuffle_pos=False, validate=False):
+        from transformers import BertTokenizerFast
         # initiate the whole iterator
         self.npratio = config.npratio
         self.shuffle_pos = shuffle_pos
@@ -371,19 +372,13 @@ class MIND_all(Dataset):
             'MIND/.*_(.*)/news', news_file).group(1)
 
         # there are only two types of vocabulary
-        self.vocab = getVocab('data/dictionaries/vocab_whole.pkl')
+        self.tokenizer = BertTokenizerFast.from_pretrained(config.bert)
+        # self.tokenizer.max_model_input_sizes[config.bert] = 10000ok
 
         self.nid2index = getId2idx(
             'data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, self.mode))
         self.uid2index = getId2idx(
             'data/dictionaries/uid2idx_{}.json'.format(config.scale))
-        self.vert2onehot = getId2idx(
-            'data/dictionaries/vert2onehot.json'
-        )
-        self.subvert2onehot = getId2idx(
-            'data/dictionaries/subvert2onehot.json'
-        )
-
         if validate:
             self.mode = 'dev'
 
@@ -398,38 +393,22 @@ class MIND_all(Dataset):
         # VERY IMPORTANT!!! FIXME
         # The nid2idx dictionary must follow the original order of news in news.tsv
 
-        titles = [[1]*self.title_size]
-        title_pad = [[self.title_size]]
-        abstracts = [[1]*self.abs_size]
-        abs_pad = [[self.abs_size]]
-
-        # pure text of the title
-        # titles = [['hello MIND']]
-        categories = [[1]]
-        subcategories = [[1]]
+        documents = ['hello BERT']
 
         with open(self.news_file, "r", encoding='utf-8') as rd:
             for idx in rd:
                 nid, vert, subvert, title, ab, url, _, _ = idx.strip("\n").split(self.col_spliter)
+                # concat all fields to form the document
+                # try:
+                #     self.tokenizer.tokenize(' '.join([title, ab, vert, subvert]))
+                # except:
+                #     print(' '.join([title, ab, vert, subvert]))
+                documents.append(' '.join([title, ab, vert, subvert]))
 
-                title_token = tokenize(title, self.vocab)
-                titles.append(title_token[:self.title_size] + [1] * (self.title_size - len(title_token)))
-                title_pad.append([max(self.title_size - len(title_token), 0)])
+        encoded_dict = self.tokenizer(documents, add_special_tokens=False, padding=True, truncation=True, max_length=512, return_tensors='np')
+        self.encoded_news = encoded_dict.input_ids
+        self.attn_mask = encoded_dict.attention_mask
 
-                abs_token = tokenize(ab, self.vocab)
-                abstracts.append(abs_token[:self.abs_size] + [1] * (self.abs_size - len(abs_token)))
-                abs_pad.append([max(self.abs_size - len(abs_token), 0)])
-
-                categories.append(tokenize(vert, self.vocab))
-                subcategories.append(tokenize(subvert, self.vocab))
-
-        # self.titles = titles
-        self.news_title_array = np.asarray(titles)
-        self.title_pad = np.asarray(title_pad)
-        self.abs_array = np.asarray(abstracts)
-        self.abs_pad = np.asarray(abs_pad)
-        self.vert_array = np.asarray(categories)
-        self.subvert_array = np.asarray(subcategories)
 
     def init_behaviors(self):
         """
@@ -489,7 +468,7 @@ class MIND_all(Dataset):
 
                     impr_index += 1
 
-        # store every behaviors
+        # store every behavior
         elif self.mode == 'dev':
             # list of every candidate news index along with its impression index and label
             self.imprs = []
@@ -523,7 +502,7 @@ class MIND_all(Dataset):
 
                     impr_index += 1
 
-        # store every behaviors
+        # store every behavior
         elif self.mode == 'test':
             # list of every candidate news index along with its impression index and label
             self.imprs = []
@@ -607,51 +586,23 @@ class MIND_all(Dataset):
             # pad in candidate
             # candidate_mask = [1] * neg_pad + [0] * (self.npratio + 1 - neg_pad)
 
-            # pad in title
-            candidate_title_pad = [(self.title_size - i[0])*[1] + i[0]*[0] for i in self.title_pad[cdd_ids]]
-            clicked_title_pad = [(self.title_size - i[0])*[1] + i[0]*[0] for i in self.title_pad[his_ids]]
-            candidate_abs_pad = [(self.abs_size - i[0])*[1] + i[0]*[0] for i in self.abs_pad[cdd_ids]]
-            clicked_abs_pad = [(self.abs_size - i[0])*[1] + i[0]*[0] for i in self.abs_pad[his_ids]]
-
-            candidate_title_index = self.news_title_array[cdd_ids]
-            clicked_title_index = self.news_title_array[his_ids]
-            candidate_abs_index = self.abs_array[cdd_ids]
-            clicked_abs_index = self.abs_array[his_ids]
-            candidate_vert_index = self.vert_array[cdd_ids]
-            clicked_vert_index = self.vert_array[his_ids]
-            candidate_subvert_index = self.subvert_array[cdd_ids]
-            clicked_subvert_index = self.subvert_array[his_ids]
+            cdd_encoded_index = self.encoded_news[cdd_ids]
+            his_encoded_index = self.encoded_news[his_ids]
+            cdd_attn_mask = self.attn_mask[cdd_ids]
+            his_attn_mask = self.attn_mask[his_ids]
 
             back_dic = {
                 "user_index": np.asarray(user_index),
                 # "cdd_mask": np.asarray(neg_pad),
                 'cdd_id': np.asarray(cdd_ids),
-                "candidate_title": candidate_title_index,
-                "candidate_title_pad": np.asarray(candidate_title_pad),
-                "candidate_abs": candidate_abs_index,
-                "candidate_abs_pad": np.asarray(candidate_abs_pad),
-                "candidate_vert": candidate_vert_index,
-                "candidate_subvert": candidate_subvert_index,
                 'his_id': np.asarray(his_ids),
-                "clicked_title": clicked_title_index,
-                "clicked_title_pad": np.asarray(clicked_title_pad),
-                "clicked_abs": clicked_abs_index,
-                "clicked_abs_pad": np.asarray(clicked_abs_pad),
-                "clicked_vert": clicked_vert_index,
-                "clicked_subvert": clicked_subvert_index,
+                "cdd_encoded_index": cdd_encoded_index,
+                "his_encoded_index": his_encoded_index,
+                "cdd_attn_mask": cdd_attn_mask,
+                "his_attn_mask": his_attn_mask,
                 "his_mask": his_mask,
                 "labels": label
             }
-
-            candidate_vert_onehot = [self.vert2onehot[str(i[0])] for i in candidate_vert_index]
-            clicked_vert_onehot = [self.vert2onehot[str(i[0])] for i in clicked_vert_index]
-            candidate_subvert_onehot = [self.subvert2onehot[str(i[0])] for i in candidate_subvert_index]
-            clicked_subvert_onehot = [self.subvert2onehot[str(i[0])] for i in clicked_subvert_index]
-
-            back_dic['candidate_vert_onehot'] = np.asarray(candidate_vert_onehot)
-            back_dic['clicked_vert_onehot'] = np.asarray(clicked_vert_onehot)
-            back_dic['candidate_subvert_onehot'] = np.asarray(candidate_subvert_onehot)
-            back_dic['clicked_subvert_onehot'] = np.asarray(clicked_subvert_onehot)
 
             return back_dic
 
@@ -672,52 +623,23 @@ class MIND_all(Dataset):
             else:
                 his_mask[-self.his_pad[impr_index]:] = [True]
 
-            candidate_title_pad = [(self.title_size - i[0])*[1] + i[0]*[0] for i in self.title_pad[cdd_ids]]
-            clicked_title_pad = [(self.title_size - i[0])*[1] + i[0]*[0] for i in self.title_pad[his_ids]]
-            candidate_abs_pad = [(self.abs_size - i[0])*[1] + i[0]*[0] for i in self.abs_pad[cdd_ids]]
-            clicked_abs_pad = [(self.abs_size - i[0])*[1] + i[0]*[0] for i in self.abs_pad[his_ids]]
-
-            candidate_title_index = [self.news_title_array[impr_news]]
-            clicked_title_index = self.news_title_array[his_ids]
-            candidate_abs_index = self.abs_array[cdd_ids]
-            clicked_abs_index = self.abs_array[his_ids]
-            candidate_vert_index = self.vert_array[cdd_ids]
-            clicked_vert_index = self.vert_array[his_ids]
-            candidate_subvert_index = self.subvert_array[cdd_ids]
-            clicked_subvert_index = self.subvert_array[his_ids]
+            cdd_encoded_index = self.encoded_news[cdd_ids]
+            his_encoded_index = self.encoded_news[his_ids]
+            cdd_attn_mask = self.attn_mask[cdd_ids]
+            his_attn_mask = self.attn_mask[his_ids]
 
             back_dic = {
                 "impression_index": impr_index + 1,
                 "user_index": np.asarray(user_index),
                 'cdd_id': np.asarray(cdd_ids),
-                "candidate_title": np.asarray(candidate_title_index),
-                "candidate_title_pad": np.asarray(candidate_title_pad),
-                "candidate_abs": candidate_abs_index,
-                "candidate_abs_pad": np.asarray(candidate_abs_pad),
-                "candidate_vert": candidate_vert_index,
-                "candidate_subvert": candidate_subvert_index,
                 'his_id': np.asarray(his_ids),
-                "clicked_title": clicked_title_index,
-                "clicked_title_pad": np.asarray(clicked_title_pad),
-                "clicked_abs": clicked_abs_index,
-                "clicked_abs_pad": np.asarray(clicked_abs_pad),
-                "clicked_vert": clicked_vert_index,
-                "clicked_subvert": clicked_subvert_index,
+                "cdd_encoded_index": cdd_encoded_index,
+                "his_encoded_index": his_encoded_index,
+                "cdd_attn_mask": cdd_attn_mask,
+                "his_attn_mask": his_attn_mask,
                 "his_mask": his_mask,
                 "labels": np.asarray([label])
             }
-
-            candidate_vert_onehot = [self.vert2onehot[str(i[0])] for i in candidate_vert_index]
-            clicked_vert_onehot = [self.vert2onehot[str(i[0])] for i in clicked_vert_index]
-
-            candidate_subvert_onehot = [self.subvert2onehot[str(i[0])] for i in candidate_subvert_index]
-            clicked_subvert_onehot = [self.subvert2onehot[str(i[0])] for i in clicked_subvert_index]
-
-            back_dic['candidate_vert_onehot'] = np.asarray(candidate_vert_onehot)
-            back_dic['clicked_vert_onehot'] = np.asarray(clicked_vert_onehot)
-            back_dic['candidate_subvert_onehot'] = np.asarray(candidate_subvert_onehot)
-            back_dic['clicked_subvert_onehot'] = np.asarray(clicked_subvert_onehot)
-
             return back_dic
 
         elif self.mode == 'test':
@@ -735,50 +657,22 @@ class MIND_all(Dataset):
             else:
                 his_mask[-self.his_pad[impr_index]:] = [True]
 
-            candidate_title_pad = [(self.title_size - i[0])*[1] + i[0]*[0] for i in self.title_pad[cdd_ids]]
-            clicked_title_pad = [(self.title_size - i[0])*[1] + i[0]*[0] for i in self.title_pad[his_ids]]
-            candidate_abs_pad = [(self.abs_size - i[0])*[1] + i[0]*[0] for i in self.abs_pad[cdd_ids]]
-            clicked_abs_pad = [(self.abs_size - i[0])*[1] + i[0]*[0] for i in self.abs_pad[his_ids]]
-
-            candidate_title_index = [self.news_title_array[impr_news]]
-            clicked_title_index = self.news_title_array[his_ids]
-            candidate_abs_index = self.abs_array[cdd_ids]
-            clicked_abs_index = self.abs_array[his_ids]
-            candidate_vert_index = self.vert_array[cdd_ids]
-            clicked_vert_index = self.vert_array[his_ids]
-            candidate_subvert_index = self.subvert_array[cdd_ids]
-            clicked_subvert_index = self.subvert_array[his_ids]
+            cdd_encoded_index = self.encoded_news[cdd_ids]
+            his_encoded_index = self.encoded_news[his_ids]
+            cdd_attn_mask = self.attn_mask[cdd_ids]
+            his_attn_mask = self.attn_mask[his_ids]
 
             back_dic = {
                 "impression_index": impr_index + 1,
                 "user_index": np.asarray(user_index),
                 'cdd_id': np.asarray(cdd_ids),
-                "candidate_title": np.asarray(candidate_title_index),
-                "candidate_title_pad": np.asarray(candidate_title_pad),
-                "candidate_abs": candidate_abs_index,
-                "candidate_abs_pad": np.asarray(candidate_abs_pad),
-                "candidate_vert": candidate_vert_index,
-                "candidate_subvert": candidate_subvert_index,
                 'his_id': np.asarray(his_ids),
-                "clicked_title": clicked_title_index,
-                "clicked_title_pad": np.asarray(clicked_title_pad),
-                "clicked_abs": clicked_abs_index,
-                "clicked_abs_pad": np.asarray(clicked_abs_pad),
-                "clicked_vert": clicked_vert_index,
-                "clicked_subvert": clicked_subvert_index,
+                "cdd_encoded_index": cdd_encoded_index,
+                "his_encoded_index": his_encoded_index,
+                "cdd_attn_mask": cdd_attn_mask,
+                "his_attn_mask": his_attn_mask,
                 "his_mask": his_mask
             }
-
-            candidate_vert_onehot = [self.vert2onehot[str(i[0])] for i in candidate_vert_index]
-            clicked_vert_onehot = [self.vert2onehot[str(i[0])] for i in clicked_vert_index]
-
-            candidate_subvert_onehot = [self.subvert2onehot[str(i[0])] for i in candidate_subvert_index]
-            clicked_subvert_onehot = [self.subvert2onehot[str(i[0])] for i in clicked_subvert_index]
-
-            back_dic['candidate_vert_onehot'] = np.asarray(candidate_vert_onehot)
-            back_dic['clicked_vert_onehot'] = np.asarray(clicked_vert_onehot)
-            back_dic['candidate_subvert_onehot'] = np.asarray(candidate_subvert_onehot)
-            back_dic['clicked_subvert_onehot'] = np.asarray(clicked_subvert_onehot)
             return back_dic
 
         else:
@@ -859,9 +753,9 @@ class MIND_news(Dataset):
 
         candidate_title_pad = [(self.title_size - self.title_pad[idx][0])*[1] + self.title_pad[idx][0]*[0]]
         return {
-            "candidate_title": np.asarray([self.news_title_array[idx]]),
+            "cdd_encoded_index": np.asarray([self.news_title_array[idx]]),
             "cdd_id": self.news_ids[idx],
-            "candidate_title_pad":np.asarray(candidate_title_pad)
+            "cdd_attn_mask":np.asarray(candidate_title_pad)
         }
 
 
@@ -1007,9 +901,9 @@ class MIND_impr(Dataset):
             "impression_index": impr_index + 1,
             "user_index": np.asarray(user_index),
             'cdd_id': np.asarray(cdd_ids),
-            "candidate_title": np.asarray(candidate_title_index),
+            "cdd_encoded_index": np.asarray(candidate_title_index),
             'his_id': np.asarray(his_ids),
-            "clicked_title": clicked_title_index,
+            "his_encoded_index": clicked_title_index,
             "labels": np.asarray([label])
         }
 

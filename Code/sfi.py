@@ -10,7 +10,7 @@ if __name__ == "__main__":
         'name':'sfi',
         'dropout_p':0.2,
         'embedding_dim':300,
-        'filter_num':150,
+        'hidden_dim':150,
     }
     hparams = load_hparams(hparams)
 

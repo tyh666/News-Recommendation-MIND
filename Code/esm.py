@@ -1,6 +1,5 @@
 from models.Encoders.FIM import FIM_Encoder
 from utils.utils import prepare,load_config
-from data.configs.drm import config
 
 from models.Encoders.CNN import CNN_Encoder
 from models.Encoders.FIM import FIM_Encoder
@@ -12,7 +11,7 @@ from models.ESM import ESM
 
 if __name__ == "__main__":
 
-    config = load_config(config)
+    config = load_config()
     vocab, loaders = prepare(config)
 
     # encoderN = CNN_Encoder(config, vocab)

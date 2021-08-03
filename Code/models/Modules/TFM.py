@@ -30,7 +30,7 @@ class TFM(nn.Module):
                 for index, term in zip(news_i, news_t):
                     fuser[index.item()].append(term)
 
-            fused_terms = torch.stack([torch.sum(ps_terms[i][v],dim=0) for v in fuser.values()], dim=0).view(-1, ps_terms.size(-1)))
+            fused_terms = torch.stack([torch.sum(ps_terms[i][v],dim=0) for v in fuser.values()], dim=0).view(-1, ps_terms.size(-1))
             fused_terms_all[i] = F.pad(fused_terms, [0,0,0,self.size - fused_terms.size(0)], "constant", 0)
             i += 1
 

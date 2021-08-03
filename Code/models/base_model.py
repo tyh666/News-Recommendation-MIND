@@ -155,29 +155,29 @@ class BaseModel(nn.Module):
 
         learning_rate = config.learning_rate
 
-        if config.spadam:
-            optimizer_param = optim.Adam(
-                parameter(self, ["encoder.embedding.weight","encoder.user_embedding.weight"], exclude=True), lr=learning_rate)
-            optimizer_embedding = optim.SparseAdam(
-                list(parameter(self, ["encoder.embedding.weight","encoder.user_embedding.weight"])), lr=learning_rate)
+        # if config.spadam:
+        #     optimizer_param = optim.Adam(
+        #         parameter(self, ["encoder.embedding.weight","encoder.user_embedding.weight"], exclude=True), lr=learning_rate)
+        #     optimizer_embedding = optim.SparseAdam(
+        #         list(parameter(self, ["encoder.embedding.weight","encoder.user_embedding.weight"])), lr=learning_rate)
 
-            optimizers = (optimizer_param, optimizer_embedding)
+        #     optimizers = (optimizer_param, optimizer_embedding)
 
-            if config.schedule == "linear":
-                scheduler_param =get_linear_schedule_with_warmup(optimizer_param, num_warmup_steps=0, num_training_steps=len(loader_train) * config.epochs)
-                scheduler_embedding =get_linear_schedule_with_warmup(optimizer_embedding, num_warmup_steps=0, num_training_steps=len(loader_train) * config.epochs)
-                schedulers = (scheduler_param, scheduler_embedding)
-            else:
-                schedulers = []
+        #     if config.schedule == "linear":
+        #         scheduler_param =get_linear_schedule_with_warmup(optimizer_param, num_warmup_steps=0, num_training_steps=len(loader_train) * config.epochs)
+        #         scheduler_embedding =get_linear_schedule_with_warmup(optimizer_embedding, num_warmup_steps=0, num_training_steps=len(loader_train) * config.epochs)
+        #         schedulers = (scheduler_param, scheduler_embedding)
+        #     else:
+        #         schedulers = []
 
+        # else:
+        optimizer = optim.Adam(self.parameters(), lr=learning_rate)
+        optimizers = (optimizer,)
+        if config.schedule == "linear":
+            scheduler =get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=len(loader_train) * config.epochs)
+            schedulers = (scheduler,)
         else:
-            optimizer = optim.Adam(self.parameters(), lr=learning_rate)
-            optimizers = (optimizer,)
-            if config.schedule == "linear":
-                scheduler =get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=len(loader_train) * config.epochs)
-                schedulers = (scheduler,)
-            else:
-                schedulers = []
+            schedulers = []
 
         # FIXME
         # if "checkpoint" in config:
@@ -585,14 +585,14 @@ class BaseModel(nn.Module):
 
         start_pos = 0
         for x in tqdm(loader):
-            if x['candidate_title'].shape[0] != self.batch_size:
-                self.batch_size = x['candidate_title'].shape[0]
+            if x['cdd_encoded_index'].shape[0] != self.batch_size:
+                self.batch_size = x['cdd_encoded_index'].shape[0]
 
-            news = x['candidate_title'].long()
+            news = x['cdd_encoded_index'].long()
             news_embedding, news_repr = self.encoder(
                 news,
                 news_id=x['cdd_id'].long(),
-                attn_mask=x['candidate_title_pad'])
+                attn_mask=x['cdd_encoded_index_pad'])
 
             news_reprs[start_pos:start_pos+self.batch_size] = news_repr
             news_embeddings[start_pos:start_pos+self.batch_size] = news_embedding

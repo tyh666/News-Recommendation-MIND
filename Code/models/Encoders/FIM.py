@@ -3,19 +3,17 @@ import torch.nn as nn
 from ..Attention import Attention
 
 class FIM_Encoder(nn.Module):
-    def __init__(self, config, vocab):
+    def __init__(self, config):
         super().__init__()
         self.name = 'fim'
 
         self.kernel_size = 3
+        
         self.level = 3
+        config.level = self.level
 
-        # concatenate category embedding and subcategory embedding
-        self.hidden_dim = config.filter_num
+        self.hidden_dim = config.hidden_dim
         self.embedding_dim = config.embedding_dim
-
-        # pretrained embedding
-        self.embedding = nn.Embedding.from_pretrained(vocab.vectors,sparse=config.spadam,freeze=False)
 
         self.ReLU = nn.ReLU()
         self.LayerNorm = nn.LayerNorm(self.hidden_dim)
@@ -33,11 +31,11 @@ class FIM_Encoder(nn.Module):
         self.CNN_d3 = nn.Conv1d(in_channels=self.embedding_dim, out_channels=self.hidden_dim,
                                 kernel_size=self.kernel_size, dilation=3, padding=3)
 
-        self.attrs = config.attrs
-
         nn.init.xavier_normal_(self.CNN_d1.weight)
         nn.init.xavier_normal_(self.CNN_d2.weight)
         nn.init.xavier_normal_(self.CNN_d3.weight)
+        nn.init.xavier_normal_(self.query_levels)
+        nn.init.xavier_normal_(self.query_words)
 
     def _HDC(self, news_embedding_set):
         """ stack 1d CNN with dilation rate expanding from 1 to 3
@@ -69,23 +67,36 @@ class FIM_Encoder(nn.Module):
 
         return news_embedding_dilations
 
-    def forward(self, news_batch, **kwargs):
-        """ encode set of news to news representation
+    def forward(self, news_embedding):
+        """ encode news through stacked dilated CNN
 
         Args:
-            news_batch: batch of news tokens, of size [batch_size, *, signal_length]
+            news_embedding: tensor of [batch_size, *, signal_length, embedding_dim]
 
         Returns:
             news_embedding: hidden vector of each token in news, of size [batch_size, *, signal_length, level, hidden_dim]
             news_repr: hidden vector of each news, of size [batch_size, *, hidden_dim]
         """
-        news_embedding = self.DropOut(
-            self.embedding(news_batch)).view(-1, news_batch.shape[2], self.embedding_dim)
-        news_embedding = self._HDC(news_embedding).view(
-            news_batch.shape + (self.level, self.hidden_dim))
+        batch_size = news_embedding.size(0)
+        news_num = news_embedding.size(1)
+        signal_length = news_embedding.size(2)
+        news_embedding = news_embedding.view(-1, signal_length, self.embedding_dim)
+        news_embedding = self._HDC(news_embedding).view(batch_size, news_num, signal_length, self.level, self.hidden_dim)
         news_embedding_attn = Attention.ScaledDpAttention(
             self.query_levels, news_embedding, news_embedding).squeeze(dim=-2)
         news_repr = Attention.ScaledDpAttention(self.query_words, news_embedding_attn, news_embedding_attn).squeeze(
-            dim=-2).view(news_batch.shape[0], news_batch.shape[1], self.hidden_dim)
+            dim=-2).view(batch_size, news_num, self.hidden_dim)
 
         return news_embedding, news_repr
+
+
+if __name__ == '__main__':
+    from models.Encoders.FIM import FIM_Encoder
+    from data.configs.demo import config
+    config.embedding_dim = 5
+    config.hidden_dim = 6
+    a = torch.rand(2,3,4,5)
+
+    enc = FIM_Encoder(config)
+    b = enc(a)
+    print(b[0].size(),b[1].size())
