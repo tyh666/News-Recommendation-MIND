@@ -61,6 +61,13 @@
 - the gradient after docReducer is sharp
 - if we concat title with abstract, then there must be many duplicated words, how about removing them when preprocessing?
 - bert tokenize in stream or in bunch?
+- **connect to ps0 or cuda0?**
+- **how to connect? use what shell**
+- **where to save codes and data?**
+- **many unused scripts and modules**
+- **should we partition the dataloader?**
+- **should we partition batch_size?**
+- **is torch.cuda.set_device necessary?**
 
 ## Need to update
 - [ ] Encoders.MHA, NPA, Pipeline

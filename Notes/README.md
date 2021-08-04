@@ -7,7 +7,7 @@
 - [Cross Entropy](https://machinelearningmastery.com/cross-entropy-for-machine-learning/)
 - [Policy Gradient](https://towardsdatascience.com/an-intuitive-explanation-of-policy-gradient-part-1-reinforce-aa4392cbfd3c)
 - [lda2vec](https://multithreaded.stitchfix.com/blog/2016/05/27/lda2vec/#topic=38&lambda=1&term=)
-
+- [DistributedDataParallel in PyTorch](https://pytorch.org/tutorials/intermediate/ddp_tutorial.html)
 ## Insights
 - multi-task, one for document compression, another for recommendation
   - pipeline or end-to-end
@@ -15,11 +15,6 @@
 - multiple vectors for one term, a position-aware one, a semantic-aware one, a syntax aware one
 - Sequential recommendation
 - use knowledge graph to model hiearchical interest
-- @dou
-  - 提取关键词, 在工业界是普遍做法, 创新性不够
-  - 还是要利用整篇文章的信息
-  - retrieval阶段可以研究研究
-
 - use pointer network to make the decoding differentiable
 - multi-layer pointer network (transformer)
 ## Question

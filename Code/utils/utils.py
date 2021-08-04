@@ -1,7 +1,6 @@
 import random
 import re
 import os
-import sys
 import json
 import pickle
 import torch
@@ -17,6 +16,8 @@ from sklearn.metrics import roc_auc_score, log_loss, mean_squared_error, accurac
 from torchtext.data.utils import get_tokenizer
 from torchtext.vocab import build_vocab_from_iterator, GloVe
 from torch.utils.data.dataloader import DataLoader
+
+import torch.distributed as dist
 
 logging.basicConfig(level=logging.INFO,
                     format="[%(asctime)s] %(levelname)s (%(name)s) %(message)s")
@@ -564,10 +565,8 @@ def load_config():
     # parser.add_argument("--ensemble", dest="ensemble", help="choose ensemble strategy for SFI-ensemble", type=str, default=None)
     parser.add_argument("--spadam", dest="spadam", default=False)
 
-    parser.add_argument("--bert", dest="bert", help="choose bert model",
-                        choices=["bert-base-uncased"], default=None)
-    parser.add_argument("--level", dest="level",
-                        help="intend for bert encoder, if clarified, level representations will be kept for a token", type=int, default=1)
+    parser.add_argument("--bert", dest="bert", help="choose bert model", choices=["bert-base-uncased"], default=None)
+    parser.add_argument("--level", dest="level", help="intend for bert encoder, if clarified, level representations will be kept for a token", type=int, default=1)
 
     # FIXME, clarify all choices
     # parser.add_argument("--pipeline", dest="pipeline", help="choose pipeline encoder", default=None)
@@ -582,9 +581,8 @@ def load_config():
     # parser.add_argument("--onehot", dest="onehot", help="if clarified, one hot encode of category/subcategory will be returned by dataloader", action="store_true")
 
     args = parser.parse_args()
+    config = args
 
-    config.scale = args.scale
-    config.mode = args.mode
     if config.mode == "train":
         # 2000 by default
         config.step = 2000
@@ -592,23 +590,6 @@ def load_config():
         config.device = args.device
     else:
         config.device = "cuda:" + args.device
-    config.epochs = args.epochs
-    config.batch_size = args.batch_size
-    config.his_size = args.his_size
-    config.interval = args.interval
-    config.title_size = args.title_size
-    config.abs_size = args.abs_size
-    config.npratio = args.npratio
-    config.metrics = args.metrics
-    config.val_freq = args.val_freq
-    config.schedule = args.schedule
-    config.spadam = args.spadam
-    config.head_num = args.head_num
-    config.value_dim = args.value_dim
-    config.query_dim = args.query_dim
-
-    config.k = args.k
-    config.threshold = args.threshold
 
     config.step = [int(i) for i in args.step.split(",")]
 
@@ -643,12 +624,6 @@ def load_config():
     if args.checkpoint:
         config.checkpoint = args.checkpoint
 
-    config.embedding = args.embedding
-    config.encoderN = args.encoderN
-    config.encoderU = args.encoderU
-    config.interactor = args.interactor
-    config.bert = args.bert
-
     # if args.multiview:
     #     config.multiview = args.multiview
     #     config.attrs = "title,vert,subvert,abs".split(",")
@@ -669,13 +644,6 @@ def load_config():
     #     config.encoder = "pipeline"
     #     config.name = args.pipeline
     #     config.spadam = False
-    if args.bert:
-        config.encoder = "bert"
-        config.bert = args.bert
-        config.level = args.level
-
-    if len(config.step) > 1:
-        config.command = "python " + " ".join(sys.argv)
 
     return config
 
@@ -857,3 +825,32 @@ def analyse(config, path="/home/peitian_zhang/Data/MIND"):
 
     print("avg_title_length:{}\n avg_abstract_length:{}\n avg_his_length:{}\n avg_impr_length:{}\n cnt_his_lg_50:{}\n cnt_his_eq_0:{}\n cnt_imp_multi:{}".format(
         avg_title_length, avg_abstract_length, avg_his_length, avg_imp_length, cnt_his_lg_50, cnt_his_eq_0, cnt_imp_multi))
+
+
+def setup(rank, world_size):
+    """
+    set up distributed training
+    """
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '12355'
+
+    # initialize the process group
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
+    torch.cuda.set_device(rank)
+
+
+def get_device():
+    """
+    get current device
+    """
+    if torch.cuda.is_available():
+        local_rank = os.environ.get("RANK", 0)
+        return torch.device('cuda', int(local_rank))
+    return torch.device('cpu')
+
+
+def cleanup():
+    """
+    shut down the training process
+    """
+    dist.destroy_process_group()
