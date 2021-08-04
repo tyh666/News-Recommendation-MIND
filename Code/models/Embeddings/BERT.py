@@ -21,9 +21,10 @@ class BERT_Embedding(nn.Module):
             config.bert
         )
         self.embedding = bert.embeddings.word_embeddings
-        self.pos_embedding = bert.embeddings.position_embeddings
+        self.pos_embedding = bert.embeddings.position_embeddings.weight
         self.layerNorm = bert.embeddings.LayerNorm
         self.dropOut = bert.embeddings.dropout
+
 
     def forward(self, news_batch):
         """ encode news with bert
@@ -35,9 +36,9 @@ class BERT_Embedding(nn.Module):
             news_embedding: hidden vector of each token in news, of size [batch_size, *, signal_length, emedding_dim]
         """
 
-        position_ids = torch.arange(self.signal_length)
-        # [1,sl]
-        pos_embeds = self.pos_embedding(position_ids).unsqueeze(0)
+
+        # [1,sl,ed]
+        pos_embeds = self.pos_embedding.unsqueeze(0)
         # [bs, cs/hs, sl]
         word_embeds = self.embedding(news_batch)
 

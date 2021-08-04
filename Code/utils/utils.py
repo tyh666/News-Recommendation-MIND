@@ -510,13 +510,13 @@ def cal_metric(labels, preds, metrics):
     return res
 
 
+def info(config):
+    return ", ".join(["{}:{}".format(k,v) for k,v in vars(config).items() if not k.startswith('__')])
+
 def load_config():
     """
         customize hyper parameters in command line
     """
-    from data.configs.base_config import BaseConfig
-    config = BaseConfig()
-
     parser = argparse.ArgumentParser()
     parser.add_argument("-s", "--scale", dest="scale", help="data scale",
                         choices=["demo", "small", "large", "whole"], required=True)
@@ -533,6 +533,9 @@ def load_config():
                         help="news abstract length", type=int, default=40)
     parser.add_argument("-hs", "--his_size", dest="his_size",
                         help="history size", type=int, default=50)
+    parser.add_argument("-hd", "--hidden_dim", dest="hidden_dim",
+                    help="number of hidden states", type=int, default=200)
+
 
     parser.add_argument("-d","--device", dest="device",
                         help="device to run on", choices=["0", "1", "cpu"], default="0")
@@ -565,7 +568,7 @@ def load_config():
     # parser.add_argument("--ensemble", dest="ensemble", help="choose ensemble strategy for SFI-ensemble", type=str, default=None)
     parser.add_argument("--spadam", dest="spadam", default=False)
 
-    parser.add_argument("--bert", dest="bert", help="choose bert model", choices=["bert-base-uncased"], default=None)
+    parser.add_argument("--bert", dest="bert", help="choose bert model", choices=["bert-base-uncased"], default="bert-base-uncased")
     parser.add_argument("--level", dest="level", help="intend for bert encoder, if clarified, level representations will be kept for a token", type=int, default=1)
 
     # FIXME, clarify all choices
@@ -577,6 +580,8 @@ def load_config():
                         help="dimension of projected value", type=int, default=16)
     parser.add_argument("-qd", "--query_dim", dest="query_dim",
                         help="dimension of projected query", type=int, default=200)
+
+    parser.add_argument("-ws", "--world_size", dest="world_size", help="total number of gpus", default=0, type=int)
 
     # parser.add_argument("--onehot", dest="onehot", help="if clarified, one hot encode of category/subcategory will be returned by dataloader", action="store_true")
 
@@ -659,7 +664,7 @@ def prepare(config, path="/home/peitian_zhang/Data/MIND", cache="/home/peitian_z
         vocab
         loaders(list of dataloaders): 0-loader_train/test/dev, 1-loader_dev, 2-loader_validate
     """
-    logging.info("Hyper Parameters are {}".format(config.info()))
+    logging.info("Hyper Parameters are {}".format(info(config)))
 
     logging.info("preparing dataset...")
 

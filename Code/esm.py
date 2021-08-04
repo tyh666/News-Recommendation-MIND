@@ -1,10 +1,11 @@
-from Code.utils.utils import setup
 from models.Encoders.FIM import FIM_Encoder
 from utils.utils import prepare,load_config, setup, cleanup
 
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 
+from models.Embeddings.BERT import BERT_Embedding
+from models.Interactors.BERT import BERT_Interactor
 from models.Encoders.CNN import CNN_Encoder
 from models.Encoders.FIM import FIM_Encoder
 from models.Encoders.RNN import RNN_User_Encoder
@@ -26,14 +27,14 @@ def main(rank, config, dist=False):
 
     vocab, loaders = prepare(config)
 
-    # encoderN = CNN_Encoder(config, vocab)
-    encoderN = FIM_Encoder(config,vocab)
+    embedding = BERT_Embedding(config)
+    encoderN = CNN_Encoder(config)
     encoderU = RNN_User_Encoder(encoderN.hidden_dim)
     docReducer = DRM_Matching(config.k)
     # termFuser = TFM(config.his_size, config.k)
-    interactor = CNN_Interactor(config.title_size, config.k * config.his_size, encoderN.level, encoderN.hidden_dim)
-
-    esm = ESM(config, encoderN, encoderU, docReducer, None, interactor).to(rank)
+    # interactor = CNN_Interactor(config)
+    interactor = BERT_Interactor(config)
+    esm = ESM(config, embedding, encoderN, encoderU, docReducer, None, interactor).to(config.device)
 
     if dist:
         esm = DDP(esm, device_ids=[rank])
