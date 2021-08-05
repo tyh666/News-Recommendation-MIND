@@ -1,7 +1,14 @@
-import numpy as np
 import re
+import os
+import numpy as np
 from torch.utils.data import Dataset
 from utils.utils import newsample, getId2idx, tokenize, getVocab
+
+class StorableDataset(Dataset):
+    """
+        add cache function for dataset
+    """
+    def cache(self):
 
 class MIND(Dataset):
     """ Map Style Dataset for MIND, return positive samples with negative sampling when training, or return each sample when developing.
@@ -17,33 +24,36 @@ class MIND(Dataset):
         # initiate the whole iterator
         self.npratio = config.npratio
         self.shuffle_pos = shuffle_pos
-
-        self.news_file = news_file
-        self.behaviors_file = behaviors_file
-        self.col_spliter = '\t'
         self.batch_size = config.batch_size
         self.title_size = config.title_size
         self.abs_size = config.abs_size
         self.his_size = config.his_size
-
         self.k = config.k
         self.mode = re.search(
             'MIND/.*_(.*)/news', news_file).group(1)
         self.scale = config.scale
 
-        # there are only two types of vocabulary
-        self.vocab = getVocab('data/dictionaries/vocab_whole.pkl')
+        if os.path.exists('data/cache'):
 
-        self.nid2index = getId2idx(
-            'data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, self.mode))
-        self.uid2index = getId2idx(
-            'data/dictionaries/uid2idx_{}.json'.format(config.scale))
-        self.vert2onehot = getId2idx(
-            'data/dictionaries/vert2onehot.json'
-        )
-        self.subvert2onehot = getId2idx(
-            'data/dictionaries/subvert2onehot.json'
-        )
+        else:
+            self.news_file = news_file
+            self.behaviors_file = behaviors_file
+            self.col_spliter = '\t'
+
+
+            # there are only two types of vocabulary
+            self.vocab = getVocab('data/dictionaries/vocab_whole.pkl')
+
+            self.nid2index = getId2idx(
+                'data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, self.mode))
+            self.uid2index = getId2idx(
+                'data/dictionaries/uid2idx_{}.json'.format(config.scale))
+            self.vert2onehot = getId2idx(
+                'data/dictionaries/vert2onehot.json'
+            )
+            self.subvert2onehot = getId2idx(
+                'data/dictionaries/subvert2onehot.json'
+            )
 
         self.init_news()
         self.init_behaviors()

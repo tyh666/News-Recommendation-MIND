@@ -56,6 +56,7 @@
 - [x] **config.signal_length**
 - [x] **config.embedding_dim**
 - [ ] modify load_config
+- [ ] cache dataset
 
 ## Issue
 - the gradient after docReducer is sharp

@@ -524,6 +524,9 @@ def load_config():
                         choices=["train", "dev", "test", "tune", "encode"], default="train")
     parser.add_argument("-e", "--epochs", dest="epochs",
                         help="epochs to train the model", type=int, default=10)
+    parser.add_argument("-d","--device", dest="device",
+                        help="device to run on", choices=["0", "1", "cpu"], default="0")
+    parser.add_argument("-p", "--path", dest="path", type=str, default="../../Data/", help="root path for large-scale reusable data")
 
     parser.add_argument("-bs", "--batch_size", dest="batch_size",
                         help="batch size", type=int, default=100)
@@ -537,8 +540,6 @@ def load_config():
                     help="number of hidden states", type=int, default=200)
 
 
-    parser.add_argument("-d","--device", dest="device",
-                        help="device to run on", choices=["0", "1", "cpu"], default="0")
     parser.add_argument("-st","--step", dest="step",
                         help="if clarified, save model at the interval of given steps", type=str, default="0")
     parser.add_argument("--interval", dest="interval", help="the step interval to update processing bar", default=0, type=int)
@@ -653,7 +654,7 @@ def load_config():
     return config
 
 
-def prepare(config, path="/home/peitian_zhang/Data/MIND", cache="/home/peitian_zhang/Codes/News-Recommendation/.vector_cache", shuffle=False, news=False, pin_memory=True, num_workers=4, impr=False):
+def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, impr=False):
     from .MIND import MIND,MIND_news,MIND_bert,MIND_impr
     """ prepare dataloader and several paths
 
@@ -669,11 +670,13 @@ def prepare(config, path="/home/peitian_zhang/Data/MIND", cache="/home/peitian_z
     logging.info("preparing dataset...")
 
     vocab = None
+    mind_path = config.path + "MIND"
+    cache_path = config.path + '.vector_cache'
 
     if impr:
         # FIXME: if config.bert
-        news_file_dev = path+"/MIND"+config.scale+"_dev/news.tsv"
-        behavior_file_dev = path+"/MIND"+config.scale+"_dev/behaviors.tsv"
+        news_file_dev = mind_path+"/MIND"+config.scale+"_dev/news.tsv"
+        behavior_file_dev = mind_path+"/MIND"+config.scale+"_dev/behaviors.tsv"
 
         dataset_dev = MIND_impr(config=config, news_file=news_file_dev,
                             behaviors_file=behavior_file_dev)
@@ -687,9 +690,9 @@ def prepare(config, path="/home/peitian_zhang/Data/MIND", cache="/home/peitian_z
         return vocab, [loader_dev]
 
     if news:
-        news_file_train = path + \
+        news_file_train = mind_path + \
             "/MIND{}_train/news.tsv".format(config.scale)
-        news_file_dev = path+"/MIND{}_dev/news.tsv".format(config.scale)
+        news_file_dev = mind_path+"/MIND{}_dev/news.tsv".format(config.scale)
         # FIXME: if config.bert
         dataset_train = MIND_news(config, news_file_train)
         loader_news_train = DataLoader(
@@ -704,7 +707,7 @@ def prepare(config, path="/home/peitian_zhang/Data/MIND", cache="/home/peitian_z
         vocab.load_vectors(embedding)
 
         if config.scale == "large":
-            news_file_test = path + \
+            news_file_test = mind_path + \
                 "/MIND{}_test/news.tsv".format(config.scale)
             dataset_test = MIND_news(config, news_file_test)
             loader_news_test = DataLoader(
@@ -715,11 +718,11 @@ def prepare(config, path="/home/peitian_zhang/Data/MIND", cache="/home/peitian_z
         return vocab, [loader_news_train, loader_news_dev]
 
     elif config.mode in ["train", "tune"]:
-        news_file_train = path+"/MIND"+config.scale+"_train/news.tsv"
-        behavior_file_train = path+"/MIND" + \
+        news_file_train = mind_path+"/MIND"+config.scale+"_train/news.tsv"
+        behavior_file_train = mind_path+"/MIND" + \
             config.scale+"_train/behaviors.tsv"
-        news_file_dev = path+"/MIND"+config.scale+"_dev/news.tsv"
-        behavior_file_dev = path+"/MIND"+config.scale+"_dev/behaviors.tsv"
+        news_file_dev = mind_path+"/MIND"+config.scale+"_dev/news.tsv"
+        behavior_file_dev = mind_path+"/MIND"+config.scale+"_dev/behaviors.tsv"
 
         if config.embedding == 'bert':
             dataset_train = MIND_bert(config=config, news_file=news_file_train,
@@ -745,8 +748,8 @@ def prepare(config, path="/home/peitian_zhang/Data/MIND", cache="/home/peitian_z
         return vocab, [loader_train, loader_dev]
 
     elif config.mode == "dev":
-        news_file_dev = path+"/MIND"+config.scale+"_dev/news.tsv"
-        behavior_file_dev = path+"/MIND"+config.scale+"_dev/behaviors.tsv"
+        news_file_dev = mind_path+"/MIND"+config.scale+"_dev/news.tsv"
+        behavior_file_dev = mind_path+"/MIND"+config.scale+"_dev/behaviors.tsv"
 
         if config.embedding == 'bert':
             dataset_dev = MIND_bert(config=config, news_file=news_file_dev,
@@ -764,8 +767,8 @@ def prepare(config, path="/home/peitian_zhang/Data/MIND", cache="/home/peitian_z
         return vocab, [loader_dev]
 
     elif config.mode == "test":
-        news_file_test = path+"/MIND"+config.scale+"_test/news.tsv"
-        behavior_file_test = path+"/MIND"+config.scale+"_test/behaviors.tsv"
+        news_file_test = mind_path+"/MIND"+config.scale+"_test/news.tsv"
+        behavior_file_test = mind_path+"/MIND"+config.scale+"_test/behaviors.tsv"
 
         if config.embedding == 'bert':
             dataset_test = MIND_bert(config, news_file_test, behavior_file_test)
@@ -781,10 +784,12 @@ def prepare(config, path="/home/peitian_zhang/Data/MIND", cache="/home/peitian_z
         return vocab, [loader_test]
 
 
-def analyse(config, path="/home/peitian_zhang/Data/MIND"):
+def analyse(config):
     """
         analyse over MIND
     """
+    mind_path = config.path + 'MIND'
+
     avg_title_length = 0
     avg_abstract_length = 0
     avg_his_length = 0
@@ -793,10 +798,10 @@ def analyse(config, path="/home/peitian_zhang/Data/MIND"):
     cnt_his_eq_0 = 0
     cnt_imp_multi = 0
 
-    news_file = path + \
+    news_file = mind_path + \
         "/MIND{}_{}/news.tsv".format(config.scale, config.mode)
 
-    behavior_file = path + \
+    behavior_file = mind_path + \
         "/MIND{}_{}/behaviors.tsv".format(config.scale, config.mode)
 
     with open(news_file, "r", encoding="utf-8") as rd:
