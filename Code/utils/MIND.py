@@ -1,14 +1,10 @@
 import re
 import os
+import pickle
 import numpy as np
 from torch.utils.data import Dataset
 from utils.utils import newsample, getId2idx, tokenize, getVocab
 
-class StorableDataset(Dataset):
-    """
-        add cache function for dataset
-    """
-    def cache(self):
 
 class MIND(Dataset):
     """ Map Style Dataset for MIND, return positive samples with negative sampling when training, or return each sample when developing.
@@ -29,13 +25,29 @@ class MIND(Dataset):
         self.abs_size = config.abs_size
         self.his_size = config.his_size
         self.k = config.k
-        self.mode = re.search(
-            'MIND/.*_(.*)/news', news_file).group(1)
-        self.scale = config.scale
+        pat = re.search('MIND/(.*_(.*)/)news', news_file)
+        self.mode = pat.group(2)
 
-        if os.path.exists('data/cache'):
+        self.cache_path = '/'.join(['data/cache', config.embedding, pat.group(1)])
+        self.behav_path = re.search('(\w*)\.tsv', behaviors_file).group(1)
+
+        if os.path.exists(self.cache_path + 'news.pkl'):
+            with open(self.cache_path + 'news.pkl', 'rb') as f:
+                news = pickle.load(f)
+                for k,v in news.items():
+                    setattr(self, k, v)
+
+            with open(self.cache_path + 'behaviors.pkl', 'rb') as f:
+                behaviors = pickle.load(f)
+                for k,v in behaviors.items():
+                    setattr(self, k, v)
 
         else:
+            try:
+                os.makedirs(self.cache_path)
+            except:
+                pass
+
             self.news_file = news_file
             self.behaviors_file = behaviors_file
             self.col_spliter = '\t'
@@ -55,8 +67,8 @@ class MIND(Dataset):
                 'data/dictionaries/subvert2onehot.json'
             )
 
-        self.init_news()
-        self.init_behaviors()
+            self.init_news()
+            self.init_behaviors()
 
     def init_news(self):
         """
@@ -80,6 +92,15 @@ class MIND(Dataset):
         # self.titles = titles
         self.news_title_array = np.asarray(titles)
         self.title_pad = np.asarray(title_pad)
+
+        with open(self.cache_path + 'news.pkl', 'wb') as f:
+            pickle.dump(
+                {
+                    'news_title_array': self.news_title_array,
+                    'title_pad': self.title_pad
+                },
+                f
+            )
 
     def init_behaviors(self):
         """
@@ -139,6 +160,14 @@ class MIND(Dataset):
 
                     impr_index += 1
 
+            save_dict = {
+                'histories': self.histories,
+                'negtives': self.negtives,
+                'uindexes': self.uindexes,
+                'his_pad': self.his_pad,
+                'imprs': self.imprs
+            }
+
         # store every behaviors
         elif self.mode == 'dev':
             # list of every candidate news index along with its impression index and label
@@ -173,6 +202,12 @@ class MIND(Dataset):
 
                     impr_index += 1
 
+            save_dict = {
+                'histories': self.histories,
+                'uindexes': self.uindexes,
+                'his_pad': self.his_pad,
+                'imprs': self.imprs
+            }
 
         # store every behaviors
         elif self.mode == 'test':
@@ -206,6 +241,16 @@ class MIND(Dataset):
                     self.uindexes.append(uindex)
 
                     impr_index += 1
+
+            save_dict = {
+                'histories': self.histories,
+                'uindexes': self.uindexes,
+                'his_pad': self.his_pad,
+                'imprs': self.imprs
+            }
+
+        with open(self.cache_path + self.behav_pathe + '.pkl', 'wb') as f:
+            pickle.dump(save_dict, f)
 
 
     def __len__(self):
@@ -363,37 +408,55 @@ class MIND_bert(Dataset):
         shuffle(bool): whether to shuffle the order of impressions
     """
 
-    def __init__(self, config, news_file, behaviors_file, shuffle_pos=False, validate=False):
+    def __init__(self, config, news_file, behaviors_file, shuffle_pos=False):
         from transformers import BertTokenizerFast
         # initiate the whole iterator
         self.npratio = config.npratio
         self.shuffle_pos = shuffle_pos
-
-        self.news_file = news_file
-        self.behaviors_file = behaviors_file
-        self.col_spliter = '\t'
         self.batch_size = config.batch_size
         self.title_size = config.title_size
         self.abs_size = config.abs_size
         self.his_size = config.his_size
-
         self.k = config.k
-        self.mode = re.search(
-            'MIND/.*_(.*)/news', news_file).group(1)
+        pat = re.search('MIND/(.*_(.*)/)news', news_file)
+        self.mode = pat.group(2)
 
-        # there are only two types of vocabulary
-        self.tokenizer = BertTokenizerFast.from_pretrained(config.bert)
-        # self.tokenizer.max_model_input_sizes[config.bert] = 10000ok
+        self.cache_path = '/'.join(['data/cache', config.embedding, pat.group(1)])
+        self.behav_path = re.search('(\w*)\.tsv', behaviors_file).group(1)
 
-        self.nid2index = getId2idx(
-            'data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, self.mode))
-        self.uid2index = getId2idx(
-            'data/dictionaries/uid2idx_{}.json'.format(config.scale))
-        if validate:
-            self.mode = 'dev'
+        if os.path.exists(self.cache_path + 'news.pkl'):
+            with open(self.cache_path + 'news.pkl', 'rb') as f:
+                news = pickle.load(f)
+                for k,v in news.items():
+                    setattr(self, k, v)
 
-        self.init_news()
-        self.init_behaviors()
+            with open(self.cache_path + 'behaviors.pkl', 'rb') as f:
+                behaviors = pickle.load(f)
+                for k,v in behaviors.items():
+                    setattr(self, k, v)
+
+        else:
+            try:
+                os.makedirs(self.cache_path)
+            except:
+                pass
+
+            self.news_file = news_file
+            self.behaviors_file = behaviors_file
+            self.col_spliter = '\t'
+
+
+            # there are only two types of vocabulary
+            self.tokenizer = BertTokenizerFast.from_pretrained(config.bert)
+            # self.tokenizer.max_model_input_sizes[config.bert] = 10000ok
+
+            self.nid2index = getId2idx(
+                'data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, self.mode))
+            self.uid2index = getId2idx(
+                'data/dictionaries/uid2idx_{}.json'.format(config.scale))
+
+            self.init_news()
+            self.init_behaviors()
 
     def init_news(self):
         """
@@ -418,6 +481,15 @@ class MIND_bert(Dataset):
         encoded_dict = self.tokenizer(documents, add_special_tokens=False, padding=True, truncation=True, max_length=512, return_tensors='np')
         self.encoded_news = encoded_dict.input_ids
         self.attn_mask = encoded_dict.attention_mask
+
+        with open(self.cache_path + 'news.pkl', 'wb') as f:
+            pickle.dump(
+                {
+                    'encoded_news': self.encoded_news,
+                    'attn_mask': self.attn_mask
+                },
+                f
+            )
 
 
     def init_behaviors(self):
@@ -478,6 +550,14 @@ class MIND_bert(Dataset):
 
                     impr_index += 1
 
+            save_dict = {
+                'histories': self.histories,
+                'negtives': self.negtives,
+                'uindexes': self.uindexes,
+                'his_pad': self.his_pad,
+                'imprs': self.imprs
+            }
+
         # store every behavior
         elif self.mode == 'dev':
             # list of every candidate news index along with its impression index and label
@@ -512,6 +592,13 @@ class MIND_bert(Dataset):
 
                     impr_index += 1
 
+            save_dict = {
+                'histories': self.histories,
+                'uindexes': self.uindexes,
+                'his_pad': self.his_pad,
+                'imprs': self.imprs
+            }
+
         # store every behavior
         elif self.mode == 'test':
             # list of every candidate news index along with its impression index and label
@@ -544,6 +631,16 @@ class MIND_bert(Dataset):
                     self.uindexes.append(uindex)
 
                     impr_index += 1
+
+            save_dict = {
+                    'histories': self.histories,
+                    'uindexes': self.uindexes,
+                    'his_pad': self.his_pad,
+                    'imprs': self.imprs
+                }
+
+        with open(self.cache_path + self.behav_pathe + '.pkl', 'wb') as f:
+            pickle.dump(save_dict, f)
 
 
     def __len__(self):

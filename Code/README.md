@@ -64,11 +64,18 @@
 - bert tokenize in stream or in bunch?
 - **connect to ps0 or cuda0?**
 - **how to connect? use what shell**
+- **your .ssh mode**
+去掉-i
 - **where to save codes and data?**
+data job
+
+in SpeedyFeed
 - **many unused scripts and modules**
 - **should we partition the dataloader?**
 - **should we partition batch_size?**
 - **is torch.cuda.set_device necessary?**
+- data for speedyfeed
+- can I run on cpu?
 
 ## Need to update
 - [ ] Encoders.MHA, NPA, Pipeline

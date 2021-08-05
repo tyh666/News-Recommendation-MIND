@@ -16,6 +16,7 @@ from sklearn.metrics import roc_auc_score, log_loss, mean_squared_error, accurac
 from torchtext.data.utils import get_tokenizer
 from torchtext.vocab import build_vocab_from_iterator, GloVe
 from torch.utils.data.dataloader import DataLoader
+from torch.utils.data.distributed import DistributedSampler
 
 import torch.distributed as dist
 
@@ -238,7 +239,7 @@ def tailorData(tsvFile, num):
     behavior_file = pattern.group(4)
 
     if not os.path.exists(directory + "MINDdemo" + "_{}/".format(mode)):
-        os.mkdir(directory + "MINDdemo" + "_{}/".format(mode))
+        os.makedirs(directory + "MINDdemo" + "_{}/".format(mode))
 
     behavior_file = directory + "MINDdemo" + \
         "_{}/".format(mode) + behavior_file + ".tsv"
@@ -671,53 +672,53 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
 
     vocab = None
     mind_path = config.path + "MIND"
-    cache_path = config.path + '.vector_cache'
+    vec_cache_path = config.path + '.vector_cache'
 
-    if impr:
-        # FIXME: if config.bert
-        news_file_dev = mind_path+"/MIND"+config.scale+"_dev/news.tsv"
-        behavior_file_dev = mind_path+"/MIND"+config.scale+"_dev/behaviors.tsv"
+    # if impr:
+    #     # FIXME: if config.bert
+    #     news_file_dev = mind_path+"/MIND"+config.scale+"_dev/news.tsv"
+    #     behavior_file_dev = mind_path+"/MIND"+config.scale+"_dev/behaviors.tsv"
 
-        dataset_dev = MIND_impr(config=config, news_file=news_file_dev,
-                            behaviors_file=behavior_file_dev)
-        loader_dev = DataLoader(dataset_dev, batch_size=config.batch_size, pin_memory=pin_memory,
-                                num_workers=num_workers, drop_last=False, collate_fn=my_collate)
-        vocab = dataset_dev.vocab
-        if not config.bert:
-            embedding = GloVe(dim=300, cache=cache)
-            vocab.load_vectors(embedding)
+    #     dataset_dev = MIND_impr(config=config, news_file=news_file_dev,
+    #                         behaviors_file=behavior_file_dev)
+    #     loader_dev = DataLoader(dataset_dev, batch_size=config.batch_size, pin_memory=pin_memory,
+    #                             num_workers=num_workers, drop_last=False, collate_fn=my_collate)
+    #     vocab = dataset_dev.vocab
+    #     if not config.bert:
+    #         embedding = GloVe(dim=300, cache=vec_cache_path)
+    #         vocab.load_vectors(embedding)
 
-        return vocab, [loader_dev]
+    #     return vocab, [loader_dev]
 
-    if news:
-        news_file_train = mind_path + \
-            "/MIND{}_train/news.tsv".format(config.scale)
-        news_file_dev = mind_path+"/MIND{}_dev/news.tsv".format(config.scale)
-        # FIXME: if config.bert
-        dataset_train = MIND_news(config, news_file_train)
-        loader_news_train = DataLoader(
-            dataset_train, batch_size=config.batch_size, pin_memory=pin_memory, num_workers=num_workers, drop_last=False, collate_fn=my_collate)
+    # if news:
+    #     news_file_train = mind_path + \
+    #         "/MIND{}_train/news.tsv".format(config.scale)
+    #     news_file_dev = mind_path+"/MIND{}_dev/news.tsv".format(config.scale)
+    #     # FIXME: if config.bert
+    #     dataset_train = MIND_news(config, news_file_train)
+    #     loader_news_train = DataLoader(
+    #         dataset_train, batch_size=config.batch_size, pin_memory=pin_memory, num_workers=num_workers, drop_last=False, collate_fn=my_collate)
 
-        dataset_dev = MIND_news(config, news_file_dev)
-        loader_news_dev = DataLoader(
-            dataset_dev, batch_size=config.batch_size, pin_memory=pin_memory, num_workers=num_workers, drop_last=False, collate_fn=my_collate)
+    #     dataset_dev = MIND_news(config, news_file_dev)
+    #     loader_news_dev = DataLoader(
+    #         dataset_dev, batch_size=config.batch_size, pin_memory=pin_memory, num_workers=num_workers, drop_last=False, collate_fn=my_collate)
 
-        vocab = dataset_train.vocab
-        embedding = GloVe(dim=300, cache=cache)
-        vocab.load_vectors(embedding)
+    #     vocab = dataset_train.vocab
+    #     embedding = GloVe(dim=300, cache=vec_cache_path)
+    #     vocab.load_vectors(embedding)
 
-        if config.scale == "large":
-            news_file_test = mind_path + \
-                "/MIND{}_test/news.tsv".format(config.scale)
-            dataset_test = MIND_news(config, news_file_test)
-            loader_news_test = DataLoader(
-                dataset_test, batch_size=config.batch_size, pin_memory=pin_memory, num_workers=num_workers, drop_last=False, collate_fn=my_collate)
+    #     if config.scale == "large":
+    #         news_file_test = mind_path + \
+    #             "/MIND{}_test/news.tsv".format(config.scale)
+    #         dataset_test = MIND_news(config, news_file_test)
+    #         loader_news_test = DataLoader(
+    #             dataset_test, batch_size=config.batch_size, pin_memory=pin_memory, num_workers=num_workers, drop_last=False, collate_fn=my_collate)
 
-            return vocab, [loader_news_train, loader_news_dev, loader_news_test]
+    #         return vocab, [loader_news_train, loader_news_dev, loader_news_test]
 
-        return vocab, [loader_news_train, loader_news_dev]
+    #     return vocab, [loader_news_train, loader_news_dev]
 
-    elif config.mode in ["train", "tune"]:
+    if config.mode in ["train", "tune"]:
         news_file_train = mind_path+"/MIND"+config.scale+"_train/news.tsv"
         behavior_file_train = mind_path+"/MIND" + \
             config.scale+"_train/behaviors.tsv"
@@ -735,11 +736,11 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
             dataset_dev = MIND(config=config, news_file=news_file_dev,
                             behaviors_file=behavior_file_dev)
             vocab = dataset_train.vocab
-            embedding = GloVe(dim=300, cache=cache)
+            embedding = GloVe(dim=300, cache=vec_cache_path)
             vocab.load_vectors(embedding)
 
-        # multi view dataset
-
+        # FIXME: multi view dataset
+        
         loader_train = DataLoader(dataset_train, batch_size=config.batch_size, pin_memory=pin_memory,
                                 num_workers=num_workers, drop_last=False, shuffle=shuffle, collate_fn=my_collate)
         loader_dev = DataLoader(dataset_dev, batch_size=config.batch_size, pin_memory=pin_memory,
@@ -758,7 +759,7 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
             dataset_dev = MIND(config=config, news_file=news_file_dev,
                             behaviors_file=behavior_file_dev)
             vocab = dataset_dev.vocab
-            embedding = GloVe(dim=300, cache=cache)
+            embedding = GloVe(dim=300, cache=vec_cache_path)
             vocab.load_vectors(embedding)
 
         loader_dev = DataLoader(dataset_dev, batch_size=config.batch_size, pin_memory=pin_memory,
@@ -775,7 +776,7 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
         else:
             dataset_test = MIND(config, news_file_test, behavior_file_test)
             vocab = dataset_test.vocab
-            embedding = GloVe(dim=300, cache=cache)
+            embedding = GloVe(dim=300, cache=vec_cache_path)
             vocab.load_vectors(embedding)
 
         loader_test = DataLoader(dataset_test, batch_size=config.batch_size, pin_memory=pin_memory,
