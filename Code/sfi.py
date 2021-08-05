@@ -106,7 +106,7 @@ if __name__ == "__main__":
         sfiModel.evaluate(hparams,loaders[0],loading=True)
 
     elif hparams['mode'] == 'train':
-        sfiModel.fit(hparams, loaders)
+        sfiModel.train(hparams, loaders)
 
     elif hparams['mode'] == 'tune':
         sfiModel.tune(hparams, loaders)

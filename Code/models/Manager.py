@@ -1,25 +1,21 @@
 import torch
-import torch.nn as nn
-import torch.optim as optim
-
-from transformers import get_linear_schedule_with_warmup
-from torch.utils.tensorboard import SummaryWriter
-
 import re
 import os
 import datetime
 import logging
-import subprocess
-
+import torch.nn as nn
+import torch.optim as optim
 import numpy as np
 import scipy.stats as ss
+
 from tqdm import tqdm
+from transformers import get_linear_schedule_with_warmup
+from torch.utils.tensorboard import SummaryWriter
+from utils.utils import cal_metric
 
 logger = logging.getLogger(__name__)
 
 hparam_list = ["name", "scale", "his_size", "k", "threshold", "learning_rate"]
-param_list = []
-
 
 class Manager():
     """
@@ -37,7 +33,7 @@ class Manager():
             shortcut for saving the model and optimizer
         """
         # FIXME: checkpoints
-        
+
         if self.scale == 'demo':
             return
 
@@ -99,7 +95,7 @@ class Manager():
         logger.info("Loading model from {}...".format(save_path))
 
 
-    def _log(self, model, res):
+    def _log(self, res):
         """
             wrap logging, skip logging results on MINDdemo
         """
@@ -112,9 +108,6 @@ class Manager():
                 for k, v in vars(self).items():
                     if k in hparam_list:
                         d[k] = v
-                for name, param in model.named_parameters():
-                    if name in param_list:
-                        d[name] = tuple(param.shape)
 
                 f.write(str(d)+"\n")
                 f.write(str(res) + "\n")
@@ -241,7 +234,6 @@ class Manager():
             res(dict): A dictionary contains evaluation metrics.
         """
         # multiple evaluation steps
-        from utils.utils import cal_metric
 
         cdd_size = self.cdd_size
         model.cdd_size = 1
@@ -333,7 +325,7 @@ class Manager():
             self.save(epoch+1, 0, optimizers)
 
 
-    def fit(self, model, loaders, tb=False):
+    def train(self, model, loaders, tb=False):
         """ wrap training process
 
         Args:

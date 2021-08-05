@@ -47,7 +47,7 @@ def main(rank, manager, dist=False):
         manager.evaluate(esm, loaders[0], loading=True)
 
     elif manager.mode == 'train':
-        manager.fit(esm, loaders)
+        manager.train(esm, loaders)
 
     elif manager.mode == 'tune':
         manager.tune(esm, loaders)

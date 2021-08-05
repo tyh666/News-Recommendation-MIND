@@ -1,4 +1,4 @@
-class config():
+class config:
     scale = 'demo'
     mode = 'train'
     batch_size = 10

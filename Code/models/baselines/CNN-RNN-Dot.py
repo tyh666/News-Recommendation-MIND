@@ -75,7 +75,7 @@ if __name__ == '__main__':
         baseline.evaluate(config,loaders[0],loading=True)
 
     elif config.mode == 'train':
-        baseline.fit(config, loaders)
+        baseline.train(config, loaders)
 
     elif config.mode == 'tune':
         baseline.tune(config, loaders)

@@ -58,8 +58,8 @@
 - [ ] modify load_config
 - [ ] cache dataset
   - [ ] refactor dataset: encode all tokens, and dispatch/truncate when getting items
-- [ ] integrate manager and config
-- [ ] distributed evaluate
+- [x] integrate manager and config
+- [x] distributed evaluate
 
 ## Issue
 - the gradient after docReducer is sharp
