@@ -1,5 +1,5 @@
 from models.Encoders.FIM import FIM_Encoder
-from utils.utils import prepare,load_config, setup, cleanup
+from utils.utils import prepare, load_manager, setup, cleanup
 
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -14,7 +14,7 @@ from models.Modules.DRM import DRM_Matching
 # from models.Modules.TFM import TFM
 from models.ESM import ESM
 
-def main(rank, config, dist=False):
+def main(rank, manager, dist=False):
     """ train/dev/test/tune the model (in distributed)
 
     Args:
@@ -23,44 +23,48 @@ def main(rank, config, dist=False):
         conig
     """
     if dist:
-        setup()
+        setup(rank, manager.world_size)
 
-    vocab, loaders = prepare(config)
+    manager.device = rank
+    manager.rank = rank
 
-    embedding = BERT_Embedding(config)
-    encoderN = CNN_Encoder(config)
+    vocab, loaders = prepare(manager)
+
+    embedding = BERT_Embedding(manager)
+    encoderN = CNN_Encoder(manager)
     encoderU = RNN_User_Encoder(encoderN.hidden_dim)
-    docReducer = DRM_Matching(config.k)
-    # termFuser = TFM(config.his_size, config.k)
-    # interactor = CNN_Interactor(config)
-    interactor = BERT_Interactor(config)
-    esm = ESM(config, embedding, encoderN, encoderU, docReducer, None, interactor).to(config.device)
+    docReducer = DRM_Matching(manager.k)
+    # termFuser = TFM(manager.his_size, manager.k)
+    # interactor = CNN_Interactor(manager)
+    interactor = BERT_Interactor(manager)
+    esm = ESM(manager, embedding, encoderN, encoderU, docReducer, None, interactor).to(rank)
 
     if dist:
-        esm = DDP(esm, device_ids=[rank])
+        esm = DDP(esm, device_ids=[rank], output_device=rank)
 
-    if config.mode == 'dev':
-        esm.evaluate(config,loaders[0],loading=True)
 
-    elif config.mode == 'train':
-        esm.fit(config, loaders)
+    if manager.mode == 'dev':
+        manager.evaluate(esm, loaders[0], loading=True)
 
-    elif config.mode == 'tune':
-        esm.tune(config, loaders)
+    elif manager.mode == 'train':
+        manager.fit(esm, loaders)
 
-    elif config.mode == 'test':
-        esm.test(config, loaders[0])
+    elif manager.mode == 'tune':
+        manager.tune(esm, loaders)
+
+    elif manager.mode == 'test':
+        manager.test(esm, loaders[0])
 
     if dist:
         cleanup()
 
 if __name__ == "__main__":
-    config = load_config()
-    if config.world_size > 0:
+    manager = load_manager()
+    if manager.world_size > 0:
         mp.spawn(
             main,
-            args=(config, True),
-            nprocs=config.world_size
+            args=(manager, True),
+            nprocs=manager.world_size
         )
     else:
-        main(config.device, config)
+        main(manager.device, manager)

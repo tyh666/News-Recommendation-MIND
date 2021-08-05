@@ -1,10 +1,17 @@
 import torch
 import torch.nn as nn
-from .base_model import BaseModel
 
-class ESM(BaseModel):
+class ESM(nn.Module):
     def __init__(self, config, embedding, encoderN, encoderU, docReducer, termFuser, interactor):
-        super().__init__(config)
+        super().__init__()
+
+        self.scale = config.scale
+        self.cdd_size = (config.npratio +
+                         1) if config.npratio > 0 else 1
+        self.batch_size = config.batch_size
+        self.his_size = config.his_size
+        self.device = config.device
+
         self.k = config.k
 
         self.embedding = embedding
@@ -26,6 +33,7 @@ class ESM(BaseModel):
         )
 
         self.name = '_'.join(['esm', self.encoderN.name, self.encoderU.name, self.docReducer.name, self.interactor.name])
+        config.name = self.name
 
     def clickPredictor(self, reduced_tensor):
         """ calculate batch of click probabolity

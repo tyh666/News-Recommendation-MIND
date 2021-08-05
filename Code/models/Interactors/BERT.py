@@ -16,15 +16,19 @@ class BERT_Interactor(nn.Module):
 
         bert = BertModel.from_pretrained(config.bert)
 
-        self.inte_embedding = torch.randn(1,1,1,self.hidden_dim)
-        # [SEP] token
-        self.sep_embedding = bert.embeddings.word_embeddings(torch.tensor([102])).clone().detach().requires_grad_(True).view(1,1,self.hidden_dim)
-        self.cls_embedding = bert.embeddings.word_embeddings(torch.tensor([101])).clone().detach().requires_grad_(True).view(1,1,self.hidden_dim)
-
-        self.position_embedding = bert.embeddings.position_embeddings
-        self.order_embedding = nn.Embedding(self.his_size, self.hidden_dim)
-
         self.bert = bert.encoder
+
+
+        self.inte_embedding = nn.Parameter(torch.randn(1,1,1,self.hidden_dim))
+        self.order_embedding = nn.Parameter(torch.randn(1, config.his_size, 1, config.hidden_dim))
+        # [SEP] token
+        self.sep_embedding = nn.Parameter(bert.embeddings.word_embeddings(torch.tensor([102])).clone().detach().requires_grad_(True).view(1,1,self.hidden_dim))
+        self.cls_embedding = nn.Parameter(bert.embeddings.word_embeddings(torch.tensor([101])).clone().detach().requires_grad_(True).view(1,1,self.hidden_dim))
+
+        nn.init.xavier_normal_(self.inte_embedding)
+        nn.init.xavier_normal_(self.order_embedding)
+
+
 
     def fusion(self, ps_terms, batch_size):
         """
@@ -42,8 +46,7 @@ class BERT_Interactor(nn.Module):
 
         # insert order embedding to seperate different historical news
         # [1,hs,1,hd]
-        his_order_embedding = self.order_embedding(torch.arange(self.his_size)).view(1, self.his_size, 1, self.hidden_dim)
-        ps_terms += his_order_embedding
+        ps_terms += self.order_embedding
 
         # insert cls token for pooling
         ps_terms = torch.cat([self.cls_embedding.expand(batch_size, 1, self.hidden_dim), ps_terms.view(batch_size, -1, self.hidden_dim)], dim=-2)

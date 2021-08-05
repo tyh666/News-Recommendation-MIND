@@ -57,6 +57,9 @@
 - [x] **config.embedding_dim**
 - [ ] modify load_config
 - [ ] cache dataset
+  - [ ] refactor dataset: encode all tokens, and dispatch/truncate when getting items
+- [ ] integrate manager and config
+- [ ] distributed evaluate
 
 ## Issue
 - the gradient after docReducer is sharp
@@ -79,3 +82,13 @@ in SpeedyFeed
 
 ## Need to update
 - [ ] Encoders.MHA, NPA, Pipeline
+
+## Phylosiphy
+### manager
+- a class
+- the attributes are hyper parameters
+- the function wraps logging/training/evaluating process for the model
+### model
+- nn.Module
+- posses all necessary (used in inference) hyper parameters as attributes
+- posses some unique attributes per model (model.name)

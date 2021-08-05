@@ -28,7 +28,7 @@ class MIND(Dataset):
         pat = re.search('MIND/(.*_(.*)/)news', news_file)
         self.mode = pat.group(2)
 
-        self.cache_path = '/'.join(['data/cache', config.embedding, pat.group(1)])
+        self.cache_path = '/'.join(['data/cache', config.embedding, str(config.his_size), pat.group(1)])
         self.behav_path = re.search('(\w*)\.tsv', behaviors_file).group(1)
 
         if os.path.exists(self.cache_path + 'news.pkl'):
@@ -249,7 +249,7 @@ class MIND(Dataset):
                 'imprs': self.imprs
             }
 
-        with open(self.cache_path + self.behav_pathe + '.pkl', 'wb') as f:
+        with open(self.cache_path + self.behav_path + '.pkl', 'wb') as f:
             pickle.dump(save_dict, f)
 
 
@@ -414,14 +414,13 @@ class MIND_bert(Dataset):
         self.npratio = config.npratio
         self.shuffle_pos = shuffle_pos
         self.batch_size = config.batch_size
-        self.title_size = config.title_size
-        self.abs_size = config.abs_size
+        self.signal_length = config.signal_length
         self.his_size = config.his_size
         self.k = config.k
         pat = re.search('MIND/(.*_(.*)/)news', news_file)
         self.mode = pat.group(2)
 
-        self.cache_path = '/'.join(['data/cache', config.embedding, pat.group(1)])
+        self.cache_path = '/'.join(['data/cache', config.embedding, str(config.his_size), pat.group(1)])
         self.behav_path = re.search('(\w*)\.tsv', behaviors_file).group(1)
 
         if os.path.exists(self.cache_path + 'news.pkl'):
@@ -478,7 +477,7 @@ class MIND_bert(Dataset):
                 #     print(' '.join([title, ab, vert, subvert]))
                 documents.append(' '.join([title, ab, vert, subvert]))
 
-        encoded_dict = self.tokenizer(documents, add_special_tokens=False, padding=True, truncation=True, max_length=512, return_tensors='np')
+        encoded_dict = self.tokenizer(documents, add_special_tokens=False, padding=True, truncation=True, max_length=self.signal_length, return_tensors='np')
         self.encoded_news = encoded_dict.input_ids
         self.attn_mask = encoded_dict.attention_mask
 
@@ -639,7 +638,7 @@ class MIND_bert(Dataset):
                     'imprs': self.imprs
                 }
 
-        with open(self.cache_path + self.behav_pathe + '.pkl', 'wb') as f:
+        with open(self.cache_path + self.behav_path + '.pkl', 'wb') as f:
             pickle.dump(save_dict, f)
 
 

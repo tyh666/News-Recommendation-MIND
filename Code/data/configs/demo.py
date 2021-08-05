@@ -1,5 +1,4 @@
-from .base_config import BaseConfig
-class config(BaseConfig):
+class config():
     scale = 'demo'
     mode = 'train'
     batch_size = 10

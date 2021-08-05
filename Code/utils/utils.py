@@ -8,6 +8,7 @@ import argparse
 import logging
 import pandas as pd
 import numpy as np
+import torch.distributed as dist
 # import torch.multiprocessing as mp
 from collections import defaultdict
 from datetime import datetime
@@ -18,7 +19,7 @@ from torchtext.vocab import build_vocab_from_iterator, GloVe
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 
-import torch.distributed as dist
+from models.Manager import Manager
 
 logging.basicConfig(level=logging.INFO,
                     format="[%(asctime)s] %(levelname)s (%(name)s) %(message)s")
@@ -146,7 +147,7 @@ def constructUid2idx(behavior_file_list, scale):
     h.close()
 
 
-def constructBasicDict(attrs=["title"], path="/home/peitian_zhang/Data/MIND"):
+def constructBasicDict(attrs=["title"], path="../../../Data/MIND"):
     """
         construct basic dictionary
     """
@@ -514,7 +515,7 @@ def cal_metric(labels, preds, metrics):
 def info(config):
     return ", ".join(["{}:{}".format(k,v) for k,v in vars(config).items() if not k.startswith('__')])
 
-def load_config():
+def load_manager():
     """
         customize hyper parameters in command line
     """
@@ -527,7 +528,7 @@ def load_config():
                         help="epochs to train the model", type=int, default=10)
     parser.add_argument("-d","--device", dest="device",
                         help="device to run on", choices=["0", "1", "cpu"], default="0")
-    parser.add_argument("-p", "--path", dest="path", type=str, default="../../Data/", help="root path for large-scale reusable data")
+    parser.add_argument("-p", "--path", dest="path", type=str, default="../../../Data/", help="root path for large-scale reusable data")
 
     parser.add_argument("-bs", "--batch_size", dest="batch_size",
                         help="batch size", type=int, default=100)
@@ -539,7 +540,8 @@ def load_config():
                         help="history size", type=int, default=50)
     parser.add_argument("-hd", "--hidden_dim", dest="hidden_dim",
                     help="number of hidden states", type=int, default=200)
-
+    parser.add_argument("-sl", "--signal_length", dest="signal_length",
+                    help="length of the bert tokenized tokens", type=int, default=200)
 
     parser.add_argument("-st","--step", dest="step",
                         help="if clarified, save model at the interval of given steps", type=str, default="0")
@@ -569,6 +571,7 @@ def load_config():
 
     # parser.add_argument("--ensemble", dest="ensemble", help="choose ensemble strategy for SFI-ensemble", type=str, default=None)
     parser.add_argument("--spadam", dest="spadam", default=False)
+    parser.add_argument("--tb", dest="tb", default=False)
 
     parser.add_argument("--bert", dest="bert", help="choose bert model", choices=["bert-base-uncased"], default="bert-base-uncased")
     parser.add_argument("--level", dest="level", help="intend for bert encoder, if clarified, level representations will be kept for a token", type=int, default=1)
@@ -588,71 +591,70 @@ def load_config():
     # parser.add_argument("--onehot", dest="onehot", help="if clarified, one hot encode of category/subcategory will be returned by dataloader", action="store_true")
 
     args = parser.parse_args()
-    config = args
 
-    if config.mode == "train":
+    if args.mode == "train":
         # 2000 by default
-        config.step = 2000
-    if len(args.device) > 1:
-        config.device = args.device
-    else:
-        config.device = "cuda:" + args.device
+        args.step = 2000
 
-    config.step = [int(i) for i in args.step.split(",")]
+    args.step = [int(i) for i in args.step.split(",")]
+
+    if len(args.device) == 1:
+        args.device = int(args.device)
 
     if not args.learning_rate:
-        if config.scale == "demo":
-            config.learning_rate = 1e-3
+        if args.scale == "demo":
+            args.learning_rate = 1e-3
         else:
-            config.learning_rate = 1e-4
+            args.learning_rate = 1e-4
     else:
-        config.learning_rate = args.learning_rate
+        args.learning_rate = args.learning_rate
     if not args.interval:
-        if config.scale == "demo":
-            config.interval = 10
+        if args.scale == "demo":
+            args.interval = 10
         else:
-            config.interval = 100
+            args.interval = 100
     else:
-        config.interval = args.interval
+        args.interval = args.interval
     if not args.val_freq:
-        if config.scale == "demo":
-            config.val_freq = 1
+        if args.scale == "demo":
+            args.val_freq = 1
         else:
-            config.val_freq = 4
+            args.val_freq = 4
     else:
-        config.val_freq = args.val_freq
+        args.val_freq = args.val_freq
 
     # if args.onehot:
-    #     config.onehot = args.onehot
-    #     config.vert_num = 18
-    #     config.subvert_num = 293
+    #     args.onehot = args.onehot
+    #     args.vert_num = 18
+    #     args.subvert_num = 293
     # else:
-    #     config.onehot = False
+    #     args.onehot = False
     if args.checkpoint:
-        config.checkpoint = args.checkpoint
+        args.checkpoint = args.checkpoint
 
     # if args.multiview:
-    #     config.multiview = args.multiview
-    #     config.attrs = "title,vert,subvert,abs".split(",")
+    #     args.multiview = args.multiview
+    #     args.attrs = "title,vert,subvert,abs".split(",")
     #     logging.info("automatically set True for onehot encoding of (sub)categories")
-    #     config.onehot = True
-    #     config.vert_num = 18
-    #     config.subvert_num = 293
+    #     args.onehot = True
+    #     args.vert_num = 18
+    #     args.subvert_num = 293
     # else:
-    #     config.multiview = False
+    #     args.multiview = False
     # if args.coarse:
-    #     config.coarse = 'coarse'
+    #     args.coarse = 'coarse'
     # else:
-    #     config.coarse = None
+    #     args.coarse = None
     # if args.ensemble:
-    #     config.ensemble = args.ensemble
+    #     args.ensemble = args.ensemble
     # if args.pipeline:
-    #     config.pipeline = args.pipeline
-    #     config.encoder = "pipeline"
-    #     config.name = args.pipeline
-    #     config.spadam = False
+    #     args.pipeline = args.pipeline
+    #     args.encoder = "pipeline"
+    #     args.name = args.pipeline
+    #     args.spadam = False
 
-    return config
+    manager = Manager(args)
+    return manager
 
 
 def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, impr=False):
@@ -740,11 +742,18 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
             vocab.load_vectors(embedding)
 
         # FIXME: multi view dataset
-        
+
+        if config.world_size > 0:
+            sampler_train = DistributedSampler(dataset_train, num_replicas=config.world_size, rank=config.rank, shuffle=shuffle)
+            sampler_dev = DistributedSampler(dataset_dev, num_replicas=config.world_size, rank=config.rank, shuffle=shuffle)
+        else:
+            sampler_train = None
+            sampler_dev = None
+
         loader_train = DataLoader(dataset_train, batch_size=config.batch_size, pin_memory=pin_memory,
-                                num_workers=num_workers, drop_last=False, shuffle=shuffle, collate_fn=my_collate)
+                                num_workers=num_workers, drop_last=False, shuffle=False, collate_fn=my_collate, sampler=sampler_train)
         loader_dev = DataLoader(dataset_dev, batch_size=config.batch_size, pin_memory=pin_memory,
-                                num_workers=num_workers, drop_last=False, collate_fn=my_collate)
+                                num_workers=num_workers, drop_last=False, collate_fn=my_collate, sampler=sampler_dev)
 
         return vocab, [loader_train, loader_dev]
 
@@ -762,8 +771,12 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
             embedding = GloVe(dim=300, cache=vec_cache_path)
             vocab.load_vectors(embedding)
 
+        if config.world_size > 0:
+            sampler_dev = DistributedSampler(dataset_dev, num_replicas=config.world_size, rank=config.rank, shuffle=shuffle)
+        else:
+            sampler_dev = None
         loader_dev = DataLoader(dataset_dev, batch_size=config.batch_size, pin_memory=pin_memory,
-                                num_workers=num_workers, drop_last=False, collate_fn=my_collate)
+                                num_workers=num_workers, drop_last=False, collate_fn=my_collate, sampler=sampler_dev)
 
         return vocab, [loader_dev]
 
@@ -779,8 +792,13 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
             embedding = GloVe(dim=300, cache=vec_cache_path)
             vocab.load_vectors(embedding)
 
+        # FIXME distributed test
+        if config.world_size > 0:
+            sampler_test = DistributedSampler(dataset_test, num_replicas=config.world_size, rank=config.rank, shuffle=shuffle)
+        else:
+            sampler_test = None
         loader_test = DataLoader(dataset_test, batch_size=config.batch_size, pin_memory=pin_memory,
-                                 num_workers=num_workers, drop_last=False, collate_fn=my_collate)
+                                 num_workers=num_workers, drop_last=False, collate_fn=my_collate, sampler=sampler_test)
 
         return vocab, [loader_test]
 
