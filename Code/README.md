@@ -92,3 +92,6 @@ in SpeedyFeed
 - nn.Module
 - posses all necessary (used in inference) hyper parameters as attributes
 - posses some unique attributes per model (model.name)
+### MIND
+- map dataset for MIND
+- cache enabled

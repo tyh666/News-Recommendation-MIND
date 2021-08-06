@@ -13,13 +13,12 @@ import torch.distributed as dist
 from collections import defaultdict
 from datetime import datetime
 # from itertools import product
-from sklearn.metrics import roc_auc_score, log_loss, mean_squared_error, accuracy_score, f1_score
 from torchtext.data.utils import get_tokenizer
 from torchtext.vocab import build_vocab_from_iterator, GloVe
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 
-from models.Manager import Manager
+from utils.Manager import Manager
 
 logging.basicConfig(level=logging.INFO,
                     format="[%(asctime)s] %(levelname)s (%(name)s) %(message)s")
@@ -369,149 +368,6 @@ def parameter(model, param_list, exclude=False):
                 yield param
 
 
-def mrr_score(y_true, y_score):
-    """Computing mrr score metric.
-
-    Args:
-        y_true (np.ndarray): ground-truth labels.
-        y_score (np.ndarray): predicted labels.
-
-    Returns:
-        np.ndarray: mrr scores.
-    """
-    # descending rank prediction score, get corresponding index of candidate news
-    order = np.argsort(y_score)[::-1]
-    # get ground truth for these indexes
-    y_true = np.take(y_true, order)
-    # check whether the prediction news with max score is the one being clicked
-    # calculate the inverse of its index
-    rr_score = y_true / (np.arange(len(y_true)) + 1)
-    return np.sum(rr_score) / np.sum(y_true)
-
-
-def ndcg_score(y_true, y_score, k=10):
-    """Computing ndcg score metric at k.
-
-    Args:
-        y_true (np.ndarray): ground-truth labels.
-        y_score (np.ndarray): predicted labels.
-
-    Returns:
-        np.ndarray: ndcg scores.
-    """
-    best = dcg_score(y_true, y_true, k)
-    actual = dcg_score(y_true, y_score, k)
-    return actual / best
-
-
-def hit_score(y_true, y_score, k=10):
-    """Computing hit score metric at k.
-
-    Args:
-        y_true (np.ndarray): ground-truth labels.
-        y_score (np.ndarray): predicted labels.
-
-    Returns:
-        np.ndarray: hit score.
-    """
-    ground_truth = np.where(y_true == 1)[0]
-    argsort = np.argsort(y_score)[::-1][:k]
-    for idx in argsort:
-        if idx in ground_truth:
-            return 1
-    return 0
-
-
-def dcg_score(y_true, y_score, k=10):
-    """Computing dcg score metric at k.
-
-    Args:
-        y_true (np.ndarray): ground-truth labels.
-        y_score (np.ndarray): predicted labels.
-
-    Returns:
-        np.ndarray: dcg scores.
-    """
-    k = min(np.shape(y_true)[-1], k)
-    order = np.argsort(y_score)[::-1]
-    y_true = np.take(y_true, order[:k])
-    gains = 2 ** y_true - 1
-    discounts = np.log2(np.arange(len(y_true)) + 2)
-    return np.sum(gains / discounts)
-
-
-def cal_metric(labels, preds, metrics):
-    """Calculate metrics,such as auc, logloss.
-    """
-    res = {}
-    for metric in metrics:
-        if metric == "auc":
-            auc = np.mean(
-                [
-                    roc_auc_score(each_labels, each_preds)
-                    for each_labels, each_preds in zip(labels, preds)
-                ]
-            )
-            res["auc"] = round(auc, 4)
-        elif metric == "rmse":
-            rmse = mean_squared_error(np.asarray(labels), np.asarray(preds))
-            res["rmse"] = np.sqrt(round(rmse, 4))
-        elif metric == "logloss":
-            # avoid logloss nan
-            preds = [max(min(p, 1.0 - 10e-12), 10e-12) for p in preds]
-            logloss = log_loss(np.asarray(labels), np.asarray(preds))
-            res["logloss"] = round(logloss, 4)
-        elif metric == "acc":
-            pred = np.asarray(preds)
-            pred[pred >= 0.5] = 1
-            pred[pred < 0.5] = 0
-            acc = accuracy_score(np.asarray(labels), pred)
-            res["acc"] = round(acc, 4)
-        elif metric == "f1":
-            pred = np.asarray(preds)
-            pred[pred >= 0.5] = 1
-            pred[pred < 0.5] = 0
-            f1 = f1_score(np.asarray(labels), pred)
-            res["f1"] = round(f1, 4)
-        elif metric == "mean_mrr":
-            mean_mrr = np.mean(
-                [
-                    mrr_score(each_labels, each_preds)
-                    for each_labels, each_preds in zip(labels, preds)
-                ]
-            )
-            res["mean_mrr"] = round(mean_mrr, 4)
-        elif metric.startswith("ndcg"):  # format like:  ndcg@2;4;6;8
-            ndcg_list = [1, 2]
-            ks = metric.split("@")
-            if len(ks) > 1:
-                ndcg_list = [int(token) for token in ks[1].split(";")]
-            for k in ndcg_list:
-                ndcg_temp = np.mean(
-                    [
-                        ndcg_score(each_labels, each_preds, k)
-                        for each_labels, each_preds in zip(labels, preds)
-                    ]
-                )
-                res["ndcg@{0}".format(k)] = round(ndcg_temp, 4)
-        elif metric.startswith("hit"):  # format like:  hit@2;4;6;8
-            hit_list = [1, 2]
-            ks = metric.split("@")
-            if len(ks) > 1:
-                hit_list = [int(token) for token in ks[1].split(";")]
-            for k in hit_list:
-                hit_temp = np.mean(
-                    [
-                        hit_score(each_labels, each_preds, k)
-                        for each_labels, each_preds in zip(labels, preds)
-                    ]
-                )
-                res["hit@{0}".format(k)] = round(hit_temp, 4)
-        else:
-            raise ValueError("not define this metric {0}".format(metric))
-    return res
-
-
 def info(config):
     return ", ".join(["{}:{}".format(k,v) for k,v in vars(config).items() if not k.startswith('__')])
 
@@ -532,16 +388,16 @@ def load_manager():
 
     parser.add_argument("-bs", "--batch_size", dest="batch_size",
                         help="batch size", type=int, default=100)
-    parser.add_argument("-ts", "--title_size", dest="title_size",
+    parser.add_argument("-tl", "--title_length", dest="title_length",
                         help="news title size", type=int, default=20)
-    parser.add_argument("-as", "--abs_size", dest="abs_size",
+    parser.add_argument("-as", "--abs_length", dest="abs_length",
                         help="news abstract length", type=int, default=40)
+    parser.add_argument("-sl", "--signal_length", dest="signal_length",
+                    help="length of the bert tokenized tokens", type=int, default=200)
     parser.add_argument("-hs", "--his_size", dest="his_size",
                         help="history size", type=int, default=50)
     parser.add_argument("-hd", "--hidden_dim", dest="hidden_dim",
                     help="number of hidden states", type=int, default=200)
-    parser.add_argument("-sl", "--signal_length", dest="signal_length",
-                    help="length of the bert tokenized tokens", type=int, default=200)
 
     parser.add_argument("-st","--step", dest="step",
                         help="if clarified, save model at the interval of given steps", type=str, default="0")
