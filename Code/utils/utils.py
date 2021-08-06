@@ -393,7 +393,7 @@ def load_manager():
     parser.add_argument("-as", "--abs_length", dest="abs_length",
                         help="news abstract length", type=int, default=40)
     parser.add_argument("-sl", "--signal_length", dest="signal_length",
-                    help="length of the bert tokenized tokens", type=int, default=200)
+                    help="length of the bert tokenized tokens", type=int, default=100)
     parser.add_argument("-hs", "--his_size", dest="his_size",
                         help="history size", type=int, default=50)
     parser.add_argument("-hd", "--hidden_dim", dest="hidden_dim",

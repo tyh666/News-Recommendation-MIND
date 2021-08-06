@@ -61,7 +61,8 @@
 - [x] integrate manager and config
 - [x] distributed evaluate
 - [ ] customized docker image
-- [ ] prepare modify dataset.vocab
+- [x] prepare modify dataset.vocab
+- [ ] specify .vscode-sever location to avoid repeatedly downloading extensions
 
 ## Issue
 - the gradient after docReducer is sharp
