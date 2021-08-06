@@ -13,10 +13,42 @@ from transformers import get_linear_schedule_with_warmup
 from torch.utils.tensorboard import SummaryWriter
 from sklearn.metrics import roc_auc_score, log_loss, mean_squared_error, accuracy_score, f1_score
 
+# import torch.distributed as dist
+# from contextlib import contextmanager
+
 logger = logging.getLogger(__name__)
 
 hparam_list = ["name", "scale", "his_size", "k", "threshold", "learning_rate"]
 
+# def dist_sync(func):
+#     def void_dict():
+#         return defaultdict(int)
+
+#     def wrapper(*args, **kargs):
+#         if args[0].rank == 0:
+#             res = func(*args, **kargs)
+#         else:
+#             res = void_dict()
+
+#         if args[0].world_size > 1:
+#             print("fuck the barrier")
+#             dist.barrier()
+#             print("fuck the barrier after")
+#         return res
+#     return wrapper
+
+# @contextmanager
+# def only_on_main_process(local_rank):
+#     """
+#     Decorator to make all processes in distributed training wait for each local_master to do something.
+#     """
+#     need = True
+#     if local_rank != 0:
+#         need = False
+#     yield need
+#     # QUES: why still needs to barrier?
+#     if local_rank == 0:
+#         dist.barrier()
 
 class Manager():
     """
@@ -28,7 +60,7 @@ class Manager():
 
         self.cdd_size = self.npratio + 1
 
-
+    # @dist_sync
     def save(self, model, epoch, step, optimizers=[]):
         """
             shortcut for saving the model and optimizer
@@ -68,6 +100,7 @@ class Manager():
             step, epoch, save_path))
 
 
+    # @dist_sync
     def load(self, model, epoch, step, optimizers=None):
         """
             shortcut for loading model and optimizer parameters
@@ -96,6 +129,7 @@ class Manager():
         logger.info("Loading model from {}...".format(save_path))
 
 
+    # @dist_sync
     def _log(self, res):
         """
             wrap logging, skip logging results on MINDdemo
@@ -220,7 +254,7 @@ class Manager():
 
         return all_impr_ids, all_labels, all_preds
 
-
+    # @dist_sync
     def evaluate(self, model, dataloader, load=False, log=True):
         """Evaluate the given file and returns some evaluation metrics.
 
@@ -398,7 +432,6 @@ class Manager():
                         scheduler.step()
 
                 if step % interval == 0:
-
                     tqdm_.set_description(
                         "epoch {:d} , step {:d} , loss: {:.4f}".format(epoch+1, step, epoch_loss / step))
                     if writer:
@@ -408,7 +441,7 @@ class Manager():
                         writer.add_scalar("data_loss",
                                         total_loss/total_steps)
 
-                if step % save_step == 0 and step > 0:
+                if step % save_step == 0 and step > 0 and self.rank == 0:
                     print("\n")
                     with torch.no_grad():
                         result = self.evaluate(model, loaders[1], log=False)
@@ -421,9 +454,14 @@ class Manager():
                             self.save(epoch+1, step, optimizers)
                             self._log(result)
 
-                        elif result["auc"] - best_res["auc"] < -0.05:
-                            logger.info("model is overfitting, the result is {}, force shutdown".format(result))
-                            return best_res
+                        # elif result["auc"] - best_res["auc"] < -0.05:
+                        #     logger.info("model is overfitting, the result is {}, force shutdown".format(result))
+                        #     return best_res
+
+                # if self.world_size > 1:
+                #     print('fuck the last barrier')
+                #     barrier()
+                #     print('fuck the last barrier after')
 
                 total_steps += 1
 

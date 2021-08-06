@@ -33,7 +33,7 @@ class DRM_Matching(nn.Module):
         score_k, score_kid = scores.topk(dim=-1, k=self.k)
         personalized_terms = news_embedding.gather(dim=-3,index=score_kid.unsqueeze(-1).unsqueeze(-1).expand(score_kid.size() + (news_embedding.size(-2),news_embedding.size(-1))))
 
-        weighted_ps_terms = personalized_terms * (score_k.masked_fill(score_k < self.threshold, 0).unsqueeze(-1).unsqueeze(-1))
+        weighted_ps_terms = personalized_terms * (nn.functional.softmax(score_k.masked_fill(score_k < self.threshold, 0), dim=-1).unsqueeze(-1).unsqueeze(-1))
         # weighted_ps_terms.retain_grad()
         # print(weighted_ps_terms.grad, weighted_ps_terms.requires_grad)
 

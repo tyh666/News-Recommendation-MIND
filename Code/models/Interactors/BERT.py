@@ -4,18 +4,22 @@ from transformers import BertModel
 
 class BERT_Interactor(nn.Module):
     def __init__(self, config):
+        # confirm the hidden dim to be 768
+        assert config.hidden_dim == 768
+        # confirm term_num + signal_length is less than 512
+        assert config.k * config.his_size + config.his_size + config.signal_length < 512
+
         super().__init__()
 
         self.name = 'bert'
         self.his_size = config.his_size
-        # must be 728 to use [SEP] token in bert
-        assert config.hidden_dim == 768
+
         self.hidden_dim = config.hidden_dim
 
         self.final_dim = self.hidden_dim
 
         bert = BertModel.from_pretrained(config.bert)
-
+        
         self.bert = bert.encoder
 
 
@@ -38,19 +42,18 @@ class BERT_Interactor(nn.Module):
             ps_terms: [batch_size, his_size, k, level, hidden_dim]
 
         Returns:
-            ps_terms: [batch_size, term_num (his_size*k + his_size), hidden_dim]
+            ps_terms: [batch_size, term_num (his_size*k + his_size - 1), hidden_dim]
         """
 
         # [bs,hs,k+1,hd]
         ps_terms = torch.cat([ps_terms.squeeze(-2), self.inte_embedding.expand(batch_size, self.his_size, 1, self.hidden_dim)], dim=-2)
 
-        # insert order embedding to seperate different historical news
-        # [1,hs,1,hd]
+        # add order embedding
         ps_terms += self.order_embedding
 
         # insert cls token for pooling
-        ps_terms = torch.cat([self.cls_embedding.expand(batch_size, 1, self.hidden_dim), ps_terms.view(batch_size, -1, self.hidden_dim)], dim=-2)
-        return ps_terms
+        # ps_terms = torch.cat([self.cls_embedding.expand(batch_size, 1, self.hidden_dim), ps_terms.view(batch_size, -1, self.hidden_dim)], dim=-2)
+        return ps_terms.view(batch_size, -1, self.hidden_dim)
 
 
     def forward(self, cdd_news_embedding, ps_terms):
@@ -70,10 +73,9 @@ class BERT_Interactor(nn.Module):
 
         # [bs,tn,hd]
         ps_terms = self.fusion(ps_terms, batch_size)
-        term_num = ps_terms.size(1)
 
-        # make sure the concatenated sequence is shorter than 512
-        bert_input = torch.cat([ps_terms.unsqueeze(1).expand(batch_size, cdd_size, ps_terms.size(1), self.hidden_dim).reshape(-1, *ps_terms.shape[1:]), self.sep_embedding.expand(bs, 1, self.hidden_dim), cdd_news_embedding.squeeze(-2).view(bs, -1, self.hidden_dim)[:, :512-term_num-1]], dim=-2)
+        # [CLS], cdd_news, [SEP], his_news_1, his_news_2, ...
+        bert_input = torch.cat([self.cls_embedding.expand(bs, 1, self.hidden_dim), cdd_news_embedding.view(bs, -1, self.hidden_dim), self.sep_embedding.expand(bs, 1, self.hidden_dim), ps_terms.unsqueeze(1).expand(batch_size, cdd_size, ps_terms.size(1), self.hidden_dim).reshape(-1, *ps_terms.shape[1:])], dim=-2)
         bert_output = self.bert(bert_input).last_hidden_state[:, 0, :].view(batch_size, cdd_size, self.hidden_dim)
 
         return bert_output

@@ -50,38 +50,30 @@
 - [x] extract terms from every historical news when the history is updated
 - [ ] extract terms incrementally
 - [ ] long and short term extraction
-- [ ] auto-regressive user modeling
-- [ ] distributed training
+- [x] auto-regressive user modeling
+- [x] distributed training
 - [x] **config.filter_num -> config.hidden_dim**
 - [x] **config.signal_length**
 - [x] **config.embedding_dim**
-- [ ] modify load_config
-- [ ] cache dataset
-  - [ ] refactor dataset: encode all tokens, and dispatch/truncate when getting items
+- [x] modify load_config
+- [x] cache dataset
+  - [x] refactor dataset: encode all tokens, and dispatch/truncate when getting items
 - [x] integrate manager and config
 - [x] distributed evaluate
+- [ ] customized docker image
+- [ ] prepare modify dataset.vocab
 
 ## Issue
 - the gradient after docReducer is sharp
 - if we concat title with abstract, then there must be many duplicated words, how about removing them when preprocessing?
-- bert tokenize in stream or in bunch?
-- **connect to ps0 or cuda0?**
-- **how to connect? use what shell**
-- **your .ssh mode**
-去掉-i
-- **where to save codes and data?**
-data job
 
 in SpeedyFeed
-- **many unused scripts and modules**
-- **should we partition the dataloader?**
-- **should we partition batch_size?**
-- **is torch.cuda.set_device necessary?**
-- data for speedyfeed
-- can I run on cpu?
+- industry data for speedyfeed
+- still fit on one gpu?
 
 ## Need to update
-- [ ] Encoders.MHA, NPA, Pipeline
+- [ ] Encoders.MHA, NPA, Pipeline, Random Embedding
+- [ ]
 
 ## Phylosiphy
 ### manager

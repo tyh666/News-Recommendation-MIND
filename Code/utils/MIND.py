@@ -21,7 +21,7 @@ class MIND(Dataset):
         self.npratio = config.npratio
         self.shuffle_pos = shuffle_pos
         self.title_length = config.title_length
-        self.abs_length = config.abs_size
+        self.abs_length = config.abs_length
         self.his_size = config.his_size
         self.k = config.k
         pat = re.search('MIND/(.*_(.*)/)news', news_file)
@@ -769,230 +769,230 @@ class MIND_bert(Dataset):
 
 
 # FIXME: not refactor yet
-# class MIND_news(Dataset):
-#     """ Map Dataset for MIND, return each news, intended for pipeline(obtaining news representation in advance)
+class MIND_news(Dataset):
+    """ Map Dataset for MIND, return each news, intended for pipeline(obtaining news representation in advance)
 
-#     Args:
-#         config(dict): pre-defined dictionary of hyper parameters
-#         news_file(str): path of news_file
-#         mode(str): train/test
-#     """
+    Args:
+        config(dict): pre-defined dictionary of hyper parameters
+        news_file(str): path of news_file
+        mode(str): train/test
+    """
 
-#     def __init__(self, config, news_file):
-#         # initiate the whole iterator
-#         self.npratio = config.npratio
-#         self.news_file = news_file
-#         self.col_spliter = '\t'
-#         self.title_length = config.title_length
-#         self.his_size = config.his_size
-#         # self.attrs = config.attrs
+    def __init__(self, config, news_file):
+        # initiate the whole iterator
+        self.npratio = config.npratio
+        self.news_file = news_file
+        self.col_spliter = '\t'
+        self.title_length = config.title_length
+        self.his_size = config.his_size
+        # self.attrs = config.attrs
 
-#         mode = re.search(
-#             '{}_(.*)/'.format(config.scale), news_file).group(1)
+        mode = re.search(
+            '{}_(.*)/'.format(config.scale), news_file).group(1)
 
-#         self.vocab = getVocab(
-#             'data/dictionaries/vocab_whole.pkl')
-#         self.nid2index = getId2idx(
-#             'data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, mode))
+        self.vocab = getVocab(
+            'data/dictionaries/vocab_whole.pkl')
+        self.nid2index = getId2idx(
+            'data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, mode))
 
-#     def __len__(self):
-#         if not hasattr(self, "news_title_array"):
-#             self.init_news()
+    def __len__(self):
+        if not hasattr(self, "news_title_array"):
+            self.init_news()
 
-#         return len(self.news_title_array)
+        return len(self.news_title_array)
 
-#     def init_news(self):
-#         """
-#             init news information given news file, such as news_title_array.
-#         """
+    def init_news(self):
+        """
+            init news information given news file, such as news_title_array.
+        """
 
-#         title_token = []
-#         title_pad = []
-#         news_ids = []
+        title_token = []
+        title_pad = []
+        news_ids = []
 
-#         with open(self.news_file, "r", encoding='utf-8') as rd:
+        with open(self.news_file, "r", encoding='utf-8') as rd:
 
-#             for idx in rd:
-#                 nid, vert, subvert, title, ab, url, _, _ = idx.strip("\n").split(
-#                     self.col_spliter
-#                 )
+            for idx in rd:
+                nid, vert, subvert, title, ab, url, _, _ = idx.strip("\n").split(
+                    self.col_spliter
+                )
 
-#                 title = tokenize(title, self.vocab)
-#                 title_token.append(
-#                     title[:self.title_length] + [0] * (self.title_length - len(title)))
-#                 title_pad.append([max(self.title_length - len(title), 0)])
-#                 news_ids.append(self.nid2index[nid])
+                title = tokenize(title, self.vocab)
+                title_token.append(
+                    title[:self.title_length] + [0] * (self.title_length - len(title)))
+                title_pad.append([max(self.title_length - len(title), 0)])
+                news_ids.append(self.nid2index[nid])
 
-#         self.news_title_array = np.asarray(title_token)
+        self.news_title_array = np.asarray(title_token)
 
-#         self.title_lengths = np.asarray(title_lengths)
-#         self.news_ids = news_ids
+        self.title_lengths = np.asarray(title_lengths)
+        self.news_ids = news_ids
 
-#     def __getitem__(self, idx):
-#         """ parse behavior log No.idx to training example
+    def __getitem__(self, idx):
+        """ parse behavior log No.idx to training example
 
-#         Args:
-#             idx (int): impression index, start from zero
+        Args:
+            idx (int): impression index, start from zero
 
-#         Returns:
-#             dict of training data, including |npratio+1| cdd news word vector, |his_size+1| his news word vector etc.
-#         """
-#         if not hasattr(self, "news_title_array"):
-#             self.init_news()
+        Returns:
+            dict of training data, including |npratio+1| cdd news word vector, |his_size+1| his news word vector etc.
+        """
+        if not hasattr(self, "news_title_array"):
+            self.init_news()
 
-#         cdd_title_mask = [(self.title_length - self.title_pad[idx][0])*[1] + self.title_pad[idx][0]*[0]]
-#         return {
-#             "cdd_encoded_index": np.asarray([self.news_title_array[idx]]),
-#             "cdd_id": self.news_ids[idx],
-#             "cdd_attn_mask":np.asarray(cdd_title_mask)
-#         }
-
-
-# class MIND_impr(Dataset):
-#     """ Map Style Dataset for MIND, return each impression once
-
-#     Args:
-#         config(dict): pre-defined dictionary of hyper parameters
-#         news_file(str): path of news_file
-#         behaviors_file(str): path of behaviors_file
-#         shuffle(bool): whether to shuffle the order of impressions
-#     """
-
-#     def __init__(self, config, news_file, behaviors_file, shuffle_pos=False, validate=False):
-#         # initiate the whole iterator
-#         self.npratio = config.npratio
-#         self.shuffle_pos = shuffle_pos
-
-#         self.news_file = news_file
-#         self.behaviors_file = behaviors_file
-#         self.col_spliter = '\t'
-#         self.title_length = config.title_length
-#         self.abs_length = config.abs_size
-#         self.his_size = config.his_size
-
-#         self.multiview = config.multiview
-#         self.k = config.k
-
-#         # there are only two types of vocabulary
-#         self.vocab = getVocab('data/dictionaries/vocab_whole.pkl')
-
-#         self.nid2index = getId2idx(
-#             'data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, 'dev'))
-#         self.uid2index = getId2idx(
-#             'data/dictionaries/uid2idx_{}.json'.format(config.scale))
-#         self.vert2onehot = getId2idx(
-#             'data/dictionaries/vert2onehot.json'
-#         )
-#         self.subvert2onehot = getId2idx(
-#             'data/dictionaries/subvert2onehot.json'
-#         )
-
-#         self.mode = 'dev'
-
-#         self.init_news()
-#         self.init_behaviors()
-
-#     def init_news(self):
-#         """
-#             init news information given news file, such as news_title_array.
-#         """
-
-#         # VERY IMPORTANT!!! FIXME
-#         # The nid2idx dictionary must follow the original order of news in news.tsv
-
-#         titles = [[1]*self.max_title_length]
-#         title_lengths = [0]
-
-#         with open(self.news_file, "r", encoding='utf-8') as rd:
-#             for idx in rd:
-#                 nid, vert, subvert, title, ab, url, _, _ = idx.strip("\n").split(self.col_spliter)
-
-#                 title_token = tokenize(title, self.vocab)
-#                 titles.append(title_token[:self.max_title_length] + [1] * (self.max_title_length - len(title_token)))
-#                 title_lengths.append(len(title_token))
-
-#         # self.titles = titles
-#         self.news_title_array = np.asarray(titles)
-#         self.title_lengths = np.asarray(title_lengths)
-
-#     def init_behaviors(self):
-#         """
-#             init behavior logs given behaviors file.
-#         """
-#         # list of list of history news index
-#         histories = []
-#         # list of user index
-#         uindexes = []
-#         # list of list of history padding length
-#         his_sizes = []
-#         # list of impression indexes
-#         # self.impr_indexes = []
-
-#         # list of every cdd news index along with its impression index and label
-#         imprs = []
-
-#         impr_index = 0
-
-#         with open(self.behaviors_file, "r", encoding='utf-8') as rd:
-#             for idx in rd:
-#                 _, uid, time, history, impr = idx.strip("\n").split(self.col_spliter)
-
-#                 history = [self.nid2index[i] for i in history.split()]
-#                 # tailor user's history or pad 0
-#                 history = history[:self.max_his_size] + [0] * (self.max_his_size - len(history))
-#                 impr_news = [self.nid2index[i.split("-")[0]] for i in impr.split()]
-#                 labels = [int(i.split("-")[1]) for i in impr.split()]
-#                 # user will always in uid2index
-#                 uindex = self.uid2index[uid]
-
-#                 # store every impression
-#                 imprs.append((impr_index, impr_news[0], labels[0]))
-
-#                 # 1 impression correspond to 1 of each of the following properties
-#                 histories.append(history)
-#                 uindexes.append(uindex)
-
-#                 impr_index += 1
-
-#     def __len__(self):
-#         """
-#             return length of the whole dataset
-#         """
-#         return len(self.imprs)
-
-#     def __getitem__(self,index):
-#         """ return data
-#         Args:
-#             index: the index for stored impression
-
-#         Returns:
-#             back_dic: dictionary of data slice
-#         """
-
-#         impr = self.imprs[index] # (impression_index, news_index)
-#         impr_index = impr[0]
-#         impr_news = impr[1]
+        cdd_title_mask = [(self.title_length - self.title_pad[idx][0])*[1] + self.title_pad[idx][0]*[0]]
+        return {
+            "cdd_encoded_index": np.asarray([self.news_title_array[idx]]),
+            "cdd_id": self.news_ids[idx],
+            "cdd_attn_mask":np.asarray(cdd_title_mask)
+        }
 
 
-#         user_index = [self.uindexes[impr_index]]
+class MIND_impr(Dataset):
+    """ Map Style Dataset for MIND, return each impression once
 
-#         cdd_ids = [impr_news]
+    Args:
+        config(dict): pre-defined dictionary of hyper parameters
+        news_file(str): path of news_file
+        behaviors_file(str): path of behaviors_file
+        shuffle(bool): whether to shuffle the order of impressions
+    """
 
-#         his_ids = self.histories[impr_index][:self.his_size]
+    def __init__(self, config, news_file, behaviors_file, shuffle_pos=False, validate=False):
+        # initiate the whole iterator
+        self.npratio = config.npratio
+        self.shuffle_pos = shuffle_pos
 
-#         user_index = [self.uindexes[impr_index]]
-#         label = impr[2]
+        self.news_file = news_file
+        self.behaviors_file = behaviors_file
+        self.col_spliter = '\t'
+        self.title_length = config.title_length
+        self.abs_length = config.abs_length
+        self.his_size = config.his_size
 
-#         cdd_title_index = [self.news_title_array[impr_news]]
-#         his_title_index = self.news_title_array[his_ids][:, self.title_length]
-#         back_dic = {
-#             "impression_index": impr_index + 1,
-#             "user_index": np.asarray(user_index),
-#             'cdd_id': np.asarray(cdd_ids),
-#             "cdd_encoded_index": np.asarray(cdd_title_index),
-#             'his_id': np.asarray(his_ids),
-#             "his_encoded_index": his_title_index,
-#             "labels": np.asarray([label])
-#         }
+        self.multiview = config.multiview
+        self.k = config.k
 
-#         return back_dic
+        # there are only two types of vocabulary
+        self.vocab = getVocab('data/dictionaries/vocab_whole.pkl')
+
+        self.nid2index = getId2idx(
+            'data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, 'dev'))
+        self.uid2index = getId2idx(
+            'data/dictionaries/uid2idx_{}.json'.format(config.scale))
+        self.vert2onehot = getId2idx(
+            'data/dictionaries/vert2onehot.json'
+        )
+        self.subvert2onehot = getId2idx(
+            'data/dictionaries/subvert2onehot.json'
+        )
+
+        self.mode = 'dev'
+
+        self.init_news()
+        self.init_behaviors()
+
+    def init_news(self):
+        """
+            init news information given news file, such as news_title_array.
+        """
+
+        # VERY IMPORTANT!!! FIXME
+        # The nid2idx dictionary must follow the original order of news in news.tsv
+
+        titles = [[1]*self.max_title_length]
+        title_lengths = [0]
+
+        with open(self.news_file, "r", encoding='utf-8') as rd:
+            for idx in rd:
+                nid, vert, subvert, title, ab, url, _, _ = idx.strip("\n").split(self.col_spliter)
+
+                title_token = tokenize(title, self.vocab)
+                titles.append(title_token[:self.max_title_length] + [1] * (self.max_title_length - len(title_token)))
+                title_lengths.append(len(title_token))
+
+        # self.titles = titles
+        self.news_title_array = np.asarray(titles)
+        self.title_lengths = np.asarray(title_lengths)
+
+    def init_behaviors(self):
+        """
+            init behavior logs given behaviors file.
+        """
+        # list of list of history news index
+        histories = []
+        # list of user index
+        uindexes = []
+        # list of list of history padding length
+        his_sizes = []
+        # list of impression indexes
+        # self.impr_indexes = []
+
+        # list of every cdd news index along with its impression index and label
+        imprs = []
+
+        impr_index = 0
+
+        with open(self.behaviors_file, "r", encoding='utf-8') as rd:
+            for idx in rd:
+                _, uid, time, history, impr = idx.strip("\n").split(self.col_spliter)
+
+                history = [self.nid2index[i] for i in history.split()]
+                # tailor user's history or pad 0
+                history = history[:self.max_his_size] + [0] * (self.max_his_size - len(history))
+                impr_news = [self.nid2index[i.split("-")[0]] for i in impr.split()]
+                labels = [int(i.split("-")[1]) for i in impr.split()]
+                # user will always in uid2index
+                uindex = self.uid2index[uid]
+
+                # store every impression
+                imprs.append((impr_index, impr_news[0], labels[0]))
+
+                # 1 impression correspond to 1 of each of the following properties
+                histories.append(history)
+                uindexes.append(uindex)
+
+                impr_index += 1
+
+    def __len__(self):
+        """
+            return length of the whole dataset
+        """
+        return len(self.imprs)
+
+    def __getitem__(self,index):
+        """ return data
+        Args:
+            index: the index for stored impression
+
+        Returns:
+            back_dic: dictionary of data slice
+        """
+
+        impr = self.imprs[index] # (impression_index, news_index)
+        impr_index = impr[0]
+        impr_news = impr[1]
+
+
+        user_index = [self.uindexes[impr_index]]
+
+        cdd_ids = [impr_news]
+
+        his_ids = self.histories[impr_index][:self.his_size]
+
+        user_index = [self.uindexes[impr_index]]
+        label = impr[2]
+
+        cdd_title_index = [self.news_title_array[impr_news]]
+        his_title_index = self.news_title_array[his_ids][:, self.title_length]
+        back_dic = {
+            "impression_index": impr_index + 1,
+            "user_index": np.asarray(user_index),
+            'cdd_id': np.asarray(cdd_ids),
+            "cdd_encoded_index": np.asarray(cdd_title_index),
+            'his_id': np.asarray(his_ids),
+            "his_encoded_index": his_title_index,
+            "labels": np.asarray([label])
+        }
+
+        return back_dic

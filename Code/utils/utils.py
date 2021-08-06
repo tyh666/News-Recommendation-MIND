@@ -406,7 +406,7 @@ def load_manager():
 
     parser.add_argument("-ck", "--checkpoint", dest="checkpoint",
                         help="the checkpoint model to load", type=str)
-    parser.add_argument("--learning_rate", dest="learning_rate",
+    parser.add_argument("-lr","--learning_rate", dest="learning_rate",
                         help="learning rate when training", type=float, default=0)
     parser.add_argument("--schedule", dest="schedule", help="choose schedule scheme for optimizer", default="linear")
 
@@ -415,7 +415,7 @@ def load_manager():
     parser.add_argument("--metrics", dest="metrics",
                         help="metrics for evaluating the model, if multiple metrics are needed, seperate with ','", type=str, default="auc,mean_mrr,ndcg@5,ndcg@10")
 
-    parser.add_argument("-emb", "--embedding", dest="embedding", help="choose embedding", choices=['bert','glove'])
+    parser.add_argument("-emb", "--embedding", dest="embedding", help="choose embedding", choices=['bert','glove'], default='glove')
     parser.add_argument("-nenc", "--encoderN", dest="encoderN", help="choose news encoder", choices=['cnn','rnn','npa','fim','mha','bert'], default="cnn")
     parser.add_argument("-uenc", "--encoderU", dest="encoderU", help="choose user encoder", choices=['rnn','lstur'], default="rnn")
     parser.add_argument("-intr", "--interactor", dest="interactor", help="choose interactor", choices=['bert','fim','2dcnn','knrm'], default="fim")
@@ -509,6 +509,9 @@ def load_manager():
     #     args.name = args.pipeline
     #     args.spadam = False
 
+    # default to non-distributed training, this property can be modified by the script
+    args.rank = 0
+
     manager = Manager(args)
     return manager
 
@@ -561,7 +564,7 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
     #     loader_news_dev = DataLoader(
     #         dataset_dev, batch_size=config.batch_size, pin_memory=pin_memory, num_workers=num_workers, drop_last=False, collate_fn=my_collate)
 
-    #     vocab = dataset_train.vocab
+    #     vocab = getVocab('data/dictionaries/vocab_whole.pkl')
     #     embedding = GloVe(dim=300, cache=vec_cache_path)
     #     vocab.load_vectors(embedding)
 
@@ -593,7 +596,7 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
                                 behaviors_file=behavior_file_train)
             dataset_dev = MIND(config=config, news_file=news_file_dev,
                             behaviors_file=behavior_file_dev)
-            vocab = dataset_train.vocab
+            vocab = getVocab('data/dictionaries/vocab_whole.pkl')
             embedding = GloVe(dim=300, cache=vec_cache_path)
             vocab.load_vectors(embedding)
 
@@ -609,7 +612,7 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
         loader_train = DataLoader(dataset_train, batch_size=config.batch_size, pin_memory=pin_memory,
                                 num_workers=num_workers, drop_last=False, shuffle=False, collate_fn=my_collate, sampler=sampler_train)
         loader_dev = DataLoader(dataset_dev, batch_size=config.batch_size, pin_memory=pin_memory,
-                                num_workers=num_workers, drop_last=False, collate_fn=my_collate, sampler=sampler_dev)
+                                num_workers=num_workers, drop_last=False, collate_fn=my_collate)
 
         return vocab, [loader_train, loader_dev]
 
@@ -623,7 +626,8 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
         else:
             dataset_dev = MIND(config=config, news_file=news_file_dev,
                             behaviors_file=behavior_file_dev)
-            vocab = dataset_dev.vocab
+
+            vocab = getVocab('data/dictionaries/vocab_whole.pkl')
             embedding = GloVe(dim=300, cache=vec_cache_path)
             vocab.load_vectors(embedding)
 
@@ -644,7 +648,9 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
             dataset_test = MIND_bert(config, news_file_test, behavior_file_test)
         else:
             dataset_test = MIND(config, news_file_test, behavior_file_test)
-            vocab = dataset_test.vocab
+
+            vocab = getVocab('data/dictionaries/vocab_whole.pkl')
+
             embedding = GloVe(dim=300, cache=vec_cache_path)
             vocab.load_vectors(embedding)
 
@@ -714,15 +720,17 @@ def analyse(config):
 
 def setup(rank, world_size):
     """
-    set up distributed training
+    set up distributed training and fix seeds
     """
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '12355'
 
     # initialize the process group
     dist.init_process_group("nccl", rank=rank, world_size=world_size)
-    torch.cuda.set_device(rank)
 
+    torch.cuda.set_device(rank)
+    torch.manual_seed(42)
+    torch.cuda.manual_seed_all(42)
 
 def get_device():
     """
@@ -736,6 +744,6 @@ def get_device():
 
 def cleanup():
     """
-    shut down the training process
+    shut down the distributed training process
     """
     dist.destroy_process_group()

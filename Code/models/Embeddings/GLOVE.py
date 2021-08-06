@@ -12,9 +12,6 @@ class GLOVE_Embedding(nn.Module):
         self.embedding_dim = 300
         config.embedding_dim = self.embedding_dim
 
-        # FIXME: multiview
-        config.signal_length = config.title_length
-
         self.embedding = nn.Embedding.from_pretrained(
             vocab.vectors,
             sparse=config.spadam,

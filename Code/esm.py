@@ -42,7 +42,6 @@ def main(rank, manager, dist=False):
     if dist:
         esm = DDP(esm, device_ids=[rank], output_device=rank)
 
-
     if manager.mode == 'dev':
         manager.evaluate(esm, loaders[0], loading=True)
 
@@ -60,11 +59,11 @@ def main(rank, manager, dist=False):
 
 if __name__ == "__main__":
     manager = load_manager()
-    if manager.world_size > 0:
+    if manager.world_size > 1:
         mp.spawn(
             main,
             args=(manager, True),
             nprocs=manager.world_size
         )
     else:
-        main(manager.device, manager)
+        main(manager.device, manager, dist=False)
