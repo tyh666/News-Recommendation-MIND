@@ -4,6 +4,7 @@ class config:
     batch_size = 10
     title_length = 20
     abs_length = 40
+    signal_length = 50
     his_size = 50
     learning_rate = 1e-3
     # vert_num = 18
