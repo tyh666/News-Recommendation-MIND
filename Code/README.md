@@ -6,6 +6,9 @@
   - [ ] propotion > 300
   - [ ] propotion > 400
 
+## Embedding
+- [ ] Random embedding
+
 ## News Encoder
 - [x] CNN encoder
   - [ ] output hidden_dim=768
@@ -43,6 +46,29 @@
   - [ ] pooling
     - [x] pool with cls
     - [ ] pool with mean
+  - [ ] **customized bert**
+    - [ ] **how to rewrite modules and load bert weight?**
+    - [ ] relative position embedding?
+  - [ ] candidate news attention mask
+  - [ ] insert CLS in embedding layer, not fusion
+
+### Embedding
+- insert [CLS] token
+- add absolute position encoding
+
+### Fusion
+- append [SEP] token in the front of personalized terms
+
+### Interactor
+#### Bert
+
+#### Cross-Bert
+- only encode candidate news
+- extra input: personalized terms, namely `references`
+- concate the input news and the references inside
+- every hidden state in the candidate news attend to references
+
+
 - [ ] FIM
 - [ ] KNRM
 
@@ -75,6 +101,9 @@ in SpeedyFeed
 ## Need to update
 - [ ] Encoders.MHA, NPA, Pipeline, Random Embedding
 - [ ]
+
+## bash
+export TRANSFORMERS_CACHE=/blabla/cache/
 
 ## Phylosiphy
 ### manager
