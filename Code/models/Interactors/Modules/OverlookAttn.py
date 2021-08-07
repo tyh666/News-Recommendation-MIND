@@ -50,8 +50,6 @@ class BertSelfAttention(nn.Module):
         """
         # [CLS] + signal_length
         attn_field = hidden_states[:, :self.signal_length + 1]
-        # personalized terms
-        references = hidden_states[:, self.signal_length + 1:]
 
         # [batch_size, head_num, *, head_dim]
         key_layer = self.transpose_for_scores(self.key(hidden_states))
@@ -60,7 +58,6 @@ class BertSelfAttention(nn.Module):
 
         # Take the dot product between "query" and "key" to get the raw attention scores.
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
-        print(attention_scores.shape, 'fuck')
 
         # if self.position_embedding_type == "relative_key" or self.position_embedding_type == "relative_key_query":
         #     seq_length = hidden_states.size()[1]
