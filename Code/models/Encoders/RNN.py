@@ -33,11 +33,11 @@ class RNN_Encoder(nn.Module):
         return news_embedding.view(*news_embedding.shape[:-1], self.level, self.hidden_dim), news_repr
 
 class RNN_User_Encoder(nn.Module):
-    def __init__(self, hidden_dim):
+    def __init__(self, config):
         super().__init__()
         self.name = 'rnn-user-encoder'
 
-        self.hidden_dim = hidden_dim
+        self.hidden_dim = config.hidden_dim
         self.lstm = nn.LSTM(self.hidden_dim, self.hidden_dim, batch_first=True)
 
     def forward(self, news_reprs):

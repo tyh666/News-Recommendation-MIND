@@ -5,13 +5,13 @@ class DRM_Matching(nn.Module):
     """
     basic document reducer: topk
     """
-    def __init__(self, k, threshold = -float('inf')):
+    def __init__(self, config):
         super().__init__()
 
         self.name = "matching-based"
 
-        self.k = k
-        self.threshold = threshold
+        self.k = config.k
+        self.threshold = config.threshold
 
     def forward(self, news_embedding, user_repr):
         """

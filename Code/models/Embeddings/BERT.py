@@ -21,6 +21,7 @@ class BERT_Embedding(nn.Module):
         )
         self.embedding = bert.embeddings.word_embeddings
         self.pos_embedding = nn.Parameter(bert.embeddings.position_embeddings.weight[:config.signal_length].unsqueeze(0))
+
         self.layerNorm = bert.embeddings.LayerNorm
         self.dropOut = bert.embeddings.dropout
 

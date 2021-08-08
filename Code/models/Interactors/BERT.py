@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from transformers import BertModel,BertConfig
-from Modules.OverlookAttn import BertSelfAttention
+from .Modules.OverlookAttn import BertSelfAttention
 
 
 class BERT_Interactor(nn.Module):
@@ -15,6 +15,7 @@ class BERT_Interactor(nn.Module):
 
         self.name = 'bert'
         self.his_size = config.his_size
+        self.device = config.device
 
         self.hidden_dim = config.hidden_dim
 
@@ -22,13 +23,14 @@ class BERT_Interactor(nn.Module):
 
         bert_config = BertConfig()
         # primary bert
-        a = BertModel(bert_config).encoder
-        a.signal_length = config.signal_length
-        for l in a.layer:
-            l.attention.self = BertSelfAttention(a.config)
+        prim_bert = BertModel(bert_config).encoder
+        bert_config.signal_length = config.signal_length
+        for l in prim_bert.layer:
+            l.attention.self = BertSelfAttention(bert_config)
 
         bert = BertModel.from_pretrained(config.bert)
-        a.load_state_dict(bert.encoder.state_dict())
+        prim_bert.load_state_dict(bert.encoder.state_dict())
+        self.bert = prim_bert
 
         self.inte_embedding = nn.Parameter(torch.randn(1,1,1,self.hidden_dim))
         self.order_embedding = nn.Parameter(torch.randn(1, config.his_size, 1, config.hidden_dim))
@@ -43,7 +45,7 @@ class BERT_Interactor(nn.Module):
 
     def fusion(self, ps_terms, batch_size):
         """
-        fuse the personalized terms
+        fuse the personalized terms, add interval embedding and order embedding
 
         Args:
             ps_terms: [batch_size, his_size, k, level, hidden_dim]
@@ -52,6 +54,7 @@ class BERT_Interactor(nn.Module):
             ps_terms: [batch_size, term_num (his_size*k + his_size - 1), hidden_dim]
         """
 
+        # insert interval embedding between historical news
         # [bs,hs,k+1,hd]
         ps_terms = torch.cat([ps_terms.squeeze(-2), self.inte_embedding.expand(batch_size, self.his_size, 1, self.hidden_dim)], dim=-2)
 
@@ -63,13 +66,14 @@ class BERT_Interactor(nn.Module):
         return ps_terms.view(batch_size, -1, self.hidden_dim)
 
 
-    def forward(self, cdd_news_embedding, ps_terms):
+    def forward(self, ps_terms, cdd_news_embedding, cdd_attn_mask):
         """
         calculate interaction tensor and reduce it to a vector
 
         Args:
-            cdd_news_embedding: word-level representation of candidate news, [batch_size, cdd_size, signal_length, level, hidden_dim]
             ps_terms: personalized terms, [batch_size, his_size, k, level, hidden_dim]
+            cdd_news_embedding: word-level representation of candidate news, [batch_size, cdd_size, signal_length, level, hidden_dim]
+            cdd_attn_mask: attention mask of the candidate news, [batch_size, cdd_size, signal_length]
 
         Returns:
             reduced_tensor: output tensor after CNN2d, [batch_size, cdd_size, final_dim]
@@ -80,10 +84,12 @@ class BERT_Interactor(nn.Module):
 
         # [bs,tn,hd]
         ps_terms = self.fusion(ps_terms, batch_size)
+        term_num = ps_terms.size(1)
 
         # [CLS], cdd_news, [SEP], his_news_1, his_news_2, ...
-        bert_input = torch.cat([self.cls_embedding.expand(bs, 1, self.hidden_dim), cdd_news_embedding.view(bs, -1, self.hidden_dim), self.sep_embedding.expand(bs, 1, self.hidden_dim), ps_terms.unsqueeze(1).expand(batch_size, cdd_size, ps_terms.size(1), self.hidden_dim).reshape(-1, *ps_terms.shape[1:])], dim=-2)
-        bert_output = self.bert(bert_input).last_hidden_state[:, 0, :].view(batch_size, cdd_size, self.hidden_dim)
+        bert_input = torch.cat([self.cls_embedding.expand(bs, 1, self.hidden_dim), cdd_news_embedding.view(bs, -1, self.hidden_dim), self.sep_embedding.expand(bs, 1, self.hidden_dim), ps_terms.unsqueeze(1).expand(batch_size, cdd_size, term_num, self.hidden_dim).reshape(-1, *ps_terms.shape[1:])], dim=-2)
+        attn_mask = torch.cat([torch.ones(bs, 1, device=self.device), cdd_attn_mask.view(bs, -1), torch.ones(bs, 1 + term_num, device=self.device)], dim=-1).view(bs, 1, 1, -1)
+        bert_output = self.bert(bert_input, attention_mask=attn_mask).last_hidden_state[:, 0].view(batch_size, cdd_size, self.hidden_dim)
 
         return bert_output
 

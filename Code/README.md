@@ -49,8 +49,10 @@
   - [ ] **customized bert**
     - [ ] **how to rewrite modules and load bert weight?**
     - [ ] relative position embedding?
+  - [ ] personalized terms do not interact with each other?
   - [ ] candidate news attention mask
-  - [ ] insert CLS in embedding layer, not fusion
+  - [x] insert CLS in embedding layer, not fusion
+    - fobiddable, otherwise the [CLS] would be extracted
 
 ### Embedding
 - insert [CLS] token

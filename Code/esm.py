@@ -32,8 +32,8 @@ def main(rank, manager, dist=False):
 
     embedding = BERT_Embedding(manager)
     encoderN = CNN_Encoder(manager)
-    encoderU = RNN_User_Encoder(encoderN.hidden_dim)
-    docReducer = DRM_Matching(manager.k)
+    encoderU = RNN_User_Encoder(manager)
+    docReducer = DRM_Matching(manager)
     # termFuser = TFM(manager.his_size, manager.k)
     # interactor = CNN_Interactor(manager)
     interactor = BERT_Interactor(manager)

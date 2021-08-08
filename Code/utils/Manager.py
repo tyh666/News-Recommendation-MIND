@@ -56,7 +56,8 @@ class Manager():
     """
     def __init__(self, args):
         for k,v in vars(args).items():
-            setattr(self, k, v)
+            if not k.startswith('__'):
+                setattr(self, k, v)
 
         self.cdd_size = self.npratio + 1
 

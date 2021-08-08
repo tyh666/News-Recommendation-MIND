@@ -67,7 +67,7 @@ class ESM(nn.Module):
         #     ps_terms = ps_terms.view(self.batch_size, -1, self.level, self.hidden_dim)
 
         # reduced_tensor = self.interactor(torch.cat([cdd_news_repr.unsqueeze(-2), cdd_news_embedding], dim=-2), torch.cat([user_repr, ps_terms], dim=-2))
-        reduced_tensor = self.interactor(cdd_news_embedding, ps_terms)
+        reduced_tensor = self.interactor(ps_terms, cdd_news_embedding, x["cdd_attn_mask"].to(self.device))
 
         return self.clickPredictor(reduced_tensor)
 

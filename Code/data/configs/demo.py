@@ -1,26 +1,39 @@
 class config:
     scale = 'demo'
     mode = 'tune'
+    epochs = 8
+
     batch_size = 10
+
+    k = 3
+    threshold = 0
     title_length = 20
     abs_length = 40
     signal_length = 50
+
+    npratio = 4
     his_size = 50
-    learning_rate = 1e-3
+
+    dropout_p = 0.2
+    device = 'cpu'
+    learning_rate = 3e-5
+    metrics = 'auc,mean_mrr,ndcg@5,ndcg@10'
     # vert_num = 18
     # subvert_num = 293
-    npratio = 4
-    dropout_p = 0.2
+
+    embedding = 'glove'
     embedding_dim = 300
     hidden_dim = 150
     # query_dim = 200
     # head_num = 16
-    epochs = 8
-    metrics = 'auc,mean_mrr,ndcg@5,ndcg@10'
-    device = 'cpu'
-    k = 5
+
+    rank = 0
+    world_size = 0
     step = [0]
     interval = 10
     val_freq = 2
     schedule = None
-    embedding = 'glove'
+    path = "../../Data/"
+    tb = False
+
+    bert = 'bert-base-uncased'
