@@ -5,7 +5,7 @@ import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from models.Embeddings.BERT import BERT_Embedding
-from models.Interactors.BERT import BERT_Interactor
+from models.Interactors.BERT_Overlook import BERT_Interactor
 from models.Encoders.CNN import CNN_Encoder
 from models.Encoders.FIM import FIM_Encoder
 from models.Encoders.RNN import RNN_User_Encoder

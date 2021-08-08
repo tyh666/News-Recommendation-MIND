@@ -18,7 +18,7 @@ from sklearn.metrics import roc_auc_score, log_loss, mean_squared_error, accurac
 
 logger = logging.getLogger(__name__)
 
-hparam_list = ["name", "scale", "his_size", "k", "threshold", "learning_rate"]
+hparam_list = ["name", "scale", "his_size", "k", "threshold", "learning_rate", "signal_length"]
 
 # def dist_sync(func):
 #     def void_dict():
@@ -68,8 +68,8 @@ class Manager():
         """
         # FIXME: checkpoints
 
-        if self.scale == 'demo':
-            return
+        # if self.scale == 'demo':
+        #     return
 
         save_path = "data/model_params/{}/{}_epoch{}_step{}_[k={}].model".format(
             self.name, self.scale, epoch, step, self.k)
@@ -135,19 +135,17 @@ class Manager():
         """
             wrap logging, skip logging results on MINDdemo
         """
-        if self.scale == 'demo':
-            pass
-        else:
-            # logger.info("evaluation results:{}".format(res))
-            with open("performance.log", "a+") as f:
-                d = {"name": self.name}
-                for k, v in vars(self).items():
-                    if k in hparam_list:
-                        d[k] = v
 
-                f.write(str(d)+"\n")
-                f.write(str(res) + "\n")
-                f.write("\n")
+        # logger.info("evaluation results:{}".format(res))
+        with open("performance.log", "a+") as f:
+            d = {"name": self.name}
+            for k, v in vars(self).items():
+                if k in hparam_list:
+                    d[k] = v
+
+            f.write(str(d)+"\n")
+            f.write(str(res) + "\n")
+            f.write("\n")
 
 
     def _get_loss(self, model):
@@ -218,7 +216,7 @@ class Manager():
 
 
     @torch.no_grad()
-    def _run_eval(self, model, dataloader, smoothing=1):
+    def _eval(self, model, dataloader, smoothing=1):
         """ making prediction and gather results into groups according to impression_id
 
         Args:
@@ -280,7 +278,7 @@ class Manager():
 
         logger.info("evaluating...")
 
-        imp_indexes, labels, preds = self._run_eval(model, dataloader)
+        imp_indexes, labels, preds = self._eval(model, dataloader)
 
         res = cal_metric(labels, preds, self.metrics.split(","))
 
@@ -296,7 +294,7 @@ class Manager():
         return res
 
 
-    def _run_train(self, model, dataloader, optimizers, loss_func, epochs, schedulers=None, writer=None, interval=100, save_step=None):
+    def _train(self, model, dataloader, optimizers, loss_func, epochs, schedulers=None, writer=None, interval=100, save_step=None):
         """ train model and print loss meanwhile
         Args:
             dataloader(torch.utils.data.DataLoader): provide data
@@ -377,19 +375,17 @@ class Manager():
                 self.name, self.scale, datetime.now().strftime("%Y%m%d-%H")))
 
         # in case the folder does not exists, create one
-        save_directory = "data/model_params/{}".format(self.name)
-        if not os.path.exists(save_directory):
-            os.makedirs(save_directory)
+        os.makedirs("data/model_params/{}".format(self.name), exist_ok=True)
 
         logger.info("training...")
         loss_func = self._get_loss(model)
         optimizers, schedulers = self._get_optim(model, loaders[0])
 
-        self._run_train(model, loaders[0], optimizers, loss_func, self.epochs, schedulers=schedulers,
+        self._train(model, loaders[0], optimizers, loss_func, self.epochs, schedulers=schedulers,
                         writer=writer, interval=self.interval, save_step=self.step[0])
 
 
-    def _run_tune(self, model, loaders, optimizers, loss_func, schedulers=[], writer=None, interval=100, save_step=None):
+    def _tune(self, model, loaders, optimizers, loss_func, schedulers=[], writer=None, interval=100, save_step=None):
         """ train model and evaluate on validation set once every save_step
         Args:
             dataloader(torch.utils.data.DataLoader): provide data
@@ -452,7 +448,7 @@ class Manager():
                         logger.info("current result of {} is {}".format(self.name, result))
                         if result["auc"] > best_res["auc"]:
                             best_res = result
-                            self.save(epoch+1, step, optimizers)
+                            self.save(model, epoch+1, step, optimizers)
                             self._log(result)
 
                         # elif result["auc"] - best_res["auc"] < -0.05:
@@ -489,15 +485,14 @@ class Manager():
                 self.name, self.scale, datetime.now().strftime("%Y%m%d-%H")))
 
         # in case the folder does not exists, create one
-        save_directory = "data/model_params/{}".format(self.name)
-        if not os.path.exists(save_directory):
-            os.makedirs(save_directory)
+        os.makedirs("data/model_params/{}".format(self.name), exist_ok=True)
+
 
         logger.info("training...")
         loss_func = self._get_loss(model)
         optimizers, schedulers = self._get_optim(model, loaders[0])
 
-        res = self._run_tune(model, loaders, optimizers, loss_func, schedulers=schedulers,
+        res = self._tune(model, loaders, optimizers, loss_func, schedulers=schedulers,
                         writer=writer, interval=self.interval, save_step=int(len(loaders[0])/self.val_freq)-1)
 
         self._log(res)
@@ -517,9 +512,7 @@ class Manager():
         model.cdd_size = 1
         model.eval()
 
-        save_directory = "data/results/{}".format(self.name)
-        if not os.path.exists(save_directory):
-            os.makedirs(save_directory)
+        os.makedirs("data/results/{}".format(self.name), exist_ok=True)
 
         save_path = save_directory + "/{}_epoch{}_step{}_[k={}].txt".format(
             self.scale, self.epochs, self.step[0], self.k)

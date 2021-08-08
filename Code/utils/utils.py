@@ -413,7 +413,7 @@ def load_manager():
     parser.add_argument("--npratio", dest="npratio",
                         help="the number of unclicked news to sample when training", type=int, default=4)
     parser.add_argument("--metrics", dest="metrics",
-                        help="metrics for evaluating the model, if multiple metrics are needed, seperate with ','", type=str, default="auc,mean_mrr,ndcg@5,ndcg@10")
+                        help="metrics for evaluating the model, if multiple metrics are needed, seperate with ','", type=str, default=None)
 
     parser.add_argument("-emb", "--embedding", dest="embedding", help="choose embedding", choices=['bert','glove'], default='glove')
     parser.add_argument("-nenc", "--encoderN", dest="encoderN", help="choose news encoder", choices=['cnn','rnn','npa','fim','mha','bert'], default="cnn")
@@ -421,13 +421,14 @@ def load_manager():
     parser.add_argument("-intr", "--interactor", dest="interactor", help="choose interactor", choices=['bert','fim','2dcnn','knrm'], default="fim")
 
     parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=0)
+    parser.add_argument("--threshold", dest="threshold", help="threshold to mask terms", default=-float("inf"), type=float)
     # parser.add_argument("--multiview", dest="multiview", help="if clarified, SFI-MultiView will be called", action="store_true")
-    # parser.add_argument("--threshold", dest="threshold", help="if clarified, SFI will dynamically mask attention weights smaller than threshold with 0", default=-float("inf"), type=float)
     # parser.add_argument("--coarse", dest="coarse", help="if clarified, coarse-level matching signals will be taken into consideration",action='store_true')
 
     # parser.add_argument("--ensemble", dest="ensemble", help="choose ensemble strategy for SFI-ensemble", type=str, default=None)
     parser.add_argument("--spadam", dest="spadam", default=False)
     parser.add_argument("--tb", dest="tb", default=False)
+    parser.add_argument("--seeds", dest="seeds", default=None, type=int)
 
     parser.add_argument("--bert", dest="bert", help="choose bert model", choices=["bert-base-uncased"], default="bert-base-uncased")
     parser.add_argument("--level", dest="level", help="intend for bert encoder, if clarified, level representations will be kept for a token", type=int, default=1)
@@ -457,13 +458,10 @@ def load_manager():
     if len(args.device) == 1:
         args.device = int(args.device)
 
-    if not args.learning_rate:
-        if args.scale == "demo":
-            args.learning_rate = 1e-3
-        else:
-            args.learning_rate = 1e-4
-    else:
-        args.learning_rate = args.learning_rate
+    args.metrics = "auc,mean_mrr,ndcg@5,ndcg@10"
+    if args.metrics:
+        args.metrics = "auc,mean_mrr,ndcg@5,ndcg@10" + "," + args.metrics
+
     if not args.interval:
         if args.scale == "demo":
             args.interval = 10
@@ -530,6 +528,11 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
     logging.info("Hyper Parameters are {}".format(info(config)))
 
     logging.info("preparing dataset...")
+
+    if config.seeds:
+        torch.manual_seed(config.seeds)
+        torch.cuda.manual_seed(config.seeds)
+        torch.cuda.manual_seed_all(config.seeds)
 
     vocab = None
     mind_path = config.path + "MIND"

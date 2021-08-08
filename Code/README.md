@@ -8,6 +8,7 @@
 
 ## Embedding
 - [ ] Random embedding
+- [x] add absolute position encoding
 
 ## News Encoder
 - [x] CNN encoder
@@ -47,16 +48,12 @@
     - [x] pool with cls
     - [ ] pool with mean
   - [ ] **customized bert**
-    - [ ] **how to rewrite modules and load bert weight?**
+    - [x] **how to rewrite modules and load bert weight?**
     - [ ] relative position embedding?
   - [ ] personalized terms do not interact with each other?
-  - [ ] candidate news attention mask
+  - [x] candidate news attention mask
   - [x] insert CLS in embedding layer, not fusion
     - fobiddable, otherwise the [CLS] would be extracted
-
-### Embedding
-- insert [CLS] token
-- add absolute position encoding
 
 ### Fusion
 - append [SEP] token in the front of personalized terms

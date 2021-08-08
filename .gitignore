@@ -10,3 +10,4 @@
 .vector_cache/
 *.pyc
 cache
+model_params
