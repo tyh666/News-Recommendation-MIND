@@ -1,4 +1,3 @@
-from models.Encoders.FIM import FIM_Encoder
 from utils.utils import prepare, load_manager, setup, cleanup
 
 import torch.multiprocessing as mp
@@ -22,11 +21,7 @@ def main(rank, manager, dist=False):
         world_size: total gpus
         conig
     """
-    if dist:
-        setup(rank, manager.world_size)
-
-    manager.device = rank
-    manager.rank = rank
+    setup(rank, manager)
 
     vocab, loaders = prepare(manager)
 

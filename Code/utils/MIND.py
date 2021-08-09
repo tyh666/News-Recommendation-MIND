@@ -55,7 +55,7 @@ class MIND(Dataset):
             self.max_his_size = 100
 
             # there are only two types of vocabulary
-            self.vocab = getVocab('data/dictionaries/vocab_whole.pkl')
+            self.vocab = getVocab('data/dictionaries/vocab.pkl')
 
             self.nid2index = getId2idx(
                 'data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, self.mode))
@@ -791,7 +791,7 @@ class MIND_news(Dataset):
             '{}_(.*)/'.format(config.scale), news_file).group(1)
 
         self.vocab = getVocab(
-            'data/dictionaries/vocab_whole.pkl')
+            'data/dictionaries/vocab.pkl')
         self.nid2index = getId2idx(
             'data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, mode))
 
@@ -874,7 +874,7 @@ class MIND_impr(Dataset):
         self.k = config.k
 
         # there are only two types of vocabulary
-        self.vocab = getVocab('data/dictionaries/vocab_whole.pkl')
+        self.vocab = getVocab('data/dictionaries/vocab.pkl')
 
         self.nid2index = getId2idx(
             'data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, 'dev'))

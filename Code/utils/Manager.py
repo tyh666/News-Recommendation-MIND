@@ -294,7 +294,7 @@ class Manager():
         return res
 
 
-    def _train(self, model, dataloader, optimizers, loss_func, epochs, schedulers=None, writer=None, interval=100, save_step=None):
+    def _train(self, model, dataloader, optimizers, loss_func, epochs, schedulers=None, writer=None, interval=100, save_step=None, dist=False):
         """ train model and print loss meanwhile
         Args:
             dataloader(torch.utils.data.DataLoader): provide data
@@ -314,6 +314,10 @@ class Manager():
         for epoch in range(epochs):
             epoch_loss = 0
             tqdm_ = tqdm(dataloader)
+
+            if dist:
+                dataloader.sampler.set_epoch(epoch)
+
             for step, x in enumerate(tqdm_):
 
                 for optimizer in optimizers:
@@ -382,10 +386,10 @@ class Manager():
         optimizers, schedulers = self._get_optim(model, loaders[0])
 
         self._train(model, loaders[0], optimizers, loss_func, self.epochs, schedulers=schedulers,
-                        writer=writer, interval=self.interval, save_step=self.step[0])
+                        writer=writer, interval=self.interval, save_step=self.step[0], dist=(self.world_size > 1))
 
 
-    def _tune(self, model, loaders, optimizers, loss_func, schedulers=[], writer=None, interval=100, save_step=None):
+    def _tune(self, model, loaders, optimizers, loss_func, schedulers=[], writer=None, interval=100, save_step=None, dist=False):
         """ train model and evaluate on validation set once every save_step
         Args:
             dataloader(torch.utils.data.DataLoader): provide data
@@ -406,6 +410,10 @@ class Manager():
         for epoch in range(self.epochs):
             epoch_loss = 0
             tqdm_ = tqdm(loaders[0], smoothing=0)
+
+            if dist:
+                loaders[0].sampler.set_epoch(epoch)
+
             for step, x in enumerate(tqdm_):
 
                 for optimizer in optimizers:
@@ -487,13 +495,12 @@ class Manager():
         # in case the folder does not exists, create one
         os.makedirs("data/model_params/{}".format(self.name), exist_ok=True)
 
-
         logger.info("training...")
         loss_func = self._get_loss(model)
         optimizers, schedulers = self._get_optim(model, loaders[0])
 
         res = self._tune(model, loaders, optimizers, loss_func, schedulers=schedulers,
-                        writer=writer, interval=self.interval, save_step=int(len(loaders[0])/self.val_freq)-1)
+                        writer=writer, interval=self.interval, save_step=int(len(loaders[0])/self.val_freq)-1, dist=(self.world_size > 1))
 
         self._log(res)
 
@@ -512,7 +519,8 @@ class Manager():
         model.cdd_size = 1
         model.eval()
 
-        os.makedirs("data/results/{}".format(self.name), exist_ok=True)
+        save_directory = "data/results/{}".format(self.name)
+        os.makedirs(save_directory, exist_ok=True)
 
         save_path = save_directory + "/{}_epoch{}_step{}_[k={}].txt".format(
             self.scale, self.epochs, self.step[0], self.k)

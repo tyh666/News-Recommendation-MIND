@@ -3,12 +3,17 @@ import torch.nn as nn
 
 # FIXME: no enough dimension for 3dcnn
 class FIM_Interactor(nn.Module):
-    def __init__(self, level):
+    def __init__(self, config):
         super().__init__()
         self.name = 'fim'
 
+        if config.k > 9:
+            self.final_dim = int(int(config.k / 3) /3) * int(int(config.title_length / 3) / 3)**2 * 16
+        else:
+            self.final_dim = (config.k-4) * int(int(config.title_length / 3) / 3)**2 * 16
+
         self.SeqCNN3D = nn.Sequential(
-            nn.Conv3d(in_channels=level, out_channels=32, kernel_size=[3, 3, 3], padding=1),
+            nn.Conv3d(in_channels=config.level, out_channels=32, kernel_size=[3, 3, 3], padding=1),
             nn.ReLU(),
             nn.MaxPool3d(kernel_size=[3, 3, 3], stride=[3, 3, 3]),
             nn.Conv3d(in_channels=32, out_channels=16, kernel_size=[3, 3, 3], padding=1),
@@ -40,5 +45,5 @@ class FIM_Interactor(nn.Module):
         # reshape the tensor in order to feed into 3D CNN pipeline
         matching_tensor = matching_tensor.view(-1, matching_tensor.shape[2:])
 
-        matching_tensor = self.SeqCNN3D(matching_tensor).view(cdd_news_embedding.shape[0], cdd_news_embedding.shape[1], -1)
+        matching_tensor = self.SeqCNN3D(matching_tensor).view(cdd_news_embedding.shape[0], cdd_news_embedding.shape[1], self.final_dim)
         return matching_tensor

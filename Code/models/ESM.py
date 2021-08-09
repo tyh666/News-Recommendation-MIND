@@ -6,8 +6,7 @@ class ESM(nn.Module):
         super().__init__()
 
         self.scale = config.scale
-        self.cdd_size = (config.npratio +
-                         1) if config.npratio > 0 else 1
+        self.cdd_size = config.cdd_size
         self.batch_size = config.batch_size
         self.his_size = config.his_size
         self.device = config.device

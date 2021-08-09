@@ -82,7 +82,7 @@ def news_token_generator(news_file_list, tokenizer, attrs):
         yield tokenizer(" ".join(content))
 
 
-def constructVocab(news_file_list, attrs):
+def construct_vocab(news_file_list, attrs):
     """
         Build field using torchtext for tokenization
 
@@ -94,9 +94,9 @@ def constructVocab(news_file_list, attrs):
         news_token_generator(news_file_list, tokenizer, attrs))
 
     # adjustments for torchtext >= 0.10.0
-    vocab.insert_token('[PAD]', 0)
-    vocab.insert_token('[UNK]', 0)
-    vocab.set_default_index(0)
+    # vocab.insert_token('[PAD]', 0)
+    # vocab.insert_token('[UNK]', 0)
+    # vocab.set_default_index(0)
 
     output = open(
         "data/dictionaries/vocab_{}.pkl".format(",".join(attrs)), "wb")
@@ -104,7 +104,7 @@ def constructVocab(news_file_list, attrs):
     output.close()
 
 
-def constructNid2idx(news_file, scale, mode):
+def construct_nid2idx(news_file, scale, mode):
     """
         Construct news to newsID dictionary, index starting from 1
     """
@@ -123,7 +123,7 @@ def constructNid2idx(news_file, scale, mode):
     h.close()
 
 
-def constructUid2idx(behavior_file_list, scale):
+def construct_uid2idx(behavior_file_list, scale):
     """
         Construct user to userID dictionary, index starting from 1
     """
@@ -146,13 +146,13 @@ def constructUid2idx(behavior_file_list, scale):
     h.close()
 
 
-def constructBasicDict(attrs=["title"], path="../../../Data/MIND"):
+def construct_basic_dict(attrs=['title','abstract','category','subcategory'], path="../../../Data/MIND"):
     """
         construct basic dictionary
     """
     news_file_list = [path + "/MINDlarge_train/news.tsv", path +
                        "/MINDlarge_dev/news.tsv", path + "/MINDlarge_test/news.tsv"]
-    constructVocab(news_file_list, attrs)
+    construct_vocab(news_file_list, attrs)
 
     for scale in ["demo", "small", "large"]:
         news_file_list = [path + "/MIND{}_train/news.tsv".format(
@@ -165,11 +165,11 @@ def constructBasicDict(attrs=["title"], path="../../../Data/MIND"):
             news_file_dev = news_file_list[1]
             news_file_test = news_file_list[2]
 
-            constructNid2idx(news_file_train, scale, "train")
-            constructNid2idx(news_file_dev, scale, "dev")
-            constructNid2idx(news_file_test, scale, "test")
+            construct_nid2idx(news_file_train, scale, "train")
+            construct_nid2idx(news_file_dev, scale, "dev")
+            construct_nid2idx(news_file_test, scale, "test")
 
-            constructUid2idx(behavior_file_list, scale)
+            construct_uid2idx(behavior_file_list, scale)
 
         else:
             news_file_list = news_file_list[0:2]
@@ -177,14 +177,14 @@ def constructBasicDict(attrs=["title"], path="../../../Data/MIND"):
             news_file_train = news_file_list[0]
             news_file_dev = news_file_list[1]
 
-            constructNid2idx(news_file_train, scale, "train")
-            constructNid2idx(news_file_dev, scale, "dev")
+            construct_nid2idx(news_file_train, scale, "train")
+            construct_nid2idx(news_file_dev, scale, "dev")
 
             behavior_file_list = behavior_file_list[0:2]
-            constructUid2idx(behavior_file_list, scale)
+            construct_uid2idx(behavior_file_list, scale)
 
 
-def constructVertOnehot():
+def construct_vert_onehot():
     import pandas as pd
     path = "/home/peitian_zhang/Data/MIND"
     news_file_list = [path + "/MINDlarge_train/news.tsv", path +
@@ -224,7 +224,7 @@ def constructVertOnehot():
     json.dump(subvert2onehot, open("data/dictionaries/subvert2onehot.json","w"),ensure_ascii=False)
 
 
-def tailorData(tsvFile, num):
+def tailor_data(tsvFile, num):
     """ tailor num rows of tsvFile to create demo data file
 
     Args:
@@ -262,7 +262,7 @@ def tailorData(tsvFile, num):
     return
 
 
-def expandData():
+def expand_data():
     """ Beta
     """
     a = pd.read_table(r"D:\Data\MIND\MINDlarge_train\behaviors.tsv",
@@ -398,6 +398,8 @@ def load_manager():
                         help="history size", type=int, default=50)
     parser.add_argument("-hd", "--hidden_dim", dest="hidden_dim",
                     help="number of hidden states", type=int, default=200)
+    parser.add_argument("-dp", "--dropout_p", dest="dropout_p",
+                    help="dropout probability", type=float, default=0.2)
 
     parser.add_argument("-st","--step", dest="step",
                         help="if clarified, save model at the interval of given steps", type=str, default="0")
@@ -423,7 +425,7 @@ def load_manager():
     parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=0)
     parser.add_argument("--threshold", dest="threshold", help="threshold to mask terms", default=-float("inf"), type=float)
     # parser.add_argument("--multiview", dest="multiview", help="if clarified, SFI-MultiView will be called", action="store_true")
-    # parser.add_argument("--coarse", dest="coarse", help="if clarified, coarse-level matching signals will be taken into consideration",action='store_true')
+    parser.add_argument("--coarse", dest="coarse", help="if clarified, coarse-level matching signals will be taken into consideration", action='store_true', default=False)
 
     # parser.add_argument("--ensemble", dest="ensemble", help="choose ensemble strategy for SFI-ensemble", type=str, default=None)
     parser.add_argument("--spadam", dest="spadam", default=False)
@@ -567,7 +569,7 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
     #     loader_news_dev = DataLoader(
     #         dataset_dev, batch_size=config.batch_size, pin_memory=pin_memory, num_workers=num_workers, drop_last=False, collate_fn=my_collate)
 
-    #     vocab = getVocab('data/dictionaries/vocab_whole.pkl')
+    #     vocab = getVocab('data/dictionaries/vocab.pkl')
     #     embedding = GloVe(dim=300, cache=vec_cache_path)
     #     vocab.load_vectors(embedding)
 
@@ -599,7 +601,7 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
                                 behaviors_file=behavior_file_train)
             dataset_dev = MIND(config=config, news_file=news_file_dev,
                             behaviors_file=behavior_file_dev)
-            vocab = getVocab('data/dictionaries/vocab_whole.pkl')
+            vocab = getVocab('data/dictionaries/vocab.pkl')
             embedding = GloVe(dim=300, cache=vec_cache_path)
             vocab.load_vectors(embedding)
 
@@ -630,7 +632,7 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
             dataset_dev = MIND(config=config, news_file=news_file_dev,
                             behaviors_file=behavior_file_dev)
 
-            vocab = getVocab('data/dictionaries/vocab_whole.pkl')
+            vocab = getVocab('data/dictionaries/vocab.pkl')
             embedding = GloVe(dim=300, cache=vec_cache_path)
             vocab.load_vectors(embedding)
 
@@ -652,7 +654,7 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
         else:
             dataset_test = MIND(config, news_file_test, behavior_file_test)
 
-            vocab = getVocab('data/dictionaries/vocab_whole.pkl')
+            vocab = getVocab('data/dictionaries/vocab.pkl')
 
             embedding = GloVe(dim=300, cache=vec_cache_path)
             vocab.load_vectors(embedding)
@@ -721,19 +723,20 @@ def analyse(config):
         avg_title_length, avg_abstract_length, avg_his_length, avg_imp_length, cnt_his_lg_50, cnt_his_eq_0, cnt_imp_multi))
 
 
-def setup(rank, world_size):
+def setup(rank, manager):
     """
     set up distributed training and fix seeds
     """
-    os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_PORT'] = '12355'
+    if manager.world_size > 1:
+        os.environ['MASTER_ADDR'] = 'localhost'
+        os.environ['MASTER_PORT'] = '12355'
 
-    # initialize the process group
-    dist.init_process_group("nccl", rank=rank, world_size=world_size)
+        # initialize the process group
+        dist.init_process_group("nccl", rank=rank, world_size=manager.world_size)
 
-    torch.cuda.set_device(rank)
-    torch.manual_seed(42)
-    torch.cuda.manual_seed_all(42)
+        manager.device = rank
+    # needed for distributed sampler
+    manager.rank = rank
 
 def get_device():
     """

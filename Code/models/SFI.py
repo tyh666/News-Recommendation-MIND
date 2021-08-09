@@ -2,45 +2,48 @@ import logging
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from models.Attention import Attention
-from models.base_model import BaseModel
 
-class SFI(BaseModel):
-    def __init__(self, hparams, encoder, interactor):
-        super().__init__(hparams)
+class SFI(nn.Module):
+    def __init__(self, config, embedding, encoder, interactor):
+        super().__init__()
 
-        self.title_size = hparams['title_size']
-        self.k = hparams['k']
+        self.scale = config.scale
+        self.cdd_size = config.cdd_size
+        self.batch_size = config.batch_size
+        self.his_size = config.his_size
+        self.device = config.device
 
+        self.k = config.k
+
+        self.embedding = embedding
         self.encoder = encoder
+        self.interactor = interactor
+
+        self.name = '__'.join(['sfi', self.encoder.name, self.interactor.name])
+        config.name = self.name
+
+
         self.level = encoder.level
         self.hidden_dim = encoder.hidden_dim
-
-        self.interactor = interactor
-        if interactor.name == 'fim':
-            if self.k > 9:
-                final_dim = int(int(self.k / 3) /3) * int(int(self.title_size / 3) / 3)**2 * 16
-            else:
-                final_dim = (self.k-4) * int(int(self.title_size / 3) / 3)**2 * 16
-
-        elif interactor.name == '2dcnn':
-            final_dim = 16 * int(int(self.title_size / 3) / 3)**2
-        else:
-            final_dim = interactor.hidden_dim
+        self.final_dim = interactor.final_dim
 
         self.learningToRank = nn.Sequential(
-            nn.Linear(final_dim, int(final_dim/2)),
+            nn.Linear(self.final_dim, int(self.final_dim/2)),
             nn.ReLU(),
-            nn.Linear(int(final_dim/2),1)
+            nn.Linear(int(self.final_dim/2),1)
         )
-        self.name = '-'.join(['sfi', self.encoder.name, self.interactor.name])
+
+        # elif interactor.name == '2dcnn':
+        #     final_dim = 16 * int(int(self.title_size / 3) / 3)**2
+        # else:
+        #     final_dim = interactor.hidden_dim
 
         self.selectionProject = nn.Sequential(
             nn.Linear(self.hidden_dim, self.hidden_dim)
         )
 
-        if hparams['threshold'] != -float('inf'):
-            threshold = torch.tensor([hparams['threshold']])
+        if config.threshold != -float('inf'):
+            threshold = torch.tensor([config.threshold])
             self.register_buffer('threshold', threshold)
 
         for param in self.selectionProject:
@@ -117,16 +120,17 @@ class SFI(BaseModel):
 
         cdd_news = x['cdd_encoded_index'].long().to(self.device)
         cdd_news_embedding, cdd_news_repr = self.encoder(
-            cdd_news,
-            user_index=x['user_index'].long().to(self.device),
-            news_id=x['cdd_id'].long().to(self.device))
-            # attn_mask=x['cdd_encoded_index_pad'].to(self.device))
+            self.embedding(cdd_news)
+        )
+            # user_index=x['user_index'].long().to(self.device),
+            # news_id=x['cdd_id'].long().to(self.device))
 
         his_news = x["his_encoded_index"].long().to(self.device)
         his_news_embedding, his_news_repr = self.encoder(
-            his_news,
-            user_index=x['user_index'].long().to(self.device),
-            news_id=x['his_id'].long().to(self.device))
+            self.embedding(his_news),
+        )
+            # user_index=x['user_index'].long().to(self.device),
+            # news_id=x['his_id'].long().to(self.device))
             # attn_mask=x['clicked_title_pad'].to(self.device))
 
         # t2 = time.time()
@@ -163,50 +167,45 @@ class SFI(BaseModel):
         return score
 
 
-class SFI_unified(BaseModel):
-    def __init__(self, hparams, encoder, interactor):
-        super().__init__(hparams)
+class SFI_unified(nn.Module):
+    def __init__(self, config, encoder, interactor):
+        super().__init__()
 
-        self.title_size = hparams['title_size']
-        self.k = hparams['k']
+        self.scale = config.scale
+        self.cdd_size = config.cdd_size
+        self.batch_size = config.batch_size
+        self.his_size = config.his_size
+        self.device = config.device
+
+        self.k = config.k
 
         self.encoder = encoder
+        self.interactor = interactor
+
+        self.name = '__'.join(['sfi-coarse', encoder.name, interactor.name])
+        config.name = self.name
+
         self.level = encoder.level
         self.hidden_dim = encoder.hidden_dim
+        self.final_dim = interactor.final_dim + self.his_size
 
-        self.interactor = interactor
-        if interactor.name == 'fim':
-            if self.k > 9:
-                final_dim = int(int(self.k / 3) /3) * int(int(self.title_size / 3) / 3)**2 * 16
-            else:
-                final_dim = (self.k-4) * int(int(self.title_size / 3) / 3)**2 * 16
+        # elif interactor.name == '2dcnn':
+        #     final_dim = 16 * int(int(self.title_size / 3) / 3)**2
+        # else:
+        #     final_dim = interactor.hidden_dim
 
-        elif interactor.name == '2dcnn':
-            final_dim = 16 * int(int(self.title_size / 3) / 3)**2
-        else:
-            final_dim = interactor.hidden_dim
-
-        final_dim += self.his_size
-
-        if final_dim > 100:
-            self.learningToRank = nn.Sequential(
-                nn.Linear(final_dim, 50),
-                nn.ReLU(),
-                nn.Linear(50,1)
-            )
-        else:
-            self.learningToRank = nn.Sequential(
-                nn.Linear(final_dim, 1)
-            )
+        self.learningToRank = nn.Sequential(
+            nn.Linear(self.final_dim, int(self.final_dim/2)),
+            nn.ReLU(),
+            nn.Linear(int(self.final_dim/2),1)
+        )
 
         self.selectionProject = nn.Sequential(
             nn.Linear(self.hidden_dim, self.hidden_dim)
         )
 
-        self.name = '-'.join(['sfi-coarse', encoder.name, interactor.name])
-
-        if hparams['threshold'] != -float('inf'):
-            threshold = torch.tensor([hparams['threshold']])
+        if config.threshold != -float('inf'):
+            threshold = torch.tensor([config.threshold])
             self.register_buffer('threshold', threshold)
 
         for param in self.selectionProject:
@@ -287,19 +286,18 @@ class SFI_unified(BaseModel):
 
         cdd_news = x['cdd_encoded_index'].long().to(self.device)
         cdd_news_embedding, cdd_news_repr = self.encoder(
-            cdd_news,
-            user_index=x['user_index'].long().to(self.device),
-            news_id=x['cdd_id'].long().to(self.device),
-            attn_mask=x['cdd_encoded_index_pad'].to(self.device))
+            self.embedding(cdd_news)
+        )
+            # user_index=x['user_index'].long().to(self.device),
+            # news_id=x['cdd_id'].long().to(self.device))
 
         his_news = x["his_encoded_index"].long().to(self.device)
         his_news_embedding, his_news_repr = self.encoder(
-            his_news,
-            user_index=x['user_index'].long().to(self.device),
-            news_id=x['his_id'].long().to(self.device),
-            attn_mask=x['clicked_title_pad'].to(self.device))
-
-        # t2 = time.time()
+            self.embedding(his_news),
+        )
+            # user_index=x['user_index'].long().to(self.device),
+            # news_id=x['his_id'].long().to(self.device))
+            # attn_mask=x['clicked_title_pad'].to(self.device))
 
         output = self._history_filter(
             cdd_news_repr, his_news_repr, his_news_embedding)
@@ -334,14 +332,14 @@ class SFI_unified(BaseModel):
             score = torch.sigmoid(score)
         return score
 
-class SFI_MultiView(BaseModel):
-    def __init__(self, hparams, encoder, interactor):
-        super().__init__(hparams)
+class SFI_MultiView(nn.Module):
+    def __init__(self, config, encoder, interactor):
+        super().__init__()
 
-        self.title_size = hparams['title_size'] + 2
-        self.abs_size = hparams['abs_size']
+        self.title_size = config['title_size'] + 2
+        self.abs_size = config['abs_size']
 
-        self.k = hparams['k']
+        self.k = config['k']
 
         if(encoder.name != 'fim' or interactor.name != 'fim'):
             logging.error("please use FIM encoder and FIM interactor")
@@ -377,8 +375,8 @@ class SFI_MultiView(BaseModel):
 
         self.name = '-'.join(['sfi-multiview', encoder.name, interactor.name])
 
-        if hparams['threshold'] != -float('inf'):
-            threshold = torch.tensor([hparams['threshold']])
+        if config.threshold != -float('inf'):
+            threshold = torch.tensor([config.threshold])
             self.register_buffer('threshold', threshold)
 
         for param in self.selectionProject:
