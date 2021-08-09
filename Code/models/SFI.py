@@ -96,6 +96,7 @@ class SFI(nn.Module):
 
         if hasattr(self,'threshold'):
             his_activated = his_activated * (attn_weights.masked_fill(attn_weights<self.threshold, 0).view(self.batch_size, self.cdd_size, self.k, 1, 1, 1))
+            # his_activated = his_activated * (F.softmax(attn_weights.masked_fill(attn_weights<self.threshold, 0), dim=-1).view(self.batch_size, self.cdd_size, self.k, 1, 1, 1))
 
         # t6 = time.time()
         # print("product time:{}, sort time:{}, scatter time:{}, activate time:{}, mask time:{}".format(t2-t1, t3-t2, t4-t3, t5-t4, t6-t5))
@@ -169,7 +170,7 @@ class SFI(nn.Module):
 
 
 class SFI_unified(nn.Module):
-    def __init__(self, config, encoder, interactor):
+    def __init__(self, config, embedding, encoder, interactor):
         super().__init__()
 
         self.scale = config.scale
@@ -181,6 +182,7 @@ class SFI_unified(nn.Module):
 
         self.k = config.k
 
+        self.embedding = embedding
         self.encoder = encoder
         self.interactor = interactor
 
