@@ -409,7 +409,7 @@ def load_manager():
     parser.add_argument("-ck", "--checkpoint", dest="checkpoint",
                         help="the checkpoint model to load", type=str)
     parser.add_argument("-lr","--learning_rate", dest="learning_rate",
-                        help="learning rate when training", type=float, default=0)
+                        help="learning rate when training", type=float, default=1e-4)
     parser.add_argument("--schedule", dest="schedule", help="choose schedule scheme for optimizer", default="linear")
 
     parser.add_argument("--npratio", dest="npratio",
