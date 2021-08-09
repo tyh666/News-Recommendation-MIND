@@ -300,19 +300,20 @@ class MIND(Dataset):
             # cdd_mask = [1] * neg_pad + [0] * (self.npratio + 1 - neg_pad)
 
             # pad in title
-            cdd_title_mask = [i*[1] + (self.title_length - i)*[0] for i in self.title_lengths[cdd_ids]]
-            his_title_mask = [i*[1] + (self.title_length - i)*[0] for i in self.title_lengths[his_ids]]
+            cdd_title_mask = [min(i, self.title_length)*[1] + (self.title_length - i)*[0] for i in self.title_lengths[cdd_ids]]
+            his_title_mask = [min(i, self.title_length)*[1] + (self.title_length - i)*[0] for i in self.title_lengths[his_ids]]
 
             cdd_title_index = self.news_title_array[cdd_ids][:, :self.title_length]
-            his_title_index = self.news_title_array[his_ids][:, self.title_length]
+            his_title_index = self.news_title_array[his_ids][:, :self.title_length]
+
             back_dic = {
                 "user_index": np.asarray(user_index),
                 # "cdd_mask": np.asarray(neg_pad),
                 'cdd_id': np.asarray(cdd_ids),
-                "cdd_encoded_index": cdd_title_index,
-                "cdd_attn_mask": np.asarray(cdd_title_mask),
                 'his_id': np.asarray(his_ids),
+                "cdd_encoded_index": cdd_title_index,
                 "his_encoded_index": his_title_index,
+                "cdd_attn_mask": np.asarray(cdd_title_mask),
                 "his_attn_mask": np.asarray(his_title_mask),
                 "his_mask": his_mask,
                 "labels": label
@@ -333,18 +334,18 @@ class MIND(Dataset):
 
             his_mask[:self.his_sizes[impr_index]] = 1
 
-            cdd_title_mask = [i*[1] + (self.title_length - i)*[0] for i in self.title_lengths[cdd_ids]]
-            his_title_mask = [i*[1] + (self.title_length - i)*[0] for i in self.title_lengths[his_ids]]
-            cdd_title_index = [self.news_title_array[impr_news]]
-            his_title_index = self.news_title_array[his_ids][:, self.title_length]
+            cdd_title_mask = [min(i, self.title_length)*[1] + (self.title_length - i)*[0] for i in self.title_lengths[cdd_ids]]
+            his_title_mask = [min(i, self.title_length)*[1] + (self.title_length - i)*[0] for i in self.title_lengths[his_ids]]
+            cdd_title_index = self.news_title_array[cdd_ids][:, :self.title_length]
+            his_title_index = self.news_title_array[his_ids][:, :self.title_length]
             back_dic = {
                 "impression_index": impr_index + 1,
                 "user_index": np.asarray(user_index),
                 'cdd_id': np.asarray(cdd_ids),
-                "cdd_encoded_index": np.asarray(cdd_title_index),
-                "cdd_attn_mask": np.asarray(cdd_title_mask),
                 'his_id': np.asarray(his_ids),
+                "cdd_encoded_index": np.asarray(cdd_title_index),
                 "his_encoded_index": his_title_index,
+                "cdd_attn_mask": np.asarray(cdd_title_mask),
                 "his_attn_mask": np.asarray(his_title_mask),
                 "his_mask": his_mask,
                 "labels": np.asarray([label])
@@ -363,19 +364,19 @@ class MIND(Dataset):
 
             his_mask[:self.his_sizes[impr_index]] = 1
 
-            cdd_title_mask = [i*[1] + (self.title_length - i)*[0] for i in self.title_lengths[cdd_ids]]
-            his_title_mask = [i*[1] + (self.title_length - i)*[0] for i in self.title_lengths[his_ids]]
+            cdd_title_mask = [min(i, self.title_length)*[1] + (self.title_length - i)*[0] for i in self.title_lengths[cdd_ids]]
+            his_title_mask = [min(i, self.title_length)*[1] + (self.title_length - i)*[0] for i in self.title_lengths[his_ids]]
 
-            cdd_title_index = [self.news_title_array[impr_news]]
-            his_title_index = self.news_title_array[his_ids][:, self.title_length]
+            cdd_title_index = self.news_title_array[cdd_ids][:, :self.title_length]
+            his_title_index = self.news_title_array[his_ids][:, :self.title_length]
             back_dic = {
                 "impression_index": impr_index + 1,
                 "user_index": np.asarray(user_index),
                 'cdd_id': np.asarray(cdd_ids),
-                "cdd_encoded_index": np.asarray(cdd_title_index),
-                "cdd_attn_mask": np.asarray(cdd_title_mask),
                 'his_id': np.asarray(his_ids),
+                "cdd_encoded_index": np.asarray(cdd_title_index),
                 "his_encoded_index": his_title_index,
+                "cdd_attn_mask": np.asarray(cdd_title_mask),
                 "his_attn_mask": np.asarray(his_title_mask),
                 "his_mask": his_mask
             }
@@ -983,8 +984,8 @@ class MIND_impr(Dataset):
         user_index = [self.uindexes[impr_index]]
         label = impr[2]
 
-        cdd_title_index = [self.news_title_array[impr_news]]
-        his_title_index = self.news_title_array[his_ids][:, self.title_length]
+        cdd_title_index = self.news_title_array[cdd_ids][:, :self.title_length]
+        his_title_index = self.news_title_array[his_ids][:, :self.title_length]
         back_dic = {
             "impression_index": impr_index + 1,
             "user_index": np.asarray(user_index),

@@ -11,6 +11,7 @@ class SFI(nn.Module):
         self.cdd_size = config.cdd_size
         self.batch_size = config.batch_size
         self.his_size = config.his_size
+        self.title_length = config.title_length
         self.device = config.device
 
         self.k = config.k
@@ -34,7 +35,7 @@ class SFI(nn.Module):
         )
 
         # elif interactor.name == '2dcnn':
-        #     final_dim = 16 * int(int(self.title_size / 3) / 3)**2
+        #     final_dim = 16 * int(int(self.title_length / 3) / 3)**2
         # else:
         #     final_dim = interactor.hidden_dim
 
@@ -60,10 +61,10 @@ class SFI(nn.Module):
         Args:
             cdd_repr: tensor of [batch_size, cdd_size, hidden_dim]
             his_repr: tensor of [batch_size, his_size, hidden_dim]
-            his_embedding: tensor of [batch_size, his_size, title_size, level, hidden_dim]
+            his_embedding: tensor of [batch_size, his_size, title_length, level, hidden_dim]
 
         Returns:
-            his_activated: tensor of [batch_size, cdd_size, k, title_size, hidden_dim]
+            his_activated: tensor of [batch_size, cdd_size, k, title_length, hidden_dim]
             his_focus: tensor of [batch_size, cdd_size, k, his_size]
             pos_repr: tensor of [batch_size, cdd_size, contra_num, hidden_dim]
             neg_repr: tensor of [batch_size, cdd_size, contra_num, hidden_dim]
@@ -89,7 +90,7 @@ class SFI(nn.Module):
             # t3 = time.time()
 
             # [bs, cs, k, sl, level, fn]
-            his_activated = his_embedding.unsqueeze(dim=1).expand(self.batch_size, self.cdd_size, self.his_size, self.title_size, self.level, self.hidden_dim).gather(dim=2, index=attn_weights_index.view(self.batch_size,self.cdd_size,self.k,1,1,1).expand(self.batch_size,self.cdd_size,self.k,self.title_size,self.level,self.hidden_dim))
+            his_activated = his_embedding.unsqueeze(dim=1).expand(self.batch_size, self.cdd_size, self.his_size, self.title_length, self.level, self.hidden_dim).gather(dim=2, index=attn_weights_index.view(self.batch_size,self.cdd_size,self.k,1,1,1).expand(self.batch_size,self.cdd_size,self.k,self.title_length,self.level,self.hidden_dim))
 
             # t4 = time.time()
 
@@ -143,9 +144,9 @@ class SFI(nn.Module):
         if self.interactor.name == 'knrm':
             cdd_pad = x['cdd_encoded_index_pad'].float().to(self.device).view(self.batch_size, self.cdd_size, 1, 1, -1, 1)
             if output[1] is not None:
-                his_pad = x['clicked_title_pad'].float().to(self.device).unsqueeze(dim=1).expand(self.batch_size, self.cdd_size, self.his_size, self.title_size).gather(dim=2, index=output[1].unsqueeze(dim=-1).expand(self.batch_size, self.cdd_size, self.k, self.title_size)).view(self.batch_size, self.cdd_size, self.k, 1, 1, self.title_size, 1)
+                his_pad = x['clicked_title_pad'].float().to(self.device).unsqueeze(dim=1).expand(self.batch_size, self.cdd_size, self.his_size, self.title_length).gather(dim=2, index=output[1].unsqueeze(dim=-1).expand(self.batch_size, self.cdd_size, self.k, self.title_length)).view(self.batch_size, self.cdd_size, self.k, 1, 1, self.title_length, 1)
             else:
-                his_pad = x['clicked_title_pad'].float().to(self.device).view(self.batch_size, 1, self.k, 1, 1, self.title_size, 1).expand(self.batch_size, self.cdd_size, self.k, 1, 1, self.title_size, 1)
+                his_pad = x['clicked_title_pad'].float().to(self.device).view(self.batch_size, 1, self.k, 1, 1, self.title_length, 1).expand(self.batch_size, self.cdd_size, self.k, 1, 1, self.title_length, 1)
 
             fusion_tensors = self.interactor(cdd_news_embedding, output[0], cdd_pad=cdd_pad, his_pad=his_pad)
 
@@ -175,6 +176,7 @@ class SFI_unified(nn.Module):
         self.cdd_size = config.cdd_size
         self.batch_size = config.batch_size
         self.his_size = config.his_size
+        self.title_length = config.title_length
         self.device = config.device
 
         self.k = config.k
@@ -190,7 +192,7 @@ class SFI_unified(nn.Module):
         self.final_dim = interactor.final_dim + self.his_size
 
         # elif interactor.name == '2dcnn':
-        #     final_dim = 16 * int(int(self.title_size / 3) / 3)**2
+        #     final_dim = 16 * int(int(self.title_length / 3) / 3)**2
         # else:
         #     final_dim = interactor.hidden_dim
 
@@ -222,10 +224,10 @@ class SFI_unified(nn.Module):
         Args:
             cdd_repr: tensor of [batch_size, cdd_size, hidden_dim]
             his_repr: tensor of [batch_size, his_size, hidden_dim]
-            his_embedding: tensor of [batch_size, his_size, title_size, level, hidden_dim]
+            his_embedding: tensor of [batch_size, his_size, title_length, level, hidden_dim]
 
         Returns:
-            his_activated: tensor of [batch_size, cdd_size, k, title_size, hidden_dim]
+            his_activated: tensor of [batch_size, cdd_size, k, title_length, hidden_dim]
             his_focus: tensor of [batch_size, cdd_size, k, his_size]
             pos_repr: tensor of [batch_size, cdd_size, contra_num, hidden_dim]
             neg_repr: tensor of [batch_size, cdd_size, contra_num, hidden_dim]
@@ -250,7 +252,7 @@ class SFI_unified(nn.Module):
             # t3 = time.time()
 
             # [bs, cs, k, sl, level, fn]
-            his_activated = his_embedding.unsqueeze(dim=1).expand(self.batch_size, self.cdd_size, self.his_size, self.title_size, self.level, self.hidden_dim).gather(dim=2, index=attn_weights_index.view(self.batch_size,self.cdd_size,self.k,1,1,1).expand(self.batch_size,self.cdd_size,self.k,self.title_size,self.level,self.hidden_dim))
+            his_activated = his_embedding.unsqueeze(dim=1).expand(self.batch_size, self.cdd_size, self.his_size, self.title_length, self.level, self.hidden_dim).gather(dim=2, index=attn_weights_index.view(self.batch_size,self.cdd_size,self.k,1,1,1).expand(self.batch_size,self.cdd_size,self.k,self.title_length,self.level,self.hidden_dim))
 
             # t4 = time.time()
 
@@ -307,9 +309,9 @@ class SFI_unified(nn.Module):
         if self.interactor.name == 'knrm':
             cdd_pad = x['cdd_encoded_index_pad'].float().to(self.device).view(self.batch_size, self.cdd_size, 1, 1, -1, 1)
             if output[1] is not None:
-                his_pad = x['clicked_title_pad'].float().to(self.device).unsqueeze(dim=1).expand(self.batch_size, self.cdd_size, self.his_size, self.title_size).gather(dim=2, index=output[1].unsqueeze(dim=-1).expand(self.batch_size, self.cdd_size, self.k, self.title_size)).view(self.batch_size, self.cdd_size, self.k, 1, 1, self.title_size, 1)
+                his_pad = x['clicked_title_pad'].float().to(self.device).unsqueeze(dim=1).expand(self.batch_size, self.cdd_size, self.his_size, self.title_length).gather(dim=2, index=output[1].unsqueeze(dim=-1).expand(self.batch_size, self.cdd_size, self.k, self.title_length)).view(self.batch_size, self.cdd_size, self.k, 1, 1, self.title_length, 1)
             else:
-                his_pad = x['clicked_title_pad'].float().to(self.device).view(self.batch_size, 1, self.k, 1, 1, self.title_size, 1).expand(self.batch_size, self.cdd_size, self.k, 1, 1, self.title_size, 1)
+                his_pad = x['clicked_title_pad'].float().to(self.device).view(self.batch_size, 1, self.k, 1, 1, self.title_length, 1).expand(self.batch_size, self.cdd_size, self.k, 1, 1, self.title_length, 1)
 
             itr_tensors = self.interactor(cdd_news_embedding, output[0], cdd_pad=cdd_pad, his_pad=his_pad)
 
@@ -332,11 +334,12 @@ class SFI_unified(nn.Module):
             score = torch.sigmoid(score)
         return score
 
+# not refactored yet
 class SFI_MultiView(nn.Module):
     def __init__(self, config, encoder, interactor):
         super().__init__()
 
-        self.title_size = config['title_size'] + 2
+        self.title_length = config['title_length'] + 2
         self.abs_size = config['abs_size']
 
         self.k = config['k']
@@ -350,10 +353,10 @@ class SFI_MultiView(nn.Module):
 
         self.interactor = interactor
         if self.k > 9:
-            title_dim = int(int(self.k / 3) /3) * int(int(self.title_size / 3) / 3)**2 * 16
+            title_dim = int(int(self.k / 3) /3) * int(int(self.title_length / 3) / 3)**2 * 16
             abs_dim = int(int(self.k / 3) /3) * int(int(self.abs_size / 3) / 3)**2 * 16
         else:
-            title_dim = (self.k - 4) * int(int(self.title_size / 3) / 3)**2 * 16
+            title_dim = (self.k - 4) * int(int(self.title_length / 3) / 3)**2 * 16
             abs_dim = (self.k - 4)* int(int(self.abs_size / 3) / 3)**2 * 16
 
         # final_dim += self.his_size

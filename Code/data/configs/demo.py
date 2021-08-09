@@ -30,6 +30,7 @@ class config:
     rank = 0
     world_size = 0
     step = [0]
+    seeds = 42
     interval = 10
     val_freq = 2
     schedule = None
