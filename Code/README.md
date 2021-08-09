@@ -1,4 +1,31 @@
 ## Environment
+``` bash
+
+sudo apt-get install rsync
+sudo apt-get install screen
+
+conda create --prefix /data/v-pezhang/nn python=3.8
+conda init
+echo 'alias nn="conda activate /data/v-pezhang/nn"' >> ~/.bashrc
+nn
+
+pip install torch==1.7.1+cu101 torchtext==0.8.1 pandas scipy scikit-learn transformers tensroboard -f https://download.pytorch.org/whl/torch_stable.html
+
+
+cd /data/
+mkdir v-pezhang
+cd v-pezhang
+mkdir Data
+mkdir Code
+cd Code
+git clone https://github.com/namespace-Pt/Document-Reduction.git
+
+git config --global user.name 'namespace-Pt'
+git config --global user.email 'zpt@ruc.edu.cn'
+
+scp
+```
+- `python==3.8`
 - `torch==1.7.1`
 - `torchtext == 0.8.1`
 ## Preprocess
