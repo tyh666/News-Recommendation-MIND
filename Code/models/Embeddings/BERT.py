@@ -17,7 +17,8 @@ class BERT_Embedding(nn.Module):
         config.hidden_dim = 768
 
         bert = BertModel.from_pretrained(
-            config.bert
+            config.bert,
+            cache_dir=config.path + 'bert_cache/'
         )
         self.embedding = bert.embeddings.word_embeddings
         self.pos_embedding = nn.Parameter(bert.embeddings.position_embeddings.weight[:config.signal_length].unsqueeze(0))

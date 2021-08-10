@@ -18,7 +18,10 @@ class BERT_Interactor(nn.Module):
 
         self.final_dim = self.hidden_dim
 
-        bert = BertModel.from_pretrained(config.bert)
+        bert = BertModel.from_pretrained(
+            config.bert,
+            cache_dir=config.path + 'bert_cache/'
+            )
 
         self.bert = bert.encoder
 

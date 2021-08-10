@@ -9,6 +9,7 @@ import numpy as np
 import scipy.stats as ss
 
 from tqdm import tqdm
+from itertools import chain
 from transformers import get_linear_schedule_with_warmup
 from torch.utils.tensorboard import SummaryWriter
 from sklearn.metrics import roc_auc_score, log_loss, mean_squared_error, accuracy_score, f1_score
@@ -18,7 +19,7 @@ from sklearn.metrics import roc_auc_score, log_loss, mean_squared_error, accurac
 
 logger = logging.getLogger(__name__)
 
-hparam_list = ["name", "scale", "his_size", "k", "threshold", "learning_rate", "signal_length", "title_length", "abs_length"]
+hparam_list = ["name", "scale", "his_size", "k", "threshold", "lr", "bert-lr", "signal_length", "title_length", "abs_length"]
 
 # def dist_sync(func):
 #     def void_dict():
@@ -165,13 +166,14 @@ class Manager():
             get optimizer/scheduler
         """
 
-        learning_rate = self.learning_rate
+        base_params = chain(*[v.parameters() for k,v in model.named_children() if k not in ['embedding','interactor']])
 
+        optimizers = []
         # if self.spadam:
         #     optimizer_param = optim.Adam(
-        #         parameter(self, model, ["encoder.embedding.weight","encoder.user_embedding.weight"], exclude=True), lr=learning_rate)
+        #         parameter(self, model, ["encoder.embedding.weight","encoder.user_embedding.weight"], exclude=True), lr=lr)
         #     optimizer_embedding = optim.SparseAdam(
-        #         list(parameter(self, model, ["encoder.embedding.weight","encoder.user_embedding.weight"])), lr=learning_rate)
+        #         list(parameter(self, model, ["encoder.embedding.weight","encoder.user_embedding.weight"])), lr=lr)
 
         #     optimizers = (optimizer_param, optimizer_embedding)
 
@@ -183,13 +185,26 @@ class Manager():
         #         schedulers = []
 
         # else:
-        optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-        optimizers = (optimizer,)
-        if self.schedule == "linear":
-            scheduler =get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=len(loader_train) * self.epochs)
-            schedulers = (scheduler,)
-        else:
-            schedulers = []
+
+
+        # if self.embedding == 'bert':
+        #     optimizers.append(optim.Adam(model.embedding.parameters(), lr=self.bert_lr))
+        # else:
+        #     base_params = chain(base_params, model.embedding.parameters())
+        # if self.interactor == 'bert':
+        #     optimizers.append(optim.Adam(model.interactor.parameters(), lr=self.bert_lr))
+        # else:
+        #     base_params = chain(base_params, model.interactor.parameters())
+
+        # optimizers.append(optim.Adam(base_params, lr=self.lr))
+
+        optimizers = [optim.Adam(model.parameters(), lr=self.lr)]
+
+        # if self.schedule == "linear":
+        #     scheduler =get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=len(loader_train) * self.epochs)
+        #     schedulers = (scheduler,)
+        # else:
+        schedulers = []
 
         # FIXME
         # if "checkpoint" in self:
@@ -313,10 +328,9 @@ class Manager():
 
         for epoch in range(epochs):
             epoch_loss = 0
-            tqdm_ = tqdm(dataloader)
-
             if dist:
                 dataloader.sampler.set_epoch(epoch)
+            tqdm_ = tqdm(dataloader)
 
             for step, x in enumerate(tqdm_):
 
@@ -409,10 +423,9 @@ class Manager():
 
         for epoch in range(self.epochs):
             epoch_loss = 0
-            tqdm_ = tqdm(loaders[0], smoothing=0)
-
             if dist:
                 loaders[0].sampler.set_epoch(epoch)
+            tqdm_ = tqdm(loaders[0], smoothing=0)
 
             for step, x in enumerate(tqdm_):
 

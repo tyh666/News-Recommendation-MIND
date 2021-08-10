@@ -28,7 +28,10 @@ class BERT_Interactor(nn.Module):
         for l in prim_bert.layer:
             l.attention.self = BertSelfAttention(bert_config)
 
-        bert = BertModel.from_pretrained(config.bert)
+        bert = BertModel.from_pretrained(
+            config.bert,
+            cache_dir=config.path + 'bert_cache/'
+        )
         prim_bert.load_state_dict(bert.encoder.state_dict())
         self.bert = prim_bert
 

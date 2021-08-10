@@ -16,7 +16,8 @@ class config:
 
     dropout_p = 0.2
     device = 'cpu'
-    learning_rate = 3e-5
+    lr = 1e-4
+    bert_lr = 3e-5
     metrics = 'auc,mean_mrr,ndcg@5,ndcg@10'
     # vert_num = 18
     # subvert_num = 293

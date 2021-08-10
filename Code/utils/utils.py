@@ -351,25 +351,8 @@ def my_collate(data):
     return dict(result)
 
 
-def parameter(model, param_list, exclude=False):
-    """
-        yield model parameters
-    """
-    # params = []
-    if exclude:
-        for name, param in model.named_parameters():
-            if name not in param_list:
-                # params.append(param)
-                yield param
-    else:
-        for name, param in model.named_parameters():
-            if name in param_list:
-                # params.append(param)
-                yield param
-
-
 def info(config):
-    return ", ".join(["{}:{}".format(k,v) for k,v in vars(config).items() if not k.startswith('__')])
+    return "\n".join(["{}:{}".format(k,v) for k,v in vars(config).items() if not k.startswith('__')])
 
 def load_manager():
     """
@@ -408,8 +391,10 @@ def load_manager():
 
     parser.add_argument("-ck", "--checkpoint", dest="checkpoint",
                         help="the checkpoint model to load", type=str)
-    parser.add_argument("-lr","--learning_rate", dest="learning_rate",
-                        help="learning rate when training", type=float, default=1e-4)
+    parser.add_argument("-lr", dest="lr",
+                        help="learning rate of non-bert modules", type=float, default=1e-4)
+    parser.add_argument("-blr", "--bert_lr", dest="bert_lr",
+                        help="learning rate of bert based modules", type=float, default=3e-5)
     parser.add_argument("--schedule", dest="schedule", help="choose schedule scheme for optimizer", default="linear")
 
     parser.add_argument("--npratio", dest="npratio",
@@ -419,7 +404,7 @@ def load_manager():
 
     parser.add_argument("-emb", "--embedding", dest="embedding", help="choose embedding", choices=['bert','glove'], default='glove')
     parser.add_argument("-nenc", "--encoderN", dest="encoderN", help="choose news encoder", choices=['cnn','rnn','npa','fim','mha','bert'], default="cnn")
-    parser.add_argument("-uenc", "--encoderU", dest="encoderU", help="choose user encoder", choices=['rnn','lstur'], default="rnn")
+    parser.add_argument("-uenc", "--encoderU", dest="encoderU", help="choose user encoder", choices=['rnn','lstur','nrms'], default="rnn")
     parser.add_argument("-intr", "--interactor", dest="interactor", help="choose interactor", choices=['bert','fim','2dcnn','knrm'], default="fim")
 
     parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=0)
@@ -460,9 +445,11 @@ def load_manager():
     if len(args.device) == 1:
         args.device = int(args.device)
 
-    args.metrics = "auc,mean_mrr,ndcg@5,ndcg@10"
     if args.metrics:
         args.metrics = "auc,mean_mrr,ndcg@5,ndcg@10" + "," + args.metrics
+    else:
+        args.metrics = "auc,mean_mrr,ndcg@5,ndcg@10"
+
 
     if not args.interval:
         if args.scale == "demo":
