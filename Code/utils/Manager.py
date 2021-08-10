@@ -18,7 +18,7 @@ from sklearn.metrics import roc_auc_score, log_loss, mean_squared_error, accurac
 
 logger = logging.getLogger(__name__)
 
-hparam_list = ["name", "scale", "his_size", "k", "threshold", "learning_rate", "signal_length"]
+hparam_list = ["name", "scale", "his_size", "k", "threshold", "learning_rate", "signal_length", "title_length", "abs_length"]
 
 # def dist_sync(func):
 #     def void_dict():
