@@ -3,6 +3,7 @@ import re
 import os
 import datetime
 import logging
+from torch.distributed.distributed_c10d import barrier
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
@@ -255,7 +256,7 @@ class Manager():
         return all_impr_ids, all_labels, all_preds
 
     # @dist_sync
-    def evaluate(self, model, dataloader, load=False, log=True):
+    def evaluate(self, model, dataloader, load=False, log=True, dist=False):
         """Evaluate the given file and returns some evaluation metrics.
 
         Args:
@@ -271,7 +272,10 @@ class Manager():
         # multiple evaluation steps
 
         cdd_size = self.cdd_size
-        model.cdd_size = 1
+        if dist:
+            model.module.cdd_size = 1
+        else:
+            model.cdd_size = 1
         model.eval()
 
         if load:
@@ -290,7 +294,10 @@ class Manager():
             self._log(res)
 
         model.train()
-        model.cdd_size = cdd_size
+        if dist:
+            model.module.cdd_size = cdd_size
+        else:
+            model.cdd_size = cdd_size
 
         return res
 
@@ -321,10 +328,10 @@ class Manager():
             for step, x in enumerate(tqdm_):
 
                 for optimizer in optimizers:
-                    optimizer.zero_grad()
+                    optimizer.zero_grad(set_to_none=True)
 
                 pred = model(x)
-                label = x['label']
+                label = x['label'].to(model.device)
 
                 loss = loss_func(pred, label)
 
@@ -341,7 +348,6 @@ class Manager():
                         scheduler.step()
 
                 if step % interval == 0:
-
                     tqdm_.set_description(
                         "epoch {:d} , step {:d} , loss: {:.4f}".format(epoch+1, step, epoch_loss / step))
                     if writer:
@@ -416,10 +422,10 @@ class Manager():
             for step, x in enumerate(tqdm_):
 
                 for optimizer in optimizers:
-                    optimizer.zero_grad()
+                    optimizer.zero_grad(set_to_none=True)
 
                 pred = model(x)
-                label = x['label']
+                label = x['label'].to(model.device)
 
                 loss = loss_func(pred, label)
 
@@ -445,10 +451,12 @@ class Manager():
                         writer.add_scalar("data_loss",
                                         total_loss/total_steps)
 
-                if step % save_step == 0 and step > 0 and self.rank == 0:
+                if step % save_step == 0 and step > 0:
+                    if dist and self.rank:
+                        continue
                     print("\n")
                     with torch.no_grad():
-                        result = self.evaluate(model, loaders[1], log=False)
+                        result = self.evaluate(model, loaders[1], log=False, dist=dist)
                         result["epoch"] = epoch+1
                         result["step"] = step
 
@@ -457,11 +465,12 @@ class Manager():
                             best_res = result
                             self.save(model, epoch+1, step, optimizers)
                             self._log(result)
-
                         # elif result["auc"] - best_res["auc"] < -0.05:
                         #     logger.info("model is overfitting, the result is {}, force shutdown".format(result))
                         #     return best_res
 
+                # if dist:
+                #     barrier()
                 # if self.world_size > 1:
                 #     print('fuck the last barrier')
                 #     barrier()

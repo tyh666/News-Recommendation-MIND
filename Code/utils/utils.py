@@ -722,6 +722,7 @@ def setup(rank, manager):
         # initialize the process group
         dist.init_process_group("nccl", rank=rank, world_size=manager.world_size)
 
+        os.environ['TOKENIZERS_PARALLELISM'] = 'True'
         manager.device = rank
     # needed for distributed sampler
     manager.rank = rank

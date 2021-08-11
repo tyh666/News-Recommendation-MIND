@@ -76,7 +76,7 @@ class ESM(nn.Module):
         """
         score = self._forward(x)
 
-        if self.cdd_size > 1:
+        if self.training:
             prob = nn.functional.log_softmax(score, dim=1)
         else:
             prob = torch.sigmoid(score)

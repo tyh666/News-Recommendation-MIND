@@ -126,6 +126,7 @@ sleep infinity
 ## Issue
 - the gradient after docReducer is sharp
 - if we concat title with abstract, then there must be many duplicated words, how about removing them when preprocessing?
+- why `barrier()` causes deadlock?
 
 in SpeedyFeed
 - industry data for speedyfeed

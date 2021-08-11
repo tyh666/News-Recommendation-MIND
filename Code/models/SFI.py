@@ -162,7 +162,7 @@ class SFI(nn.Module):
 
     def forward(self, x):
         score = self._forward(x)
-        if self.cdd_size > 1:
+        if self.training:
             score = nn.functional.log_softmax(score, dim=1)
         else:
             score = torch.sigmoid(score)
@@ -330,7 +330,7 @@ class SFI_unified(nn.Module):
 
     def forward(self, x):
         score = self._forward(x)
-        if self.cdd_size > 1:
+        if self.training:
             score = nn.functional.log_softmax(score, dim=1)
         else:
             score = torch.sigmoid(score)
@@ -504,7 +504,7 @@ class SFI_MultiView(nn.Module):
 
     def forward(self, x):
         score = self._forward(x)
-        if self.cdd_size > 1:
+        if self.training:
             score = nn.functional.log_softmax(score, dim=1)
         else:
             score = torch.sigmoid(score)
