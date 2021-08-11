@@ -31,7 +31,7 @@ class ESM(nn.Module):
             nn.Linear(int(self.final_dim/2),1)
         )
 
-        self.name = '_'.join(['esm', self.encoderN.name, self.encoderU.name, self.docReducer.name, self.interactor.name])
+        self.name = '__'.join(['esm', self.encoderN.name, self.encoderU.name, self.docReducer.name, self.interactor.name])
         config.name = self.name
 
     def clickPredictor(self, reduced_tensor):

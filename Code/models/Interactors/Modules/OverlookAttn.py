@@ -50,8 +50,6 @@ class BertSelfAttention(nn.Module):
         """
         # [CLS] + signal_length
         attn_field = hidden_states[:, :self.signal_length + 1]
-        # personalized terms
-        references = hidden_states[:, self.signal_length + 1:]
 
         # [batch_size, head_num, *, head_dim]
         key_layer = self.transpose_for_scores(self.key(hidden_states))

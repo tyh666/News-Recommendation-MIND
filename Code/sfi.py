@@ -112,6 +112,7 @@ def main(rank, manager, dist=False):
         manager.train(sfi, loaders)
 
     elif manager.mode == 'tune':
+        print('fuck')
         manager.tune(sfi, loaders)
 
     elif manager.mode == 'test':
