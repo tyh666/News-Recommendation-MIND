@@ -286,6 +286,7 @@ class Manager():
         imp_indexes, labels, preds = self._eval(model, dataloader)
 
         res = cal_metric(labels, preds, self.metrics.split(","))
+        logger.info("evaluation result of {} is {}".format(self.name, res))
 
         if log:
             res["epoch"] = self.epochs
@@ -460,7 +461,6 @@ class Manager():
                         result["epoch"] = epoch+1
                         result["step"] = step
 
-                        logger.info("current result of {} is {}".format(self.name, result))
                         if result["auc"] > best_res["auc"]:
                             best_res = result
                             self.save(model, epoch+1, step, optimizers)
@@ -476,7 +476,6 @@ class Manager():
                 #     barrier()
                 #     print('fuck the last barrier after')
 
-                total_steps += 1
 
             if writer:
                 writer.add_scalar("epoch_loss", epoch_loss, epoch)
