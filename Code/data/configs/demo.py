@@ -35,7 +35,7 @@ class config:
     interval = 10
     val_freq = 2
     schedule = None
-    path = "../../Data/"
+    path = "../../../Data/"
     tb = False
 
     bert = 'bert-base-uncased'

@@ -436,10 +436,6 @@ def load_manager():
 
     args = parser.parse_args()
 
-    if args.mode == "train":
-        # 2000 by default
-        args.step = 2000
-
     args.step = [int(i) for i in args.step.split(",")]
 
     if len(args.device) == 1:
@@ -502,6 +498,13 @@ def load_manager():
     manager = Manager(args)
     return manager
 
+def manual_seed(seed):
+    # os.environ['PYTHONHASHSEED'] = str(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    # torch.backends.cudnn.deterministic = True
 
 def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, impr=False):
     from .MIND import MIND,MIND_news,MIND_bert,MIND_impr
@@ -519,9 +522,7 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
     logging.info("preparing dataset...")
 
     if config.seeds:
-        torch.manual_seed(config.seeds)
-        torch.cuda.manual_seed(config.seeds)
-        torch.cuda.manual_seed_all(config.seeds)
+        manual_seed(config.seeds)
 
     vocab = None
     mind_path = config.path + "MIND"

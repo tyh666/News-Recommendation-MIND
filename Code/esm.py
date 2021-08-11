@@ -38,7 +38,7 @@ def main(rank, manager, dist=False):
         esm = DDP(esm, device_ids=[rank], output_device=rank)
 
     if manager.mode == 'dev':
-        manager.evaluate(esm, loaders[0], loading=True)
+        manager.evaluate(esm, loaders[0], load=True)
 
     elif manager.mode == 'train':
         manager.train(esm, loaders)

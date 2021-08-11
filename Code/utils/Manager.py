@@ -111,7 +111,7 @@ class Manager():
         save_path = "data/model_params/{}/{}_epoch{}_step{}_[k={}].model".format(
             self.name, self.scale, epoch, step, self.k)
 
-        state_dict = torch.load(save_path, map_location=model.device)
+        state_dict = torch.load(save_path, map_location=torch.device(model.device))
         if re.search("pipeline",self.name):
             logger.info("loading in pipeline")
             model.load_state_dict(state_dict["model"], strict=False)
@@ -301,7 +301,7 @@ class Manager():
             res["epoch"] = self.epochs
             res["step"] = self.step[0]
 
-            self._log(model, res, self)
+            self._log(res)
 
         model.train()
         model.cdd_size = cdd_size
@@ -374,7 +374,7 @@ class Manager():
             if writer:
                 writer.add_scalar("epoch_loss", epoch_loss, epoch)
 
-            self.save(epoch+1, 0, optimizers)
+            self.save(model, epoch+1, 0, optimizers)
 
 
     def train(self, model, loaders, tb=False):

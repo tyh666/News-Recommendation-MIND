@@ -103,10 +103,10 @@ def main(rank, manager, dist=False):
         sfi = SFI(manager, embedding, encoder, interactor).to(manager.device)
 
     if dist:
-        sfi = DDP(sfi, device_ids=[rank], output_device=rank)
+        sfi = DDP(sfi, device_ids=[rank], output_device=rank, find_unused_parameters=True)
 
     if manager.mode == 'dev':
-        manager.evaluate(sfi,loaders[0],loading=True)
+        manager.evaluate(sfi,loaders[0],load=True)
 
     elif manager.mode == 'train':
         manager.train(sfi, loaders)
