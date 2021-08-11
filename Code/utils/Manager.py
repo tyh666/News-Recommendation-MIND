@@ -216,20 +216,6 @@ class Manager():
         return optimizers, schedulers
 
 
-    def _get_label(self, model, x):
-        """
-            parse labels to label indexes, used in NLLoss
-        """
-        if self.cdd_size > 1:
-            index = torch.arange(0, self.cdd_size, device=model.device).expand(x['labels'].shape[0], -1)
-            label = x["labels"] == 1
-            label = index[label]
-        else:
-            label = x["labels"]
-
-        return label
-
-
     @torch.no_grad()
     def _eval(self, model, dataloader, smoothing=1):
         """ making prediction and gather results into groups according to impression_id
@@ -338,7 +324,7 @@ class Manager():
                     optimizer.zero_grad()
 
                 pred = model(x)
-                label = self._get_label(model, x)
+                label = x['label']
 
                 loss = loss_func(pred, label)
 
@@ -433,7 +419,7 @@ class Manager():
                     optimizer.zero_grad()
 
                 pred = model(x)
-                label = self._get_label(model, x)
+                label = x['label']
 
                 loss = loss_func(pred, label)
 
