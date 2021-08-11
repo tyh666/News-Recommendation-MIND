@@ -282,13 +282,16 @@ class MIND(Dataset):
             neg_list, neg_pad = newsample(negs, self.npratio)
 
             cdd_ids = [impr_news] + neg_list
-            label = [1] + [0] * self.npratio
 
+            label = np.asarray([1] + [0] * self.npratio)
             if self.shuffle_pos:
                 s = np.arange(0, len(label), 1)
                 np.random.shuffle(s)
                 cdd_ids = np.asarray(cdd_ids)[s]
-                label = np.asarray(label)[s]
+                label = label[s]
+
+            label = np.arange(0, len(cdd_ids), 1)[label == 1][0]
+
 
             his_ids = self.histories[impr_index][:self.his_size]
 
@@ -316,7 +319,7 @@ class MIND(Dataset):
                 "cdd_attn_mask": np.asarray(cdd_title_mask),
                 "his_attn_mask": np.asarray(his_title_mask),
                 "his_mask": his_mask,
-                "labels": label
+                "label": label
             }
 
             return back_dic
@@ -668,13 +671,15 @@ class MIND_bert(Dataset):
             neg_list, neg_pad = newsample(negs, self.npratio)
 
             cdd_ids = [impr_news] + neg_list
-            label = [1] + [0] * self.npratio
+            label = np.asarray([1] + [0] * self.npratio)
 
             if self.shuffle_pos:
                 s = np.arange(0, len(label), 1)
                 np.random.shuffle(s)
                 cdd_ids = np.asarray(cdd_ids)[s]
                 label = np.asarray(label)[s]
+
+            label = np.arange(0, len(cdd_ids), 1)[label == 1][0]
 
             his_ids = self.histories[impr_index][:self.his_size]
 
@@ -700,7 +705,7 @@ class MIND_bert(Dataset):
                 "cdd_attn_mask": cdd_attn_mask,
                 "his_attn_mask": his_attn_mask,
                 "his_mask": his_mask,
-                "labels": label
+                "label": label
             }
 
             return back_dic

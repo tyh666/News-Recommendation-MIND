@@ -1,10 +1,9 @@
 ## Environment
 ``` bash
+git config --global user.name 'namespace-Pt'
+git config --global user.email 'zpt@ruc.edu.cn'
 
-sudo apt-get install rsync
-sudo apt-get install screen
-
-conda create --prefix /data/v-pezhang/nn python=3.8
+conda create --prefix /data/v-pezhang/nn python=3.8 -y
 conda init
 echo 'alias nn="conda activate /data/v-pezhang/nn"' >> ~/.bashrc
 # export TRANSFORMERS_CACHE=/data/v-pezhang/Data/transformers/
@@ -13,8 +12,8 @@ nn
 
 ipython kernel install --name "nn" --user
 
-pip install torch==1.7.1+cu101 torchtext==0.8.1 pandas scipy scikit-learn transformers tensroboard -f https://download.pytorch.org/whl/torch_stable.html
-
+pip install torch==1.7.1+cu101 torchtext==0.8.1 pandas scipy scikit-learn transformers -f https://download.pytorch.org/whl/torch_stable.html
+pip install tensorboard ipython jupyter notebook
 
 cd /data/
 mkdir v-pezhang
@@ -24,9 +23,11 @@ mkdir Code
 cd Code
 git clone https://github.com/namespace-Pt/Document-Reduction.git
 
-git config --global user.name 'namespace-Pt'
-git config --global user.email 'zpt@ruc.edu.cn'
 
+sudo apt-get install rsync
+sudo apt-get install screen
+
+sleep infinity
 ```
 - `python==3.8`
 - `torch==1.7.1`
