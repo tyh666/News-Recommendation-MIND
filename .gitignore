@@ -11,3 +11,4 @@
 *.pyc
 cache
 model_params
+results
