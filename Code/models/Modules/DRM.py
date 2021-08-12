@@ -3,7 +3,7 @@ import torch.nn.functional as F
 
 class DRM_Matching(nn.Module):
     """
-    basic document reducer: topk
+    basic document reducer: topk of each historical article
     """
     def __init__(self, config):
         super().__init__()
@@ -12,6 +12,8 @@ class DRM_Matching(nn.Module):
 
         self.k = config.k
         self.threshold = config.threshold
+
+        config.term_num = config.k * config.his_size + 1
 
     def forward(self, news_embedding, user_repr):
         """

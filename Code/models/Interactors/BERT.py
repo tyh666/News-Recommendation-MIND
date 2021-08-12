@@ -55,7 +55,7 @@ class BERT_Interactor(nn.Module):
 
         # add order embedding
         ps_terms = (ps_terms + self.order_embedding).view(batch_size, -1, self.hidden_dim)
-        ps_terms = torch.cat([self.sep_embedding.expand(batch_size, 1, self.hidden), ps_terms], dim=1)
+        ps_terms = torch.cat([self.sep_embedding.expand(batch_size, 1, self.hidden_dim), ps_terms], dim=1)
         # insert cls token for pooling
         # ps_terms = torch.cat([self.cls_embedding.expand(batch_size, 1, self.hidden_dim), ps_terms.view(batch_size, -1, self.hidden_dim)], dim=-2)
         return ps_terms

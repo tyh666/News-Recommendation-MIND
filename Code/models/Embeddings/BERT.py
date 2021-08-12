@@ -21,7 +21,7 @@ class BERT_Embedding(nn.Module):
             cache_dir=config.path + 'bert_cache/'
         )
         self.embedding = bert.embeddings.word_embeddings
-        self.pos_embedding = nn.Parameter(bert.embeddings.position_embeddings.weight[:config.signal_length].unsqueeze(0))
+        # self.pos_embedding = nn.Parameter(bert.embeddings.position_embeddings.weight[:config.signal_length].unsqueeze(0))
 
         self.layerNorm = bert.embeddings.LayerNorm
         self.dropOut = bert.embeddings.dropout
@@ -40,6 +40,7 @@ class BERT_Embedding(nn.Module):
         # [bs, cs/hs, sl]
         word_embeds = self.embedding(news_batch)
 
-        embedding = self.dropOut(self.layerNorm(self.pos_embedding + word_embeds))
+        # embedding = self.dropOut(self.layerNorm(self.pos_embedding + word_embeds))
+        embedding = self.dropOut(self.layerNorm(word_embeds))
 
         return embedding

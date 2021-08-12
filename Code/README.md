@@ -66,6 +66,7 @@ sleep infinity
   - [ ] diversified
     - [ ] use document vector as an extraction input
     - [ ] design methods to extract non-duplicated terms within an article
+  - [ ] extract origin embedding, not after cnn
   - [ ] dynamic allocation of top k
     - [ ] read paper of yi xiaoyuan
 - [ ] Seq2Seq based
@@ -88,6 +89,8 @@ sleep infinity
   - [x] candidate news attention mask
   - [x] insert CLS in embedding layer, not fusion
     - fobiddable, otherwise the [CLS] would be extracted
+  - [ ] position embedding in interactor
+  - [ ] one entry to define term_num
 
 ### Fusion
 - append [SEP] token in the front of personalized terms
