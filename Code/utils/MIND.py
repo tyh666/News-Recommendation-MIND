@@ -42,10 +42,7 @@ class MIND(Dataset):
                     setattr(self, k, v)
 
         else:
-            try:
-                os.makedirs(self.cache_path)
-            except:
-                pass
+            os.makedirs(self.cache_path, exist_ok=True)
 
             self.news_file = news_file
             self.behaviors_file = behaviors_file
@@ -188,8 +185,8 @@ class MIND(Dataset):
                     uindex = self.uid2index[uid]
 
                     # store every impression
-                    for news, label in zip(impr_news, labels):
-                        imprs.append((impr_index, news, label))
+                    imprs.append((impr_index, impr_news, labels))
+
 
                     # 1 impression correspond to 1 of each of the following properties
                     histories.append(history)
@@ -228,8 +225,7 @@ class MIND(Dataset):
                     uindex = self.uid2index[uid]
 
                     # store every impression
-                    for news in impr_news:
-                        imprs.append((impr_index, news))
+                    imprs.append((impr_index, impr_news))
 
                     # 1 impression correspond to 1 of each of the following properties
                     histories.append(history)
@@ -326,7 +322,7 @@ class MIND(Dataset):
 
         # each time called return one sample, and no labels
         elif self.mode == 'dev':
-            cdd_ids = [impr_news]
+            cdd_ids = impr_news
 
             # true means the corresponding history news is padded
             his_mask = np.zeros((self.his_size), dtype=bool)
@@ -357,7 +353,7 @@ class MIND(Dataset):
             return back_dic
 
         elif self.mode == 'test':
-            cdd_ids = [impr_news]
+            cdd_ids = impr_news
 
             # true means the corresponding history news is padded
             his_mask = np.zeros((self.his_size), dtype=bool)
@@ -426,10 +422,7 @@ class MIND_bert(Dataset):
                     setattr(self, k, v)
 
         else:
-            try:
-                os.makedirs(self.cache_path)
-            except:
-                pass
+            os.makedirs(self.cache_path, exist_ok=True)
 
             self.news_file = news_file
             self.behaviors_file = behaviors_file
@@ -509,16 +502,8 @@ class MIND_bert(Dataset):
             with open(self.behaviors_file, "r", encoding='utf-8') as rd:
                 for idx in rd:
                     _, uid, time, history, impr = idx.strip("\n").split(self.col_spliter)
-                    # important to subtract 1 because all list related to behaviors start from 0
 
                     history = [self.nid2index[i] for i in history.split()]
-
-                    # if self.k:
-                    #     # guarantee there are at least k history not masked
-                    #     self.his_pad.append(
-                    #         min(max(self.his_size - len(history), 0), self.his_size - self.k))
-                    # else:
-
                     his_sizes.append(len(history))
 
                     # tailor user's history or pad 0
@@ -577,8 +562,7 @@ class MIND_bert(Dataset):
                     uindex = self.uid2index[uid]
 
                     # store every impression
-                    for news, label in zip(impr_news, labels):
-                        imprs.append((impr_index, news, label))
+                    imprs.append((impr_index, impr_news, labels))
 
                     # 1 impression correspond to 1 of each of the following properties
                     histories.append(history)
@@ -617,8 +601,7 @@ class MIND_bert(Dataset):
                     uindex = self.uid2index[uid]
 
                     # store every impression
-                    for news in impr_news:
-                        imprs.append((impr_index, news))
+                    imprs.append((impr_index, impr_news))
 
                     # 1 impression correspond to 1 of each of the following properties
                     histories.append(history)
@@ -712,7 +695,7 @@ class MIND_bert(Dataset):
 
         # each time called return one sample, and no labels
         elif self.mode == 'dev':
-            cdd_ids = [impr_news]
+            cdd_ids = impr_news
 
             his_ids = self.histories[impr_index][:self.his_size]
 
@@ -743,7 +726,7 @@ class MIND_bert(Dataset):
             return back_dic
 
         elif self.mode == 'test':
-            cdd_ids = [impr_news]
+            cdd_ids = impr_news
 
             his_ids = self.histories[impr_index][:self.his_size]
 

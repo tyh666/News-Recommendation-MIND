@@ -231,29 +231,30 @@ class Manager():
         """
         preds = []
         labels = []
-        imp_indexes = []
+        # imp_indexes = []
 
         for batch_data_input in tqdm(dataloader, smoothing=smoothing):
-            pred = model(batch_data_input).squeeze(dim=-1).tolist()
-            preds.extend(pred)
+            pred = model(batch_data_input).tolist()
+            preds.append(pred)
             label = batch_data_input["labels"].squeeze(dim=-1).tolist()
-            labels.extend(label)
-            imp_indexes.extend(batch_data_input["impression_index"])
+            labels.append(label)
+            # imp_indexes.extend(batch_data_input["impression_index"].tolist())
 
-        all_keys = list(set(imp_indexes))
-        all_keys.sort()
-        group_labels = {k: [] for k in all_keys}
-        group_preds = {k: [] for k in all_keys}
+        # all_keys = list(set(imp_indexes))
+        # all_keys.sort()
+        # group_labels = {k: [] for k in all_keys}
+        # group_preds = {k: [] for k in all_keys}
 
-        for l, p, k in zip(labels, preds, imp_indexes):
-            group_labels[k].append(l)
-            group_preds[k].append(p)
+        # for l, p, k in zip(labels, preds, imp_indexes):
+        #     group_labels[k].append(l)
+        #     group_preds[k].append(p)
 
-        all_impr_ids = group_labels.keys()
-        all_labels = list(group_labels.values())
-        all_preds = list(group_preds.values())
+        # all_impr_ids = group_labels.keys()
+        # all_labels = list(group_labels.values())
+        # all_preds = list(group_preds.values())
 
-        return all_impr_ids, all_labels, all_preds
+        # return all_impr_ids, all_labels, all_preds
+        return labels, preds
 
     # @dist_sync
     def evaluate(self, model, dataloader, load=False, log=True, dist=False):
@@ -271,11 +272,6 @@ class Manager():
         """
         # multiple evaluation steps
 
-        cdd_size = self.cdd_size
-        if dist:
-            model.module.cdd_size = 1
-        else:
-            model.cdd_size = 1
         model.eval()
 
         if load:
@@ -283,7 +279,7 @@ class Manager():
 
         logger.info("evaluating...")
 
-        imp_indexes, labels, preds = self._eval(model, dataloader)
+        labels, preds = self._eval(model, dataloader)
 
         res = cal_metric(labels, preds, self.metrics.split(","))
         logger.info("evaluation result of {} is {}".format(self.name, res))
@@ -295,11 +291,6 @@ class Manager():
             self._log(res)
 
         model.train()
-        if dist:
-            model.module.cdd_size = cdd_size
-        else:
-            model.cdd_size = cdd_size
-
         return res
 
 
@@ -465,17 +456,6 @@ class Manager():
                             best_res = result
                             self.save(model, epoch+1, step, optimizers)
                             self._log(result)
-                        # elif result["auc"] - best_res["auc"] < -0.05:
-                        #     logger.info("model is overfitting, the result is {}, force shutdown".format(result))
-                        #     return best_res
-
-                # if dist:
-                #     barrier()
-                # if self.world_size > 1:
-                #     print('fuck the last barrier')
-                #     barrier()
-                #     print('fuck the last barrier after')
-
 
             if writer:
                 writer.add_scalar("epoch_loss", epoch_loss, epoch)

@@ -1,5 +1,6 @@
 import math
 import torch
+from torch._C import device
 import torch.nn as nn
 
 class BertSelfAttention(nn.Module):
@@ -21,10 +22,10 @@ class BertSelfAttention(nn.Module):
 
         self.signal_length = config.signal_length + 1
         self.all_length = config.cdd_size * self.signal_length
+        self.term_num = config.term_num
 
         # default to term_num = his_size * k + 1
         self.register_buffer('one_pass_attn_mask_train', torch.cat([torch.eye(config.cdd_size).repeat_interleave(repeats=self.signal_length, dim=-1).repeat_interleave(repeats=self.signal_length, dim=0), torch.ones(config.cdd_size * self.signal_length, config.term_num)], dim=-1).unsqueeze(0).unsqueeze(0), persistent=False)
-        self.register_buffer('one_pass_attn_mask_dev', torch.ones(1, self.signal_length + config.term_num).unsqueeze(0).unsqueeze(0), persistent=False)
         # self.position_embedding_type = getattr(config, "position_embedding_type", "absolute")
         # if self.position_embedding_type == "relative_key" or self.position_embedding_type == "relative_key_query":
         #     self.max_position_embeddings = config.max_position_embeddings
@@ -57,13 +58,13 @@ class BertSelfAttention(nn.Module):
         """
         # [CLS] + signal_length
         if self.training:
-            attn_field_length = self.all_length
             one_pass_mask = self.one_pass_attn_mask_train
         else:
-            attn_field_length = self.signal_length
-            one_pass_mask = self.one_pass_attn_mask_dev
+            attn_field_length = hidden_states.size(1) - self.term_num
+            cdd_size = attn_field_length // self.signal_length
+            one_pass_mask = torch.cat([torch.eye(cdd_size, device=hidden_states.device).repeat_interleave(repeats=self.signal_length, dim=-1).repeat_interleave(repeats=self.signal_length, dim=0), torch.ones(attn_field_length, self.term_num, device=hidden_states.device)], dim=-1).unsqueeze(0).unsqueeze(0)
 
-        attn_field = hidden_states[:, :attn_field_length]
+        attn_field = hidden_states[:, :-self.term_num]
 
         # [batch_size, head_num, *, head_dim]
         key_layer = self.transpose_for_scores(self.key(hidden_states))
@@ -107,7 +108,7 @@ class BertSelfAttention(nn.Module):
         if head_mask is not None:
             attention_probs = attention_probs * head_mask
 
-        context_layer = torch.cat([torch.matmul(attention_probs, value_layer), value_layer[:, :, attn_field_length:]], dim=-2)
+        context_layer = torch.cat([torch.matmul(attention_probs, value_layer), value_layer[:, :, -self.term_num:]], dim=-2)
 
         # [batch_size, signal_length, head_num, head_dim]
         context_layer = context_layer.permute(0, 2, 1, 3).contiguous()

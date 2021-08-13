@@ -92,22 +92,6 @@ sleep infinity
   - [ ] position embedding in interactor
   - [ ] one entry to define term_num
 
-### Fusion
-- append [SEP] token in the front of personalized terms
-
-### Interactor
-#### Bert
-
-#### Cross-Bert
-- only encode candidate news
-- extra input: personalized terms, namely `references`
-- concate the input news and the references inside
-- every hidden state in the candidate news attend to references
-
-
-- [ ] FIM
-- [ ] KNRM
-
 ## Workflow
 - [x] extract terms from every historical news when the history is updated
 - [ ] extract terms incrementally

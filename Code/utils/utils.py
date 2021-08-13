@@ -471,27 +471,6 @@ def load_manager():
     if args.checkpoint:
         args.checkpoint = args.checkpoint
 
-    # if args.multiview:
-    #     args.multiview = args.multiview
-    #     args.attrs = "title,vert,subvert,abs".split(",")
-    #     logging.info("automatically set True for onehot encoding of (sub)categories")
-    #     args.onehot = True
-    #     args.vert_num = 18
-    #     args.subvert_num = 293
-    # else:
-    #     args.multiview = False
-    # if args.coarse:
-    #     args.coarse = 'coarse'
-    # else:
-    #     args.coarse = None
-    # if args.ensemble:
-    #     args.ensemble = args.ensemble
-    # if args.pipeline:
-    #     args.pipeline = args.pipeline
-    #     args.encoder = "pipeline"
-    #     args.name = args.pipeline
-    #     args.spadam = False
-
     # default to non-distributed training, this property can be modified by the script
     args.rank = 0
 
@@ -535,8 +514,8 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
 
     #     dataset_dev = MIND_impr(config=config, news_file=news_file_dev,
     #                         behaviors_file=behavior_file_dev)
-    #     loader_dev = DataLoader(dataset_dev, batch_size=config.batch_size, pin_memory=pin_memory,
-    #                             num_workers=num_workers, drop_last=False, collate_fn=my_collate)
+    #     loader_dev = DataLoader(dataset_dev, batch_size=1, pin_memory=pin_memory,
+    #                             num_workers=num_workers, drop_last=False)
     #     vocab = dataset_dev.vocab
     #     if not config.bert:
     #         embedding = GloVe(dim=300, cache=vec_cache_path)
@@ -551,11 +530,11 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
     #     # FIXME: if config.bert
     #     dataset_train = MIND_news(config, news_file_train)
     #     loader_news_train = DataLoader(
-    #         dataset_train, batch_size=config.batch_size, pin_memory=pin_memory, num_workers=num_workers, drop_last=False, collate_fn=my_collate)
+    #         dataset_train, batch_size=config.batch_size, pin_memory=pin_memory, num_workers=num_workers, drop_last=False)
 
     #     dataset_dev = MIND_news(config, news_file_dev)
     #     loader_news_dev = DataLoader(
-    #         dataset_dev, batch_size=config.batch_size, pin_memory=pin_memory, num_workers=num_workers, drop_last=False, collate_fn=my_collate)
+    #         dataset_dev, batch_size=1, pin_memory=pin_memory, num_workers=num_workers, drop_last=False)
 
     #     vocab = getVocab('data/dictionaries/vocab.pkl')
     #     embedding = GloVe(dim=300, cache=vec_cache_path)
@@ -566,7 +545,7 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
     #             "/MIND{}_test/news.tsv".format(config.scale)
     #         dataset_test = MIND_news(config, news_file_test)
     #         loader_news_test = DataLoader(
-    #             dataset_test, batch_size=config.batch_size, pin_memory=pin_memory, num_workers=num_workers, drop_last=False, collate_fn=my_collate)
+    #             dataset_test, batch_size=config.batch_size, pin_memory=pin_memory, num_workers=num_workers, drop_last=False)
 
     #         return vocab, [loader_news_train, loader_news_dev, loader_news_test]
 
@@ -603,9 +582,9 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
             sampler_dev = None
 
         loader_train = DataLoader(dataset_train, batch_size=config.batch_size, pin_memory=pin_memory,
-                                num_workers=num_workers, drop_last=False, shuffle=False, collate_fn=my_collate, sampler=sampler_train)
-        loader_dev = DataLoader(dataset_dev, batch_size=config.batch_size, pin_memory=pin_memory,
-                                num_workers=num_workers, drop_last=False, collate_fn=my_collate)
+                                num_workers=num_workers, drop_last=False, shuffle=False, sampler=sampler_train)
+        loader_dev = DataLoader(dataset_dev, batch_size=1, pin_memory=pin_memory,
+                                num_workers=num_workers, drop_last=False)
 
         return vocab, [loader_train, loader_dev]
 
@@ -628,8 +607,8 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
             sampler_dev = DistributedSampler(dataset_dev, num_replicas=config.world_size, rank=config.rank, shuffle=shuffle)
         else:
             sampler_dev = None
-        loader_dev = DataLoader(dataset_dev, batch_size=config.batch_size, pin_memory=pin_memory,
-                                num_workers=num_workers, drop_last=False, collate_fn=my_collate, sampler=sampler_dev)
+        loader_dev = DataLoader(dataset_dev, batch_size=1, pin_memory=pin_memory,
+                                num_workers=num_workers, drop_last=False, sampler=sampler_dev)
 
         return vocab, [loader_dev]
 
@@ -653,7 +632,7 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
         else:
             sampler_test = None
         loader_test = DataLoader(dataset_test, batch_size=config.batch_size, pin_memory=pin_memory,
-                                 num_workers=num_workers, drop_last=False, collate_fn=my_collate, sampler=sampler_test)
+                                 num_workers=num_workers, drop_last=False, sampler=sampler_test)
 
         return vocab, [loader_test]
 
@@ -726,15 +705,6 @@ def setup(rank, manager):
         manager.device = rank
     # needed for distributed sampler
     manager.rank = rank
-
-def get_device():
-    """
-    get current device
-    """
-    if torch.cuda.is_available():
-        local_rank = os.environ.get("RANK", 0)
-        return torch.device('cuda', int(local_rank))
-    return torch.device('cpu')
 
 
 def cleanup():
