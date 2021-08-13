@@ -4,7 +4,6 @@ import torch.nn as nn
 from transformers import BertModel,BertConfig
 from .Modules.OnePassAttn import BertSelfAttention
 
-
 class BERT_Interactor(nn.Module):
     def __init__(self, config):
         # confirm the hidden dim to be 768
@@ -16,7 +15,7 @@ class BERT_Interactor(nn.Module):
 
         self.name = 'bert-overlook'
         self.signal_length = config.signal_length
-        self.cdd_size = config.cdd_size
+        self.term_num = config.term_num
         # self.device = config.device
 
         self.hidden_dim = config.hidden_dim
@@ -94,28 +93,27 @@ class BERT_Interactor(nn.Module):
             reduced_tensor: output tensor after CNN2d, [batch_size, cdd_size, final_dim]
         """
         batch_size = cdd_news_embedding.size(0)
+        cdd_size = cdd_news_embedding.size(1)
 
         # [bs,tn,hd]
         ps_terms = self.fusion(ps_terms, batch_size)
-        term_num = ps_terms.size(1)
 
         # add [CLS] token
         # [bs, cs, sl+1, hd]
-        cdd_news_embedding = torch.cat([self.cls_embedding.expand(batch_size, self.cdd_size, 1, self.hidden_dim), cdd_news_embedding.squeeze(-2)], dim=-2)
+        cdd_news_embedding = torch.cat([self.cls_embedding.expand(batch_size, cdd_size, 1, self.hidden_dim), cdd_news_embedding.squeeze(-2)], dim=-2)
         # [bs, cs*(sl+1), hd]
         cdd_news_embedding = (cdd_news_embedding + self.cdd_pos_embedding).view(batch_size, -1, self.hidden_dim)
 
         # [CLS], cdd_news, [SEP], his_news_1, his_news_2, ...
         bert_input = torch.cat([cdd_news_embedding, ps_terms], dim=-2)
 
-        # [bs, cs*(sl+1) + tn]
-        attn_mask = torch.ones((batch_size, self.cdd_size, 1 + self.signal_length + term_num), device=cdd_news_embedding.device)
-        attn_mask[:, :, 1:self.signal_length + 1] = cdd_attn_mask
+        # [bs, cs*(sl+1)]
+        attn_mask = torch.cat([torch.ones(batch_size, cdd_size, 1, device=cdd_attn_mask.device), cdd_attn_mask], dim=2).view(batch_size, -1)
+        attn_mask = torch.cat([attn_mask, torch.ones(batch_size, self.term_num, device=cdd_attn_mask.device)], dim=-1).view(batch_size, 1, 1, -1)
 
-        bert_output = self.bert(bert_input, attention_mask=attn_mask.view(batch_size, -1)).last_hidden_state[0 : self.cdd_size * (self.signal_length + 1) : self.signal_length + 1].view(batch_size, self.cdd_size, self.hidden_dim)
+        bert_output = self.bert(bert_input, attention_mask=attn_mask).last_hidden_state[:, 0 : cdd_size * (self.signal_length + 1) : self.signal_length + 1].view(batch_size, cdd_size, self.hidden_dim)
 
         return bert_output
-
 
 if __name__ == '__main__':
     from models.Interactors.BERT import BERT_Interactor

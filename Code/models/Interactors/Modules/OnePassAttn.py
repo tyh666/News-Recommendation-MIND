@@ -20,9 +20,11 @@ class BertSelfAttention(nn.Module):
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
 
         self.signal_length = config.signal_length + 1
-        # default to term_num = his_size * k + 1
-        self.register_buffer('one_pass_attn_mask', torch.cat([torch.ones(config.cdd_size * self.signal_length, config.term_num), torch.eye(config.cdd_size * self.signal_length).repeat_interleave(repeats=self.signal_length,dim=-1)], dim=-1).unsqueeze(0).unsqueeze(0), persistent=False)
+        self.all_length = config.cdd_size * self.signal_length
 
+        # default to term_num = his_size * k + 1
+        self.register_buffer('one_pass_attn_mask_train', torch.cat([torch.eye(config.cdd_size).repeat_interleave(repeats=self.signal_length, dim=-1).repeat_interleave(repeats=self.signal_length, dim=0), torch.ones(config.cdd_size * self.signal_length, config.term_num)], dim=-1).unsqueeze(0).unsqueeze(0), persistent=False)
+        self.register_buffer('one_pass_attn_mask_dev', torch.ones(1, self.signal_length + config.term_num).unsqueeze(0).unsqueeze(0), persistent=False)
         # self.position_embedding_type = getattr(config, "position_embedding_type", "absolute")
         # if self.position_embedding_type == "relative_key" or self.position_embedding_type == "relative_key_query":
         #     self.max_position_embeddings = config.max_position_embeddings
@@ -54,7 +56,14 @@ class BertSelfAttention(nn.Module):
             references: normally personalized terms, [batch_size, term_num, hidden_dim]
         """
         # [CLS] + signal_length
-        attn_field = hidden_states[:, :self.signal_length]
+        if self.training:
+            attn_field_length = self.all_length
+            one_pass_mask = self.one_pass_attn_mask_train
+        else:
+            attn_field_length = self.signal_length
+            one_pass_mask = self.one_pass_attn_mask_dev
+
+        attn_field = hidden_states[:, :attn_field_length]
 
         # [batch_size, head_num, *, head_dim]
         key_layer = self.transpose_for_scores(self.key(hidden_states))
@@ -81,7 +90,8 @@ class BertSelfAttention(nn.Module):
         #         attention_scores = attention_scores + relative_position_scores_query + relative_position_scores_key
 
         # [bs, hn, sl+1, *]
-        attention_scores = (attention_scores / math.sqrt(self.attention_head_size)) * self.one_pass_attn_mask
+        attention_scores = (attention_scores / math.sqrt(self.attention_head_size)) * one_pass_mask
+
         if attention_mask is not None:
             # Apply the attention mask is (precomputed for all layers in BertModel forward() function)
             attention_scores = attention_scores * attention_mask
@@ -97,12 +107,11 @@ class BertSelfAttention(nn.Module):
         if head_mask is not None:
             attention_probs = attention_probs * head_mask
 
-        context_layer = torch.matmul(attention_probs, value_layer)
+        context_layer = torch.cat([torch.matmul(attention_probs, value_layer), value_layer[:, :, attn_field_length:]], dim=-2)
 
+        # [batch_size, signal_length, head_num, head_dim]
         context_layer = context_layer.permute(0, 2, 1, 3).contiguous()
         new_context_layer_shape = context_layer.size()[:-2] + (self.all_head_size,)
         context_layer = context_layer.view(*new_context_layer_shape)
-
-        outputs = (context_layer, attention_probs) if output_attentions else (context_layer,)
 
         return (context_layer,)
