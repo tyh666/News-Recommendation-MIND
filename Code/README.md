@@ -130,17 +130,11 @@ sleep infinity
 - the gradient after docReducer is sharp
 - if we concat title with abstract, then there must be many duplicated words, how about removing them when preprocessing?
 - why `barrier()` causes deadlock?
+- very likely to fall into local optim
 
-in SpeedyFeed
-- industry data for speedyfeed
-- still fit on one gpu?
 
 ## Need to update
 - [ ] Encoders.MHA, NPA, Pipeline, Random Embedding
-- [ ]
-
-## bash
-export TRANSFORMERS_CACHE=/blabla/cache/
 
 ## Phylosiphy
 ### manager
@@ -154,3 +148,12 @@ export TRANSFORMERS_CACHE=/blabla/cache/
 ### MIND
 - map dataset for MIND
 - cache enabled
+
+## Function
+### Embedding
+### Encoder
+- may have levels
+- output no levels
+
+### DocReducer
+- no level

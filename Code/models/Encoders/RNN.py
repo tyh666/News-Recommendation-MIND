@@ -21,7 +21,7 @@ class RNN_Encoder(nn.Module):
             news_embedding: tensor of [batch_size, *, signal_length, embedding_dim]
 
         Returns:
-            news_embedding: hidden vector of each token in news, of size [batch_size, *, signal_length, level, hidden_dim]
+            news_embedding: hidden vector of each token in news, of size [batch_size, *, signal_length, hidden_dim]
             news_repr: hidden vector of each news, of size [batch_size, *, hidden_dim]
         """
 
@@ -30,7 +30,7 @@ class RNN_Encoder(nn.Module):
         news_embeds, output = self.lstm(news_embeds)
         news_repr = torch.mean(output[0],dim=0).view(*news_embedding.shape[0:2],self.hidden_dim)
 
-        return news_embedding.view(*news_embedding.shape[:-1], self.level, self.hidden_dim), news_repr
+        return news_embeds.view(*news_embedding.shape[:-1], self.level, self.hidden_dim), news_repr
 
 class RNN_User_Encoder(nn.Module):
     def __init__(self, config):

@@ -7,10 +7,6 @@ class CNN_Encoder(nn.Module):
         super().__init__()
         self.name = 'cnn'
 
-        self.level = 1
-
-        config.level = self.level
-
         self.hidden_dim = config.hidden_dim
         self.embedding_dim = config.embedding_dim
 
@@ -42,7 +38,7 @@ class CNN_Encoder(nn.Module):
             news_embedding: tensor of [batch_size, *, signal_length, embedding_dim]
 
         Returns:
-            news_embedding: hidden vector of each token in news, of size [batch_size, *, signal_length, level, hidden_dim]
+            news_embedding: hidden vector of each token in news, of size [batch_size, *, signal_length, hidden_dim]
             news_repr: hidden vector of each news, of size [batch_size, *, hidden_dim]
         """
         signal_length = news_embedding.size(2)
@@ -50,7 +46,7 @@ class CNN_Encoder(nn.Module):
         cnn_output = self.RELU(self.layerNorm(self.CNN(cnn_input).transpose(-2, -1))).view(*news_embedding.shape[:-1], self.hidden_dim)
 
         news_repr = Attention.ScaledDpAttention(self.query_words, self.Tanh(self.wordQueryProject(cnn_output)), cnn_output).squeeze(dim=-2)
-        return cnn_output.unsqueeze(dim=-2), news_repr
+        return cnn_output, news_repr
 
 if __name__ == '__main__':
     from models.Encoders.CNN import CNN_Encoder

@@ -59,13 +59,12 @@ class BERT_Interactor(nn.Module):
         fuse the personalized terms, add interval embedding and order embedding
 
         Args:
-            ps_terms: [batch_size, his_size, k, level, hidden_dim]
+            ps_terms: [batch_size, his_size, k, hidden_dim]
 
         Returns:
             ps_terms: [batch_size, term_num (his_size*k (+ his_size)), hidden_dim]
         """
 
-        ps_terms = ps_terms.squeeze(-2)
         # insert interval embedding between historical news
         # [bs,hs,k+1,hd]
         # ps_terms = torch.cat([ps_terms, self.inte_embedding.expand(batch_size, self.his_size, 1, self.hidden_dim)], dim=-2)
@@ -85,8 +84,8 @@ class BERT_Interactor(nn.Module):
         calculate interaction tensor and reduce it to a vector
 
         Args:
-            ps_terms: personalized terms, [batch_size, his_size, k, level, hidden_dim]
-            cdd_news_embedding: word-level representation of candidate news, [batch_size, cdd_size, signal_length, level, hidden_dim]
+            ps_terms: personalized terms, [batch_size, his_size, k, hidden_dim]
+            cdd_news_embedding: word-level representation of candidate news, [batch_size, cdd_size, signal_length, hidden_dim]
             cdd_attn_mask: attention mask of the candidate news, [batch_size, cdd_size, signal_length]
 
         Returns:
@@ -100,7 +99,7 @@ class BERT_Interactor(nn.Module):
 
         # add [CLS] token
         # [bs, cs, sl+1, hd]
-        cdd_news_embedding = torch.cat([self.cls_embedding.expand(batch_size, cdd_size, 1, self.hidden_dim), cdd_news_embedding.squeeze(-2)], dim=-2)
+        cdd_news_embedding = torch.cat([self.cls_embedding.expand(batch_size, cdd_size, 1, self.hidden_dim), cdd_news_embedding], dim=-2)
         # [bs, cs*(sl+1), hd]
         cdd_news_embedding = (cdd_news_embedding + self.cdd_pos_embedding).view(batch_size, -1, self.hidden_dim)
 

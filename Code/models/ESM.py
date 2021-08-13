@@ -20,13 +20,11 @@ class ESM(nn.Module):
         self.termFuser = termFuser
         self.interactor = interactor
 
-        self.level = self.encoderN.level
-
         self.hidden_dim = encoderN.hidden_dim
         self.final_dim = interactor.final_dim
 
         self.learningToRank = nn.Sequential(
-            nn.Linear(self.final_dim, int(self.final_dim/2)),
+            nn.Linear(self.final_dim + 1, int(self.final_dim/2)),
             nn.ReLU(),
             nn.Linear(int(self.final_dim/2),1)
         )
@@ -34,16 +32,21 @@ class ESM(nn.Module):
         self.name = '__'.join(['esm', self.encoderN.name, self.encoderU.name, self.docReducer.name, self.interactor.name])
         config.name = self.name
 
-    def clickPredictor(self, reduced_tensor):
+    def clickPredictor(self, reduced_tensor, cdd_news_repr, user_repr):
         """ calculate batch of click probabolity
 
         Args:
             reduced_tensor: [batch_size, cdd_size, final_dim]
+            cdd_news_repr: news-level representation, [batch_size, cdd_size, hidden_dim]
+            user_repr: user representation, [batch_size, 1, hidden_dim]
 
         Returns:
             score of each candidate news, [batch_size, cdd_size]
         """
-        return self.learningToRank(reduced_tensor).squeeze(dim=-1)
+        score_coarse = cdd_news_repr.matmul(user_repr.transpose(-2,-1))
+        score = torch.cat([reduced_tensor, score_coarse], dim=-1)
+
+        return self.learningToRank(score).squeeze(dim=-1)
 
     def _forward(self,x):
         if x["cdd_encoded_index"].size(0) != self.batch_size:
@@ -53,22 +56,22 @@ class ESM(nn.Module):
         cdd_news_embedding, cdd_news_repr = self.encoderN(
             self.embedding(cdd_news))
         his_news = x["his_encoded_index"].long().to(self.device)
-        his_news_embedding, his_news_repr = self.encoderN(
-            self.embedding(his_news))
+        his_news_embedding = self.embedding(his_news)
+        his_news_encoded_embedding, his_news_repr = self.encoderN(
+            his_news_embedding
+        )
 
         user_repr = self.encoderU(his_news_repr)
 
-        ps_terms, ps_term_ids = self.docReducer(his_news_embedding, user_repr)
+        ps_terms, ps_term_ids = self.docReducer(his_news_encoded_embedding, his_news_embedding, user_repr)
 
         # if self.termFuser:
         #     ps_terms = self.termFuser(ps_terms, ps_term_ids, his_news)
-        # else:
-        #     ps_terms = ps_terms.view(self.batch_size, -1, self.level, self.hidden_dim)
 
         # reduced_tensor = self.interactor(torch.cat([cdd_news_repr.unsqueeze(-2), cdd_news_embedding], dim=-2), torch.cat([user_repr, ps_terms], dim=-2))
         reduced_tensor = self.interactor(ps_terms, cdd_news_embedding, x["cdd_attn_mask"].to(self.device))
 
-        return self.clickPredictor(reduced_tensor)
+        return self.clickPredictor(reduced_tensor, cdd_news_repr, user_repr)
 
     def forward(self,x):
         """

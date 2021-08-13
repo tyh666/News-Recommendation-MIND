@@ -15,12 +15,13 @@ class DRM_Matching(nn.Module):
 
         config.term_num = config.k * config.his_size + 1
 
-    def forward(self, news_embedding, user_repr):
+    def forward(self, news_selection_embedding, news_embedding, user_repr):
         """
         Extract words from news text according to the overall user interest
 
         Args:
-            news_embedding: word-level news embedding, [batch_size, his_size, signal_length, level, hidden_dim]
+            news_selection_embedding: encoded word-level embedding, [batch_size, his_size, signal_length, hidden_dim]
+            news_embedding: word-level news embedding, [batch_size, his_size, signal_length, hidden_dim]
             user_repr: user representation, [batch_size, 1, hidden_dim]
 
         Returns:
@@ -28,14 +29,14 @@ class DRM_Matching(nn.Module):
             score_kid: index of top k terms in the text, [batch_size, his_size, k]
         """
 
-        news_embedding_mean = news_embedding.mean(dim=-2)
         # [bs, hs, sl]
-        scores = F.normalize(news_embedding_mean, dim=-1).matmul(F.normalize(user_repr, dim=-1).transpose(-2,-1).unsqueeze(1)).squeeze(-1)
-
+        scores = F.normalize(news_selection_embedding, dim=-1).matmul(F.normalize(user_repr, dim=-1).transpose(-2,-1).unsqueeze(1)).squeeze(-1)
         score_k, score_kid = scores.topk(dim=-1, k=self.k)
-        personalized_terms = news_embedding.gather(dim=-3,index=score_kid.unsqueeze(-1).unsqueeze(-1).expand(score_kid.size() + (news_embedding.size(-2),news_embedding.size(-1))))
 
-        weighted_ps_terms = personalized_terms * (nn.functional.softmax(score_k.masked_fill(score_k < self.threshold, 0), dim=-1).unsqueeze(-1).unsqueeze(-1))
+        personalized_terms = news_embedding.gather(dim=-2,index=score_kid.unsqueeze(-1).expand(score_kid.size() + (news_embedding.size(-1),)))
+        # weighted_ps_terms = personalized_terms * (nn.functional.softmax(score_k.masked_fill(score_k < self.threshold, 0), dim=-1).unsqueeze(-1))
+        weighted_ps_terms = personalized_terms * (score_k.masked_fill(score_k < self.threshold, 0).unsqueeze(-1))
+
         # weighted_ps_terms.retain_grad()
         # print(weighted_ps_terms.grad, weighted_ps_terms.requires_grad)
 

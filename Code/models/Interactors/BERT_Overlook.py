@@ -51,18 +51,18 @@ class BERT_Interactor(nn.Module):
         fuse the personalized terms, add interval embedding and order embedding
 
         Args:
-            ps_terms: [batch_size, his_size, k, level, hidden_dim]
+            ps_terms: [batch_size, his_size, k, hidden_dim]
 
         Returns:
             ps_terms: [batch_size, term_num (his_size*k (+ his_size)), hidden_dim]
         """
 
-        ps_terms = ps_terms.squeeze(-2)
         # insert interval embedding between historical news
         # [bs,hs,k+1,hd]
         # ps_terms = torch.cat([ps_terms, self.inte_embedding.expand(batch_size, self.his_size, 1, self.hidden_dim)], dim=-2)
 
         # add order embedding
+        print(ps_terms.shape)
         ps_terms = (ps_terms + self.order_embedding).view(batch_size, -1, self.hidden_dim)
         ps_terms = torch.cat([self.sep_embedding.expand(batch_size, 1, self.hidden_dim), ps_terms], dim=1)
         # insert cls token for pooling

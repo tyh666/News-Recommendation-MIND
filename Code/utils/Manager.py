@@ -188,18 +188,18 @@ class Manager():
         # else:
 
 
-        # if self.embedding == 'bert':
-        #     optimizers.append(optim.Adam(model.embedding.parameters(), lr=self.bert_lr))
-        # else:
-        #     base_params = chain(base_params, model.embedding.parameters())
-        # if self.interactor == 'bert':
-        #     optimizers.append(optim.Adam(model.interactor.parameters(), lr=self.bert_lr))
-        # else:
-        #     base_params = chain(base_params, model.interactor.parameters())
+        if self.embedding == 'bert':
+            optimizers.append(optim.Adam(model.embedding.parameters(), lr=self.bert_lr))
+        else:
+            base_params = chain(base_params, model.embedding.parameters())
+        if self.interactor == 'bert':
+            optimizers.append(optim.Adam(model.interactor.parameters(), lr=self.bert_lr))
+        else:
+            base_params = chain(base_params, model.interactor.parameters())
 
-        # optimizers.append(optim.Adam(base_params, lr=self.lr))
+        optimizers.append(optim.Adam(base_params, lr=self.lr))
 
-        optimizers = [optim.Adam(model.parameters(), lr=self.lr)]
+        # optimizers = [optim.Adam(model.parameters(), lr=self.lr)]
 
         # if self.schedule == "linear":
         #     scheduler =get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=len(loader_train) * self.epochs)
@@ -507,7 +507,7 @@ class Manager():
         optimizers, schedulers = self._get_optim(model, loaders[0])
 
         res = self._tune(model, loaders, optimizers, loss_func, schedulers=schedulers,
-                        writer=writer, interval=self.interval, save_step=int(len(loaders[0])/self.val_freq)-1, dist=(self.world_size > 1))
+                        writer=writer, interval=self.interval, save_step=int(len(loaders[0])/self.val_freq - 1), dist=(self.world_size > 1))
 
         self._log(res)
 
