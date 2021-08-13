@@ -1,33 +1,42 @@
 ## Environment
 ``` bash
-git config --global user.name 'namespace-Pt'
-git config --global user.email 'zpt@ruc.edu.cn'
+FILE=/data/v-pezhang/nn
+if [ -d /data/v-pezhang/nn/lib/python3.8/site-packages/torchtext ];
+then
+  conda init
+  echo 'alias nn="conda activate /data/v-pezhang/nn"' >> ~/.bashrc
+  source ~/.bashrc
+  nn
+  sleep infinity
 
-conda create --prefix /data/v-pezhang/nn python=3.8 -y
-conda init
-echo 'alias nn="conda activate /data/v-pezhang/nn"' >> ~/.bashrc
-# export TRANSFORMERS_CACHE=/data/v-pezhang/Data/transformers/
-source ~/.bashrc
-nn
+else
+  git config --global user.name 'namespace-Pt'
+  git config --global user.email 'zpt@ruc.edu.cn'
 
-ipython kernel install --name "nn" --user
+  conda create --prefix /data/v-pezhang/nn python=3.8 -y
+  conda init
+  echo 'alias nn="conda activate /data/v-pezhang/nn"' >> ~/.bashrc
+  source ~/.bashrc
+  nn
 
-pip install torch==1.7.1+cu101 torchtext==0.8.1 pandas scipy scikit-learn transformers -f https://download.pytorch.org/whl/torch_stable.html
-pip install tensorboard ipython jupyter notebook
+  ipython kernel install --name "nn" --user
 
-cd /data/
-mkdir v-pezhang
-cd v-pezhang
-mkdir Data
-mkdir Code
-cd Code
-git clone https://github.com/namespace-Pt/Document-Reduction.git
+  pip install torch==1.7.1+cu110 torchtext==0.8.1 pandas scipy scikit-learn transformers -f https://download.pytorch.org/whl/torch_stable.html
+  pip install tensorboard ipython jupyter notebook
 
+  cd /data/
+  mkdir v-pezhang
+  cd v-pezhang
+  mkdir Data
+  mkdir Code
+  cd Code
+  git clone https://github.com/namespace-Pt/Document-Reduction.git
 
-sudo apt-get install rsync
-sudo apt-get install screen
+  sudo apt-get install rsync
+  sudo apt-get install screen
+  sleep infinity
 
-sleep infinity
+fi
 ```
 - `python==3.8`
 - `torch==1.7.1`
@@ -89,8 +98,8 @@ sleep infinity
   - [x] candidate news attention mask
   - [x] insert CLS in embedding layer, not fusion
     - fobiddable, otherwise the [CLS] would be extracted
-  - [ ] position embedding in interactor
-  - [ ] one entry to define term_num
+  - [x] position embedding in interactor
+  - [x] one entry to define term_num
 
 ## Workflow
 - [x] extract terms from every historical news when the history is updated
@@ -115,6 +124,8 @@ sleep infinity
 - if we concat title with abstract, then there must be many duplicated words, how about removing them when preprocessing?
 - why `barrier()` causes deadlock?
 - very likely to fall into local optim
+- distributed evaluate
+- learning rate of bert
 
 
 ## Need to update
