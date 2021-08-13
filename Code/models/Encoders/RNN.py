@@ -35,7 +35,7 @@ class RNN_Encoder(nn.Module):
 class RNN_User_Encoder(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.name = 'rnn-user-encoder'
+        self.name = 'rnn-u'
 
         self.hidden_dim = config.hidden_dim
         self.lstm = nn.LSTM(self.hidden_dim, self.hidden_dim, batch_first=True)

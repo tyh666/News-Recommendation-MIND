@@ -380,8 +380,7 @@ def load_manager():
                     help="length of the bert tokenized tokens", type=int, default=100)
     parser.add_argument("-hs", "--his_size", dest="his_size",
                         help="history size", type=int, default=50)
-    parser.add_argument("-is", "--impr_size", dest="impr_size",
-                        help="impression size for testing", type=int, default=0)
+
 
     parser.add_argument("-hd", "--hidden_dim", dest="hidden_dim",
                     help="number of hidden states", type=int, default=200)
@@ -452,9 +451,6 @@ def load_manager():
         args.metrics = "auc,mean_mrr,ndcg@5,ndcg@10" + "," + args.metrics
     else:
         args.metrics = "auc,mean_mrr,ndcg@5,ndcg@10"
-
-    if not args.impr_size:
-        args.impr_size = args.cdd_size * args.batch_size
 
     if not args.interval:
         if args.scale == "demo":

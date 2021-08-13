@@ -50,6 +50,7 @@ class MIND(Dataset):
 
             self.max_title_length = 50
             self.max_his_size = 100
+            self.impr_size = 100
 
             # there are only two types of vocabulary
             self.vocab = getVocab('data/dictionaries/vocab.pkl')
@@ -431,8 +432,7 @@ class MIND_bert(Dataset):
 
             self.max_news_length = 512
             self.max_his_size = 100
-
-            self.impr_size = config.impr_size
+            self.impr_size = 100
 
             # there are only two types of vocabulary
             self.tokenizer = BertTokenizerFast.from_pretrained(config.bert)
