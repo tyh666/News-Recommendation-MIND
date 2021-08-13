@@ -185,8 +185,8 @@ class MIND(Dataset):
                     uindex = self.uid2index[uid]
 
                     # store every impression
-                    imprs.append((impr_index, impr_news, labels))
-
+                    for i in range(0, len(impr_news), self.impr_size):
+                        imprs.append((impr_index, impr_news[i:i+self.impr_size], labels[i:i+self.impr_size]))
 
                     # 1 impression correspond to 1 of each of the following properties
                     histories.append(history)
@@ -225,7 +225,8 @@ class MIND(Dataset):
                     uindex = self.uid2index[uid]
 
                     # store every impression
-                    imprs.append((impr_index, impr_news))
+                    for i in range(0, len(impr_news), self.impr_size):
+                        imprs.append((impr_index, impr_news[i:i+self.impr_size]))
 
                     # 1 impression correspond to 1 of each of the following properties
                     histories.append(history)
@@ -347,7 +348,7 @@ class MIND(Dataset):
                 "cdd_attn_mask": np.asarray(cdd_title_mask),
                 "his_attn_mask": np.asarray(his_title_mask),
                 "his_mask": his_mask,
-                "labels": np.asarray([label])
+                "labels": np.asarray(label)
             }
 
             return back_dic
@@ -430,6 +431,8 @@ class MIND_bert(Dataset):
 
             self.max_news_length = 512
             self.max_his_size = 100
+
+            self.impr_size = config.impr_size
 
             # there are only two types of vocabulary
             self.tokenizer = BertTokenizerFast.from_pretrained(config.bert)
@@ -562,7 +565,9 @@ class MIND_bert(Dataset):
                     uindex = self.uid2index[uid]
 
                     # store every impression
-                    imprs.append((impr_index, impr_news, labels))
+                    for i in range(0, len(impr_news), self.impr_size):
+                        imprs.append((impr_index, impr_news[i:i+self.impr_size], labels[i:i+self.impr_size]))
+
 
                     # 1 impression correspond to 1 of each of the following properties
                     histories.append(history)
@@ -601,7 +606,8 @@ class MIND_bert(Dataset):
                     uindex = self.uid2index[uid]
 
                     # store every impression
-                    imprs.append((impr_index, impr_news))
+                    for i in range(0, len(impr_news), self.impr_size):
+                        imprs.append((impr_index, impr_news[i:i+self.impr_size]))
 
                     # 1 impression correspond to 1 of each of the following properties
                     histories.append(history)
@@ -721,7 +727,7 @@ class MIND_bert(Dataset):
                 "cdd_attn_mask": cdd_attn_mask,
                 "his_attn_mask": his_attn_mask,
                 "his_mask": his_mask,
-                "labels": np.asarray([label])
+                "labels": np.asarray(label)
             }
             return back_dic
 
@@ -981,7 +987,7 @@ class MIND_impr(Dataset):
             "cdd_encoded_index": np.asarray(cdd_title_index),
             'his_id': np.asarray(his_ids),
             "his_encoded_index": his_title_index,
-            "labels": np.asarray([label])
+            "labels": np.asarray(label)
         }
 
         return back_dic

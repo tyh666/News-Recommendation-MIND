@@ -13,6 +13,7 @@ class config:
 
     npratio = 4
     his_size = 50
+    cdd_size = 5
 
     dropout_p = 0.2
     device = 'cpu'
@@ -34,7 +35,8 @@ class config:
     seeds = 42
     interval = 10
     val_freq = 2
-    schedule = None
+    schedule = 'linear'
+    warmup = 100
     path = "../../../Data/"
     tb = False
 

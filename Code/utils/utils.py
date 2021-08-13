@@ -351,6 +351,7 @@ def my_collate(data):
     return dict(result)
 
 
+
 def info(config):
     return "\n".join(["{}:{}".format(k,v) for k,v in vars(config).items() if not k.startswith('__')])
 
@@ -379,6 +380,9 @@ def load_manager():
                     help="length of the bert tokenized tokens", type=int, default=100)
     parser.add_argument("-hs", "--his_size", dest="his_size",
                         help="history size", type=int, default=50)
+    parser.add_argument("-is", "--impr_size", dest="impr_size",
+                        help="impression size for testing", type=int, default=0)
+
     parser.add_argument("-hd", "--hidden_dim", dest="hidden_dim",
                     help="number of hidden states", type=int, default=200)
     parser.add_argument("-dp", "--dropout_p", dest="dropout_p",
@@ -395,7 +399,9 @@ def load_manager():
                         help="learning rate of non-bert modules", type=float, default=1e-4)
     parser.add_argument("-blr", "--bert_lr", dest="bert_lr",
                         help="learning rate of bert based modules", type=float, default=3e-5)
-    parser.add_argument("--schedule", dest="schedule", help="choose schedule scheme for optimizer", default="linear")
+    parser.add_argument("--scheduler", dest="scheduler", help="choose schedule scheme for optimizer", choices=['linear'], default="linear")
+    parser.add_argument("--warmup", dest="warmup", help="warmup steps of scheduler", type=int, default=10000)
+
 
     parser.add_argument("--npratio", dest="npratio",
                         help="the number of unclicked news to sample when training", type=int, default=4)
@@ -407,7 +413,7 @@ def load_manager():
     parser.add_argument("-uenc", "--encoderU", dest="encoderU", help="choose user encoder", choices=['rnn','lstur','nrms'], default="rnn")
     parser.add_argument("-intr", "--interactor", dest="interactor", help="choose interactor", choices=['bert','fim','2dcnn','knrm'], default="bert")
 
-    parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=0)
+    parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=3)
     parser.add_argument("--threshold", dest="threshold", help="threshold to mask terms", default=-float("inf"), type=float)
     # parser.add_argument("--multiview", dest="multiview", help="if clarified, SFI-MultiView will be called", action="store_true")
     parser.add_argument("--coarse", dest="coarse", help="if clarified, coarse-level matching signals will be taken into consideration", action='store_true', default=False)
@@ -437,6 +443,7 @@ def load_manager():
     args = parser.parse_args()
 
     args.step = [int(i) for i in args.step.split(",")]
+    args.cdd_size = args.npratio + 1
 
     if len(args.device) == 1:
         args.device = int(args.device)
@@ -446,6 +453,8 @@ def load_manager():
     else:
         args.metrics = "auc,mean_mrr,ndcg@5,ndcg@10"
 
+    if not args.impr_size:
+        args.impr_size = args.cdd_size * args.batch_size
 
     if not args.interval:
         if args.scale == "demo":
@@ -461,18 +470,6 @@ def load_manager():
             args.val_freq = 4
     else:
         args.val_freq = args.val_freq
-
-    # if args.onehot:
-    #     args.onehot = args.onehot
-    #     args.vert_num = 18
-    #     args.subvert_num = 293
-    # else:
-    #     args.onehot = False
-    if args.checkpoint:
-        args.checkpoint = args.checkpoint
-
-    # default to non-distributed training, this property can be modified by the script
-    args.rank = 0
 
     manager = Manager(args)
     return manager
@@ -608,7 +605,7 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
         else:
             sampler_dev = None
         loader_dev = DataLoader(dataset_dev, batch_size=1, pin_memory=pin_memory,
-                                num_workers=num_workers, drop_last=False, sampler=sampler_dev)
+                                num_workers=num_workers, drop_last=False)
 
         return vocab, [loader_dev]
 
@@ -631,8 +628,8 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
             sampler_test = DistributedSampler(dataset_test, num_replicas=config.world_size, rank=config.rank, shuffle=shuffle)
         else:
             sampler_test = None
-        loader_test = DataLoader(dataset_test, batch_size=config.batch_size, pin_memory=pin_memory,
-                                 num_workers=num_workers, drop_last=False, sampler=sampler_test)
+        loader_test = DataLoader(dataset_test, batch_size=1, pin_memory=pin_memory,
+                                 num_workers=num_workers, drop_last=False)
 
         return vocab, [loader_test]
 
@@ -703,8 +700,6 @@ def setup(rank, manager):
 
         os.environ['TOKENIZERS_PARALLELISM'] = 'True'
         manager.device = rank
-    # needed for distributed sampler
-    manager.rank = rank
 
 
 def cleanup():

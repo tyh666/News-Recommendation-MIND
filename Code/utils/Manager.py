@@ -22,35 +22,6 @@ logger = logging.getLogger(__name__)
 
 hparam_list = ["name", "scale", "his_size", "k", "threshold", "lr", "bert-lr", "signal_length", "title_length", "abs_length"]
 
-# def dist_sync(func):
-#     def void_dict():
-#         return defaultdict(int)
-
-#     def wrapper(*args, **kargs):
-#         if args[0].rank == 0:
-#             res = func(*args, **kargs)
-#         else:
-#             res = void_dict()
-
-#         if args[0].world_size > 1:
-#             print("fuck the barrier")
-#             dist.barrier()
-#             print("fuck the barrier after")
-#         return res
-#     return wrapper
-
-# @contextmanager
-# def only_on_main_process(local_rank):
-#     """
-#     Decorator to make all processes in distributed training wait for each local_master to do something.
-#     """
-#     need = True
-#     if local_rank != 0:
-#         need = False
-#     yield need
-#     # QUES: why still needs to barrier?
-#     if local_rank == 0:
-#         dist.barrier()
 
 class Manager():
     """
@@ -61,17 +32,10 @@ class Manager():
             if not k.startswith('__'):
                 setattr(self, k, v)
 
-        self.cdd_size = self.npratio + 1
-
-    # @dist_sync
-    def save(self, model, epoch, step, optimizers=[]):
+    def save(self, model, epoch, step, optimizer=None, scheduler=None):
         """
             shortcut for saving the model and optimizer
         """
-        # FIXME: checkpoints
-
-        # if self.scale == 'demo':
-        #     return
 
         save_path = "data/model_params/{}/{}_epoch{}_step{}_[k={}].model".format(
             self.name, self.scale, epoch, step, self.k)
@@ -84,27 +48,15 @@ class Manager():
 
         save_dict = {}
         save_dict["model"] = state_dict
-
-        if len(optimizers) > 1:
-            save_dict["optimizer"] = optimizers[0].state_dict()
-            save_dict["optimizer_embedding"] = optimizers[1].state_dict()
-        else:
-            save_dict["optimizer"] = optimizers[0].state_dict()
-
-        # if schedulers:
-        #     if len(schedulers) > 1:
-        #         save_dict["scheduler"] = schedulers[0].state_dict()
-        #         save_dict["scheduler_embedding"] = schedulers[1].state_dict()
-        #     else:
-        #         save_dict["scheduler"] = schedulers[0].state_dict()
+        save_dict["optimizer"] = optimizer
+        save_dict["scheduler"] = scheduler
 
         torch.save(save_dict, save_path)
         logger.info("saved model of step {}, epoch {} at {}".format(
             step, epoch, save_path))
 
 
-    # @dist_sync
-    def load(self, model, epoch, step, optimizers=None):
+    def load(self, model, epoch, step, optimizer=None, scheduler=None):
         """
             shortcut for loading model and optimizer parameters
         """
@@ -119,20 +71,14 @@ class Manager():
         else:
             model.load_state_dict(state_dict["model"])
 
-        if optimizers:
-            optimizers[0].load_state_dict(state_dict["optimizer"])
-            if len(optimizers) > 1:
-                optimizers[1].load_state_dict(state_dict["optimizer_embedding"])
-
-        # if schedulers:
-        #     schedulers[0].load_state_dict(state_dict["scheduler"])
-        #     if len(schedulers) > 1:
-        #         schedulers[1].load_state_dict(state_dict["scheduler_embedding"])
+        if optimizer:
+            optimizer.load_state_dict(state_dict["optimizer"])
+        if scheduler:
+            scheduler.load_state_dict(state_dict["scheduler"])
 
         logger.info("Loading model from {}...".format(save_path))
 
 
-    # @dist_sync
     def _log(self, res):
         """
             wrap logging, skip logging results on MINDdemo
@@ -162,59 +108,43 @@ class Manager():
         return loss
 
 
-    def _get_optim(self, model, loader_train):
+    def _get_optim(self, model, loader_train_length):
         """
-            get optimizer/scheduler
+            get optimizer and scheduler
         """
 
-        base_params = chain(*[v.parameters() for k,v in model.named_children() if k not in ['embedding','interactor']])
-
-        optimizers = []
-        # if self.spadam:
-        #     optimizer_param = optim.Adam(
-        #         parameter(self, model, ["encoder.embedding.weight","encoder.user_embedding.weight"], exclude=True), lr=lr)
-        #     optimizer_embedding = optim.SparseAdam(
-        #         list(parameter(self, model, ["encoder.embedding.weight","encoder.user_embedding.weight"])), lr=lr)
-
-        #     optimizers = (optimizer_param, optimizer_embedding)
-
-        #     if self.schedule == "linear":
-        #         scheduler_param =get_linear_schedule_with_warmup(optimizer_param, num_warmup_steps=0, num_training_steps=len(loader_train) * self.epochs)
-        #         scheduler_embedding =get_linear_schedule_with_warmup(optimizer_embedding, num_warmup_steps=0, num_training_steps=len(loader_train) * self.epochs)
-        #         schedulers = (scheduler_param, scheduler_embedding)
-        #     else:
-        #         schedulers = []
-
-        # else:
+        base_params = [v.parameters() for k,v in model.named_children() if k not in ['embedding','interactor']]
+        bert_params = []
 
 
         if self.embedding == 'bert':
-            optimizers.append(optim.Adam(model.embedding.parameters(), lr=self.bert_lr))
+            bert_params.append(model.embedding.parameters())
         else:
-            base_params = chain(base_params, model.embedding.parameters())
+            base_params.append(model.embedding.parameters())
         if self.interactor == 'bert':
-            optimizers.append(optim.Adam(model.interactor.parameters(), lr=self.bert_lr))
+            bert_params.append(model.interactor.parameters())
         else:
-            base_params = chain(base_params, model.interactor.parameters())
+            base_params.append(model.interactor.parameters())
 
-        optimizers.append(optim.Adam(base_params, lr=self.lr))
 
-        # optimizers = [optim.Adam(model.parameters(), lr=self.lr)]
+        optimizer = optim.Adam([
+            {
+                'params': chain(*bert_params),
+                'lr': self.bert_lr #lr_schedule(args.pretrain_lr, 1, args)
+            },
+            {
+                'params': chain(*base_params),
+                'lr': self.lr #lr_schedule(args.lr, 1, args)
+            }
+        ])
 
-        # if self.schedule == "linear":
-        #     scheduler =get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=len(loader_train) * self.epochs)
-        #     schedulers = (scheduler,)
-        # else:
-        schedulers = []
+        if self.scheduler == 'linear':
+            total_steps = loader_train_length * self.epochs
+            scheduler = get_linear_schedule_with_warmup(optimizer,
+                                            num_warmup_steps = self.warmup, # Default value in run_glue.py
+                                            num_training_steps = total_steps)
 
-        # FIXME
-        # if "checkpoint" in self:
-        #     logger.info("loading checkpoint...")
-        #     ck = self.checkpoint.split(",")
-        #     # modify the epoch so the model can be properly saved
-        #     self.load(self, model, ck[0], ck[1], optimizers)
-
-        return optimizers, schedulers
+        return optimizer, scheduler
 
 
     @torch.no_grad()
@@ -229,35 +159,41 @@ class Manager():
             all_labels: labels after group.
             all_preds: preds after group.
         """
+
+        # FIXME: need to modify when distributed testing
         preds = []
         labels = []
-        # imp_indexes = []
+        impr_indexes = []
 
         for batch_data_input in tqdm(dataloader, smoothing=smoothing):
             pred = model(batch_data_input).tolist()
-            preds.append(pred)
-            label = batch_data_input["labels"].squeeze(dim=-1).tolist()
-            labels.append(label)
-            # imp_indexes.extend(batch_data_input["impression_index"].tolist())
+            preds.extend(pred)
+            label = batch_data_input["labels"].tolist()
+            labels.extend(label)
+            impr_indexes.extend(batch_data_input["impression_index"].tolist())
 
-        # all_keys = list(set(imp_indexes))
-        # all_keys.sort()
-        # group_labels = {k: [] for k in all_keys}
-        # group_preds = {k: [] for k in all_keys}
 
-        # for l, p, k in zip(labels, preds, imp_indexes):
-        #     group_labels[k].append(l)
-        #     group_preds[k].append(p)
+        all_preds = []
+        all_labels = []
 
-        # all_impr_ids = group_labels.keys()
-        # all_labels = list(group_labels.values())
-        # all_preds = list(group_preds.values())
+        tmp_preds = []
+        tmp_labels = []
+        prev_impr = 1
+        for label, pred, impr_index in zip(labels, preds, impr_indexes):
+            if impr_index != prev_impr:
+                all_labels.append(tmp_labels.copy())
+                all_preds.append(tmp_preds.copy())
+                tmp_labels.clear()
+                tmp_preds.clear()
+                prev_impr += 1
 
-        # return all_impr_ids, all_labels, all_preds
-        return labels, preds
+            tmp_labels.extend(label)
+            tmp_preds.extend(pred)
 
-    # @dist_sync
-    def evaluate(self, model, dataloader, load=False, log=True, dist=False):
+        return all_labels, all_preds
+
+
+    def evaluate(self, model, dataloader, load=False, log=True, optimizer=None, scheduler=None):
         """Evaluate the given file and returns some evaluation metrics.
 
         Args:
@@ -275,7 +211,7 @@ class Manager():
         model.eval()
 
         if load:
-            self.load(model, self.epochs, self.step[0])
+            self.load(model, self.epochs, self.step[0], optimizer, scheduler)
 
         logger.info("evaluating...")
 
@@ -294,7 +230,7 @@ class Manager():
         return res
 
 
-    def _train(self, model, dataloader, optimizers, loss_func, epochs, schedulers=None, writer=None, interval=100, save_step=None, dist=False):
+    def _train(self, model, dataloader, optimizer, loss_func, epochs, scheduler=None, writer=None, interval=100, save_step=None, dist=False):
         """ train model and print loss meanwhile
         Args:
             dataloader(torch.utils.data.DataLoader): provide data
@@ -319,8 +255,7 @@ class Manager():
 
             for step, x in enumerate(tqdm_):
 
-                for optimizer in optimizers:
-                    optimizer.zero_grad(set_to_none=True)
+                optimizer.zero_grad(set_to_none=True)
 
                 pred = model(x)
                 label = x['label'].to(model.device)
@@ -332,12 +267,10 @@ class Manager():
 
                 loss.backward()
 
-                for optimizer in optimizers:
-                    optimizer.step()
+                optimizer.step()
 
-                if schedulers:
-                    for scheduler in schedulers:
-                        scheduler.step()
+                if scheduler:
+                    scheduler.step()
 
                 if step % interval == 0:
                     tqdm_.set_description(
@@ -351,14 +284,14 @@ class Manager():
 
                 if save_step:
                     if step % save_step == 0 and step > 0:
-                        self.save(model, epoch+1, step, optimizers)
+                        self.save(model, epoch+1, step, optimizer)
 
                 total_steps += 1
 
             if writer:
                 writer.add_scalar("epoch_loss", epoch_loss, epoch)
 
-            self.save(model, epoch+1, 0, optimizers)
+            self.save(model, epoch+1, 0, optimizer)
 
 
     def train(self, model, loaders, tb=False):
@@ -381,13 +314,13 @@ class Manager():
 
         logger.info("training...")
         loss_func = self._get_loss(model)
-        optimizers, schedulers = self._get_optim(model, loaders[0])
+        optimizer, scheduler = self._get_optim(model, len(loaders[0]))
 
-        self._train(model, loaders[0], optimizers, loss_func, self.epochs, schedulers=schedulers,
+        self._train(model, loaders[0], optimizer, loss_func, self.epochs, scheduler=scheduler,
                         writer=writer, interval=self.interval, save_step=self.step[0], dist=(self.world_size > 1))
 
 
-    def _tune(self, model, loaders, optimizers, loss_func, schedulers=[], writer=None, interval=100, save_step=None, dist=False):
+    def _tune(self, model, loaders, optimizer, loss_func, scheduler=None, writer=None, interval=100, save_step=None, dist=False):
         """ train model and evaluate on validation set once every save_step
         Args:
             dataloader(torch.utils.data.DataLoader): provide data
@@ -413,8 +346,7 @@ class Manager():
 
             for step, x in enumerate(tqdm_):
 
-                for optimizer in optimizers:
-                    optimizer.zero_grad(set_to_none=True)
+                optimizer.zero_grad(set_to_none=True)
 
                 pred = model(x)
                 label = x['label'].to(model.device)
@@ -426,12 +358,10 @@ class Manager():
 
                 loss.backward()
 
-                for optimizer in optimizers:
-                    optimizer.step()
+                optimizer.step()
 
-                if schedulers:
-                    for scheduler in schedulers:
-                        scheduler.step()
+                if scheduler:
+                    scheduler.step()
 
                 if step % interval == 0:
                     tqdm_.set_description(
@@ -448,13 +378,13 @@ class Manager():
                         continue
                     print("\n")
                     with torch.no_grad():
-                        result = self.evaluate(model, loaders[1], log=False, dist=dist)
+                        result = self.evaluate(model, loaders[1], log=False)
                         result["epoch"] = epoch+1
                         result["step"] = step
 
                         if result["auc"] > best_res["auc"]:
                             best_res = result
-                            self.save(model, epoch+1, step, optimizers)
+                            self.save(model, epoch+1, step, optimizer)
                             self._log(result)
 
             if writer:
@@ -484,9 +414,9 @@ class Manager():
 
         logger.info("training...")
         loss_func = self._get_loss(model)
-        optimizers, schedulers = self._get_optim(model, loaders[0])
+        optimizer, scheduler = self._get_optim(model, len(loaders[0]))
 
-        res = self._tune(model, loaders, optimizers, loss_func, schedulers=schedulers,
+        res = self._tune(model, loaders, optimizer, loss_func, scheduler=scheduler,
                         writer=writer, interval=self.interval, save_step=int(len(loaders[0])/self.val_freq - 1), dist=(self.world_size > 1))
 
         self._log(res)
@@ -534,7 +464,6 @@ class Manager():
                 f.write(line)
 
         logger.info("written to prediction at {}!".format(save_path))
-
 
 
     @torch.no_grad()
@@ -595,6 +524,7 @@ class Manager():
         del news_reprs
         del news_embeddings
         logging.info("encoded news saved in data/tensors/news_**_{}_{}-[{}].tensor".format(scale, mode, self.name))
+
 
 def mrr_score(y_true, y_score):
     """Computing mrr score metric.
