@@ -3,19 +3,20 @@ import re
 import os
 import datetime
 import logging
-from torch.distributed.distributed_c10d import barrier
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import scipy.stats as ss
 
 from tqdm import tqdm
+from typing import OrderedDict
 from itertools import chain
+from collections import defaultdict
 from transformers import get_linear_schedule_with_warmup
 from torch.utils.tensorboard import SummaryWriter
 from sklearn.metrics import roc_auc_score, log_loss, mean_squared_error, accuracy_score, f1_score
 
-# import torch.distributed as dist
+import torch.distributed as dist
 # from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
@@ -65,11 +66,25 @@ class Manager():
             self.name, self.scale, epoch, step, self.k)
 
         state_dict = torch.load(save_path, map_location=torch.device(model.device))
+
+        if self.world_size <= 1:
+            # in case we load a DDP model checkpoint to a non-DDP model
+            model_dict = OrderedDict()
+            pattern = re.compile('module.')
+
+            for k,v in state_dict['model'].items():
+                if re.search("module", k):
+                    model_dict[re.sub(pattern, '', k)] = v
+                else:
+                    model_dict = state_dict['model']
+        else:
+            model_dict = state_dict['model']
+
         if re.search("pipeline",self.name):
             logger.info("loading in pipeline")
-            model.load_state_dict(state_dict["model"], strict=False)
+            model.load_state_dict(model_dict, strict=False)
         else:
-            model.load_state_dict(state_dict["model"])
+            model.load_state_dict(model_dict)
 
         if optimizer:
             optimizer.load_state_dict(state_dict["optimizer"])
@@ -112,6 +127,8 @@ class Manager():
         """
             get optimizer and scheduler
         """
+        if self.world_size > 1:
+            model = model.module
 
         base_params = [v.parameters() for k,v in model.named_children() if k not in ['embedding','interactor']]
         bert_params = []
@@ -147,6 +164,30 @@ class Manager():
         return optimizer, scheduler
 
 
+    def _group_lists(self, impr_indexes, *associated_lists):
+        """
+            group lists by impr_index
+        Args:
+            associated_lists: list of lists, where list[i] is associated with the impr_indexes[i]
+
+        Returns:
+            all_labels: grouped labels
+            all_preds: grouped preds
+        """
+        list_num = len(associated_lists)
+        dicts = [defaultdict(list) for i in range(list_num)]
+
+        for x in zip(impr_indexes, *associated_lists):
+            key = x[0]
+            values = x[1:]
+            for i in range(list_num):
+                dicts[i][key].extend(values[i])
+
+        grouped_lists = [list(d.values()) for d in dicts]
+
+        return grouped_lists
+
+
     @torch.no_grad()
     def _eval(self, model, dataloader, smoothing=1):
         """ making prediction and gather results into groups according to impression_id
@@ -155,42 +196,39 @@ class Manager():
             dataloader(torch.utils.data.DataLoader): provide data
 
         Returns:
-            all_impr_ids: impression ids after group
-            all_labels: labels after group.
-            all_preds: preds after group.
+            impr_indexes: impression ids
+            labels: labels
+            preds: preds
         """
 
         # FIXME: need to modify when distributed testing
-        preds = []
-        labels = []
         impr_indexes = []
+        labels = []
+        preds = []
 
-        for batch_data_input in tqdm(dataloader, smoothing=smoothing):
-            pred = model(batch_data_input).tolist()
-            preds.extend(pred)
-            label = batch_data_input["labels"].tolist()
-            labels.extend(label)
-            impr_indexes.extend(batch_data_input["impression_index"].tolist())
+        for x in tqdm(dataloader, smoothing=smoothing):
+            impr_indexes.extend(x["impression_index"].tolist())
+            preds.extend(model(x).tolist())
+            labels.extend(x["label"].tolist())
 
 
-        all_preds = []
-        all_labels = []
+        # all_preds = []
+        # all_labels = []
+        # tmp_preds = []
+        # tmp_labels = []
+        # prev_impr = 1
+        # for label, pred, impr_index in zip(labels, preds, impr_indexes):
+        #     if impr_index != prev_impr:
+        #         all_labels.append(tmp_labels.copy())
+        #         all_preds.append(tmp_preds.copy())
+        #         tmp_labels.clear()
+        #         tmp_preds.clear()
+        #         prev_impr += 1
 
-        tmp_preds = []
-        tmp_labels = []
-        prev_impr = 1
-        for label, pred, impr_index in zip(labels, preds, impr_indexes):
-            if impr_index != prev_impr:
-                all_labels.append(tmp_labels.copy())
-                all_preds.append(tmp_preds.copy())
-                tmp_labels.clear()
-                tmp_preds.clear()
-                prev_impr += 1
+        #     tmp_labels.extend(label)
+        #     tmp_preds.extend(pred)
 
-            tmp_labels.extend(label)
-            tmp_preds.extend(pred)
-
-        return all_labels, all_preds
+        return impr_indexes, labels, preds
 
 
     def evaluate(self, model, dataloader, load=False, log=True, optimizer=None, scheduler=None):
@@ -213,24 +251,49 @@ class Manager():
         if load:
             self.load(model, self.epochs, self.step[0], optimizer, scheduler)
 
-        logger.info("evaluating...")
+        if self.rank in [0,-1]:
+            logger.info("evaluating...")
 
-        labels, preds = self._eval(model, dataloader)
+        # protect non-master node to return an object
+        res = None
 
-        res = cal_metric(labels, preds, self.metrics.split(","))
-        logger.info("evaluation result of {} is {}".format(self.name, res))
+        impr_label_preds = self._eval(model, dataloader)
 
-        if log:
-            res["epoch"] = self.epochs
-            res["step"] = self.step[0]
+        # collect result across gpus when distributed evaluating
+        if self.world_size > 1:
+            outputs = [None for i in range(self.world_size)]
+            dist.all_gather_object(outputs, impr_label_preds)
 
-            self._log(res)
+            if self.rank == 0:
+                impr_indexes = []
+                labels = []
+                preds = []
+                for output in outputs:
+                    impr_indexes.extend(output[0])
+                    labels.extend(output[1])
+                    preds.extend(output[2])
 
-        model.train()
+                labels, preds = self._group_lists(impr_indexes, labels, preds)
+
+        else:
+            labels, preds = self._group_lists(*impr_label_preds)
+
+
+        if self.rank in [0, -1]:
+            res = cal_metric(labels, preds, self.metrics)
+
+            logger.info("evaluation result of {} is {}".format(self.name, res))
+
+            if log and self.rank in [0, -1]:
+                res["epoch"] = self.epochs
+                res["step"] = self.step[0]
+
+                self._log(res)
+
         return res
 
 
-    def _train(self, model, dataloader, optimizer, loss_func, epochs, scheduler=None, writer=None, interval=100, save_step=None, dist=False):
+    def _train(self, model, dataloader, optimizer, loss_func, epochs, scheduler=None, writer=None, interval=100, save_step=None, distributed=False):
         """ train model and print loss meanwhile
         Args:
             dataloader(torch.utils.data.DataLoader): provide data
@@ -249,7 +312,7 @@ class Manager():
 
         for epoch in range(epochs):
             epoch_loss = 0
-            if dist:
+            if distributed:
                 dataloader.sampler.set_epoch(epoch)
             tqdm_ = tqdm(dataloader)
 
@@ -317,10 +380,10 @@ class Manager():
         optimizer, scheduler = self._get_optim(model, len(loaders[0]))
 
         self._train(model, loaders[0], optimizer, loss_func, self.epochs, scheduler=scheduler,
-                        writer=writer, interval=self.interval, save_step=self.step[0], dist=(self.world_size > 1))
+                        writer=writer, interval=self.interval, save_step=self.step[0], distributed=(self.world_size > 1))
 
 
-    def _tune(self, model, loaders, optimizer, loss_func, scheduler=None, writer=None, interval=100, save_step=None, dist=False):
+    def _tune(self, model, loaders, optimizer, loss_func, scheduler=None, writer=None, interval=100, save_step=None, distributed=False):
         """ train model and evaluate on validation set once every save_step
         Args:
             dataloader(torch.utils.data.DataLoader): provide data
@@ -340,7 +403,7 @@ class Manager():
 
         for epoch in range(self.epochs):
             epoch_loss = 0
-            if dist:
+            if distributed:
                 loaders[0].sampler.set_epoch(epoch)
             tqdm_ = tqdm(loaders[0], smoothing=0)
 
@@ -374,18 +437,20 @@ class Manager():
                                         total_loss/total_steps)
 
                 if step % save_step == 0 and step > 0:
-                    if dist and self.rank:
-                        continue
                     print("\n")
                     with torch.no_grad():
                         result = self.evaluate(model, loaders[1], log=False)
-                        result["epoch"] = epoch+1
-                        result["step"] = step
 
-                        if result["auc"] > best_res["auc"]:
-                            best_res = result
-                            self.save(model, epoch+1, step, optimizer)
-                            self._log(result)
+                        if self.rank in [0,-1]:
+                            result["epoch"] = epoch+1
+                            result["step"] = step
+
+                            if result["auc"] > best_res["auc"]:
+                                best_res = result
+                                self.save(model, epoch+1, step, optimizer)
+                                self._log(result)
+                    # continue training
+                    model.train()
 
             if writer:
                 writer.add_scalar("epoch_loss", epoch_loss, epoch)
@@ -417,7 +482,7 @@ class Manager():
         optimizer, scheduler = self._get_optim(model, len(loaders[0]))
 
         res = self._tune(model, loaders, optimizer, loss_func, scheduler=scheduler,
-                        writer=writer, interval=self.interval, save_step=int(len(loaders[0])/self.val_freq - 1), dist=(self.world_size > 1))
+                        writer=writer, interval=self.interval, save_step=int(len(loaders[0])/self.val_freq - 1), distributed=(self.world_size > 1))
 
         self._log(res)
 
@@ -430,40 +495,53 @@ class Manager():
             model
             loader_test: DataLoader of MINDlarge_test
         """
-        self.load(model, self.epochs, self.step[0])
-
-        logger.info("testing...")
-        model.cdd_size = 1
         model.eval()
 
-        save_directory = "data/results/{}".format(self.name)
-        os.makedirs(save_directory, exist_ok=True)
+        self.load(model, self.epochs, self.step[0])
 
-        save_path = save_directory + "/{}_epoch{}_step{}_[k={}].txt".format(
-            self.scale, self.epochs, self.step[0], self.k)
+        if self.rank in [0,-1]:
+            logger.info("testing...")
 
-        with open(save_path, "w") as f:
-            preds = []
-            imp_indexes = []
-            for x in tqdm(loader_test, smoothing=0):
-                preds.extend(model(x).tolist())
-                imp_indexes.extend(x["impression_index"])
+        impr_indexes = []
+        preds = []
+        for x in tqdm(loader_test, smoothing=0):
+            impr_indexes.extend(x["impression_index"])
+            preds.extend(model(x).tolist())
 
-            all_keys = list(set(imp_indexes))
-            all_keys.sort()
-            group_preds = {k: [] for k in all_keys}
+        if self.world_size > 1:
+            outputs = [None for i in range(self.world_size)]
+            dist.all_gather_object(outputs, (impr_indexes, preds))
 
-            for i, p in zip(imp_indexes, preds):
-                group_preds[i].append(p)
+            if self.rank == 0:
+                impr_indexes = []
+                preds = []
+                for output in outputs:
+                    impr_indexes.extend(output[0])
+                    preds.extend(output[1])
 
-            for k, v in group_preds.items():
-                array = np.asarray(v)
-                rank_list = ss.rankdata(1 - array, method="ordinal")
-                line = str(k) + " [" + ",".join([str(i)
-                                                for i in rank_list]) + "]" + "\n"
-                f.write(line)
+                preds = self._group_lists(impr_indexes, preds)
+        else:
+            preds = self._group_lists(impr_indexes, preds)
 
-        logger.info("written to prediction at {}!".format(save_path))
+
+        if self.rank in [0, -1]:
+            save_directory = "data/results/{}".format(self.name)
+            os.makedirs(save_directory, exist_ok=True)
+
+            save_path = save_directory + "/{}_epoch{}_step{}_[k={}].txt".format(
+                self.scale, self.epochs, self.step[0], self.k)
+
+            index = 1
+            with open(save_path, 'w') as f:
+                for pred in preds:
+                    array = np.asarray(pred)
+                    rank_list = ss.rankdata(1 - array, method="ordinal")
+                    line = str(index) + " [" + ",".join([str(i)
+                                                    for i in rank_list]) + "]" + "\n"
+                    f.write(line)
+                    index += 1
+
+            logger.info("written to prediction at {}!".format(save_path))
 
 
     @torch.no_grad()

@@ -7,7 +7,7 @@ from .Modules.OnePassAttn import BertSelfAttention
 class BERT_Interactor(nn.Module):
     def __init__(self, config):
         # confirm the hidden dim to be 768
-        assert config.hidden_dim == 768
+        assert config.embedding_dim == 768
         # confirm term_num + signal_length is less than 512
         # assert config.k * config.his_size + config.his_size + config.signal_length < 512
 
@@ -15,12 +15,11 @@ class BERT_Interactor(nn.Module):
 
         self.name = 'bert-overlook'
         self.signal_length = config.signal_length
-        self.term_num = config.term_num
+        self.term_num = config.term_num + 1
         # self.device = config.device
 
-        self.hidden_dim = config.hidden_dim
-
-        self.final_dim = self.hidden_dim
+        self.embedding_dim = config.embedding_dim
+        self.final_dim = self.embedding_dim
 
         bert_config = BertConfig()
         # primary bert
@@ -38,7 +37,7 @@ class BERT_Interactor(nn.Module):
         prim_bert.load_state_dict(bert.encoder.state_dict())
         self.bert = prim_bert
 
-        # self.inte_embedding = nn.Parameter(torch.randn(1,1,1,self.hidden_dim))
+        # self.inte_embedding = nn.Parameter(torch.randn(1,1,1,self.embedding_dim))
         self.order_embedding = nn.Parameter(torch.randn(1, config.his_size, 1, config.hidden_dim))
 
         # [1, *, hidden_dim]
@@ -46,8 +45,8 @@ class BERT_Interactor(nn.Module):
         self.pst_pos_embedding = nn.Parameter(bert.embeddings.position_embeddings.weight[config.signal_length + 1: config.signal_length + 1 + config.term_num].unsqueeze(0))
 
         # [SEP] token
-        self.sep_embedding = nn.Parameter(bert.embeddings.word_embeddings(torch.tensor([102])).clone().detach().requires_grad_(True).view(1,1,self.hidden_dim))
-        self.cls_embedding = nn.Parameter(bert.embeddings.word_embeddings(torch.tensor([101])).clone().detach().requires_grad_(True).view(1,1,self.hidden_dim))
+        self.sep_embedding = nn.Parameter(bert.embeddings.word_embeddings(torch.tensor([102])).clone().detach().requires_grad_(True).view(1,1,self.embedding_dim))
+        self.cls_embedding = nn.Parameter(bert.embeddings.word_embeddings(torch.tensor([101])).clone().detach().requires_grad_(True).view(1,1,self.embedding_dim))
 
         # nn.init.xavier_normal_(self.inte_embedding)
         nn.init.xavier_normal_(self.order_embedding)
@@ -67,15 +66,15 @@ class BERT_Interactor(nn.Module):
 
         # insert interval embedding between historical news
         # [bs,hs,k+1,hd]
-        # ps_terms = torch.cat([ps_terms, self.inte_embedding.expand(batch_size, self.his_size, 1, self.hidden_dim)], dim=-2)
+        # ps_terms = torch.cat([ps_terms, self.inte_embedding.expand(batch_size, self.his_size, 1, self.embedding_dim)], dim=-2)
 
         # add order embedding and sep embedding
-        ps_terms = (ps_terms + self.order_embedding).view(batch_size, -1, self.hidden_dim)
-        ps_terms = torch.cat([self.sep_embedding.expand(batch_size, 1, self.hidden_dim), ps_terms], dim=1)
+        ps_terms = (ps_terms + self.order_embedding).view(batch_size, -1, self.embedding_dim)
+        ps_terms = torch.cat([self.sep_embedding.expand(batch_size, 1, self.embedding_dim), ps_terms], dim=1)
         # add position embedding
         ps_terms += self.pst_pos_embedding
         # insert cls token for pooling
-        # ps_terms = torch.cat([self.cls_embedding.expand(batch_size, 1, self.hidden_dim), ps_terms.view(batch_size, -1, self.hidden_dim)], dim=-2)
+        # ps_terms = torch.cat([self.cls_embedding.expand(batch_size, 1, self.embedding_dim), ps_terms.view(batch_size, -1, self.embedding_dim)], dim=-2)
         return ps_terms
 
 
@@ -99,9 +98,9 @@ class BERT_Interactor(nn.Module):
 
         # add [CLS] token
         # [bs, cs, sl+1, hd]
-        cdd_news_embedding = torch.cat([self.cls_embedding.expand(batch_size, cdd_size, 1, self.hidden_dim), cdd_news_embedding], dim=-2)
+        cdd_news_embedding = torch.cat([self.cls_embedding.expand(batch_size, cdd_size, 1, self.embedding_dim), cdd_news_embedding], dim=-2)
         # [bs, cs*(sl+1), hd]
-        cdd_news_embedding = (cdd_news_embedding + self.cdd_pos_embedding).view(batch_size, -1, self.hidden_dim)
+        cdd_news_embedding = (cdd_news_embedding + self.cdd_pos_embedding).view(batch_size, -1, self.embedding_dim)
 
         # [CLS], cdd_news, [SEP], his_news_1, his_news_2, ...
         bert_input = torch.cat([cdd_news_embedding, ps_terms], dim=-2)
@@ -110,7 +109,7 @@ class BERT_Interactor(nn.Module):
         attn_mask = torch.cat([torch.ones(batch_size, cdd_size, 1, device=cdd_attn_mask.device), cdd_attn_mask], dim=2).view(batch_size, -1)
         attn_mask = torch.cat([attn_mask, torch.ones(batch_size, self.term_num, device=cdd_attn_mask.device)], dim=-1).view(batch_size, 1, 1, -1)
 
-        bert_output = self.bert(bert_input, attention_mask=attn_mask).last_hidden_state[:, 0 : cdd_size * (self.signal_length + 1) : self.signal_length + 1].view(batch_size, cdd_size, self.hidden_dim)
+        bert_output = self.bert(bert_input, attention_mask=attn_mask).last_hidden_state[:, 0 : cdd_size * (self.signal_length + 1) : self.signal_length + 1].view(batch_size, cdd_size, self.embedding_dim)
 
         return bert_output
 

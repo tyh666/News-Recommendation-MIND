@@ -22,7 +22,7 @@ class BertSelfAttention(nn.Module):
 
         self.signal_length = config.signal_length + 1
         self.all_length = config.cdd_size * self.signal_length
-        self.term_num = config.term_num
+        self.term_num = config.term_num + 1
 
         # default to term_num = his_size * k + 1
         self.register_buffer('one_pass_attn_mask_train', torch.cat([torch.eye(config.cdd_size).repeat_interleave(repeats=self.signal_length, dim=-1).repeat_interleave(repeats=self.signal_length, dim=0), torch.ones(config.cdd_size * self.signal_length, config.term_num)], dim=-1).unsqueeze(0).unsqueeze(0), persistent=False)

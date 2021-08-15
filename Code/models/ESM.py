@@ -53,8 +53,10 @@ class ESM(nn.Module):
             self.batch_size = x["cdd_encoded_index"].size(0)
 
         cdd_news = x["cdd_encoded_index"].long().to(self.device)
-        cdd_news_embedding, cdd_news_repr = self.encoderN(
-            self.embedding(cdd_news))
+        cdd_news_embedding = self.embedding(cdd_news)
+        _, cdd_news_repr = self.encoderN(
+            cdd_news_embedding
+        )
         his_news = x["his_encoded_index"].long().to(self.device)
         his_news_embedding = self.embedding(his_news)
         his_news_encoded_embedding, his_news_repr = self.encoderN(
@@ -69,6 +71,7 @@ class ESM(nn.Module):
         #     ps_terms = self.termFuser(ps_terms, ps_term_ids, his_news)
 
         # reduced_tensor = self.interactor(torch.cat([cdd_news_repr.unsqueeze(-2), cdd_news_embedding], dim=-2), torch.cat([user_repr, ps_terms], dim=-2))
+
         reduced_tensor = self.interactor(ps_terms, cdd_news_embedding, x["cdd_attn_mask"].to(self.device))
 
         return self.clickPredictor(reduced_tensor, cdd_news_repr, user_repr)

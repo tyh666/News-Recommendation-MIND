@@ -14,6 +14,7 @@ class config:
     npratio = 4
     his_size = 50
     cdd_size = 5
+    impr_size = 10
 
     dropout_p = 0.2
     device = 'cpu'

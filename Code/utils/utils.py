@@ -380,6 +380,8 @@ def load_manager():
                     help="length of the bert tokenized tokens", type=int, default=100)
     parser.add_argument("-hs", "--his_size", dest="his_size",
                         help="history size", type=int, default=50)
+    parser.add_argument("-is", "--impr_size", dest="impr_size",
+                        help="impression size for evaluating", type=int, default=50)
 
 
     parser.add_argument("-hd", "--hidden_dim", dest="hidden_dim",
@@ -405,12 +407,12 @@ def load_manager():
     parser.add_argument("--npratio", dest="npratio",
                         help="the number of unclicked news to sample when training", type=int, default=4)
     parser.add_argument("--metrics", dest="metrics",
-                        help="metrics for evaluating the model, if multiple metrics are needed, seperate with ','", type=str, default=None)
+                        help="metrics for evaluating the model, if multiple metrics are needed, seperate with ','", type=str, default='')
 
     parser.add_argument("-emb", "--embedding", dest="embedding", help="choose embedding", choices=['bert','glove'], default='glove')
-    parser.add_argument("-nenc", "--encoderN", dest="encoderN", help="choose news encoder", choices=['cnn','rnn','npa','fim','mha','bert'], default="cnn")
-    parser.add_argument("-uenc", "--encoderU", dest="encoderU", help="choose user encoder", choices=['rnn','lstur','nrms'], default="rnn")
-    parser.add_argument("-intr", "--interactor", dest="interactor", help="choose interactor", choices=['bert','fim','2dcnn','knrm'], default="bert")
+    parser.add_argument("-encn", "--encoderN", dest="encoderN", help="choose news encoder", choices=['cnn','rnn','npa','fim','mha','bert'], default="cnn")
+    parser.add_argument("-encu", "--encoderU", dest="encoderU", help="choose user encoder", choices=['rnn','lstur','nrms'], default="rnn")
+    parser.add_argument("-itr", "--interactor", dest="interactor", help="choose interactor", choices=['bert','fim','cnn','knrm'], default="bert")
 
     parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=3)
     parser.add_argument("--threshold", dest="threshold", help="threshold to mask terms", default=-float("inf"), type=float)
@@ -437,6 +439,7 @@ def load_manager():
 
     parser.add_argument("-ws", "--world_size", dest="world_size", help="total number of gpus", default=0, type=int)
 
+
     # parser.add_argument("--onehot", dest="onehot", help="if clarified, one hot encode of category/subcategory will be returned by dataloader", action="store_true")
 
     args = parser.parse_args()
@@ -447,10 +450,7 @@ def load_manager():
     if len(args.device) == 1:
         args.device = int(args.device)
 
-    if args.metrics:
-        args.metrics = "auc,mean_mrr,ndcg@5,ndcg@10" + "," + args.metrics
-    else:
-        args.metrics = "auc,mean_mrr,ndcg@5,ndcg@10"
+    args.metrics = "auc,mean_mrr,ndcg@5,ndcg@10".split(',') + [i for i in args.metrics.split(',') if i]
 
     if not args.interval:
         if args.scale == "demo":
@@ -569,15 +569,14 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
 
         if config.world_size > 0:
             sampler_train = DistributedSampler(dataset_train, num_replicas=config.world_size, rank=config.rank, shuffle=shuffle)
-            sampler_dev = DistributedSampler(dataset_dev, num_replicas=config.world_size, rank=config.rank, shuffle=shuffle)
+            sampler_dev = Partition_Sampler(dataset_dev, num_replicas=config.world_size, rank=config.rank)
         else:
             sampler_train = None
             sampler_dev = None
-
         loader_train = DataLoader(dataset_train, batch_size=config.batch_size, pin_memory=pin_memory,
                                 num_workers=num_workers, drop_last=False, shuffle=False, sampler=sampler_train)
         loader_dev = DataLoader(dataset_dev, batch_size=1, pin_memory=pin_memory,
-                                num_workers=num_workers, drop_last=False)
+                                num_workers=num_workers, drop_last=False, sampler=sampler_dev)
 
         return vocab, [loader_train, loader_dev]
 
@@ -597,11 +596,11 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
             vocab.load_vectors(embedding)
 
         if config.world_size > 0:
-            sampler_dev = DistributedSampler(dataset_dev, num_replicas=config.world_size, rank=config.rank, shuffle=shuffle)
+            sampler_dev = Partition_Sampler(dataset_dev, num_replicas=config.world_size, rank=config.rank)
         else:
             sampler_dev = None
         loader_dev = DataLoader(dataset_dev, batch_size=1, pin_memory=pin_memory,
-                                num_workers=num_workers, drop_last=False)
+                                num_workers=num_workers, drop_last=False, sampler=sampler_dev)
 
         return vocab, [loader_dev]
 
@@ -621,11 +620,11 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
 
         # FIXME distributed test
         if config.world_size > 0:
-            sampler_test = DistributedSampler(dataset_test, num_replicas=config.world_size, rank=config.rank, shuffle=shuffle)
+            sampler_test = Partition_Sampler(dataset_test, num_replicas=config.world_size, rank=config.rank)
         else:
             sampler_test = None
         loader_test = DataLoader(dataset_test, batch_size=1, pin_memory=pin_memory,
-                                 num_workers=num_workers, drop_last=False)
+                                 num_workers=num_workers, drop_last=False, sampler=sampler_test)
 
         return vocab, [loader_test]
 
@@ -683,6 +682,32 @@ def analyse(config):
         avg_title_length, avg_abstract_length, avg_his_length, avg_imp_length, cnt_his_lg_50, cnt_his_eq_0, cnt_imp_multi))
 
 
+class Partition_Sampler():
+    def __init__(self, dataset, num_replicas, rank) -> None:
+        super().__init__()
+        len_per_worker, extra_len = divmod(len(dataset), num_replicas)
+        self.dataset = dataset
+        self.start = len_per_worker * rank
+        self.end = self.start + len_per_worker + extra_len * (rank + 1== num_replicas)
+
+    def __iter__(self):
+        start = self.start
+        end = self.end - 1
+
+        # strip off the impression without 1 label, such impression only occurs at the start or the end
+        # while 1:
+        #     if not (self.dataset[end]['label'] == 1).any():
+        #         end -= 1
+
+        # while 1:
+        #     if not (self.dataset[start]['label'] == 1).any():
+        #         start += 1
+
+        return iter(range(start, end, 1))
+
+    def __len__(self):
+        return self.end - self.start
+
 def setup(rank, manager):
     """
     set up distributed training and fix seeds
@@ -695,8 +720,14 @@ def setup(rank, manager):
         dist.init_process_group("nccl", rank=rank, world_size=manager.world_size)
 
         os.environ['TOKENIZERS_PARALLELISM'] = 'True'
+        # manager.rank will be invoked in creating DistributedSampler
+        manager.rank = rank
+        # manager.device will be invoked in the model
         manager.device = rank
 
+    else:
+        # one-gpu
+        manager.rank = -1
 
 def cleanup():
     """

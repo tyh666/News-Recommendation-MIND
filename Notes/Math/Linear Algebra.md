@@ -129,3 +129,6 @@ From the equation, if we regard $A$ as the transformation matrix from $V\in \mat
 - for matrix $A\in \mathbb{R}^{m\times n}$, without loss of generalness, $A^\top A$ is always symmetric
   - if $r = \mathsf{rank}(A) < n$, then $A$ is positive semi-definite
   - if $r = \mathsf{rank}(A) = n$, then $A$ is positive definite
+
+
+$$$$

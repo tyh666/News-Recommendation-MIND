@@ -13,7 +13,7 @@ class DRM_Matching(nn.Module):
         self.k = config.k
         self.threshold = config.threshold
 
-        config.term_num = config.k * config.his_size + 1
+        config.term_num = config.k * config.his_size
 
     def forward(self, news_selection_embedding, news_embedding, user_repr):
         """

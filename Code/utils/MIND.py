@@ -22,12 +22,13 @@ class MIND(Dataset):
         self.shuffle_pos = shuffle_pos
         self.title_length = config.title_length
         self.abs_length = config.abs_length
+        self.impr_size = config.impr_size
         self.his_size = config.his_size
         self.k = config.k
         pat = re.search('MIND/(.*_(.*)/)news', news_file)
         self.mode = pat.group(2)
 
-        self.cache_path = '/'.join(['data/cache', config.embedding, pat.group(1)])
+        self.cache_path = '/'.join(['data/cache', config.embedding, pat.group(1), str(self.impr_size)+'/'])
         self.behav_path = re.search('(\w*)\.tsv', behaviors_file).group(1)
 
         if os.path.exists(self.cache_path + 'news.pkl'):
@@ -50,7 +51,6 @@ class MIND(Dataset):
 
             self.max_title_length = 50
             self.max_his_size = 100
-            self.impr_size = 100
 
             # there are only two types of vocabulary
             self.vocab = getVocab('data/dictionaries/vocab.pkl')
@@ -349,7 +349,7 @@ class MIND(Dataset):
                 "cdd_attn_mask": np.asarray(cdd_title_mask),
                 "his_attn_mask": np.asarray(his_title_mask),
                 "his_mask": his_mask,
-                "labels": np.asarray(label)
+                "label": np.asarray(label)
             }
 
             return back_dic
@@ -405,11 +405,12 @@ class MIND_bert(Dataset):
         self.shuffle_pos = shuffle_pos
         self.signal_length = config.signal_length
         self.his_size = config.his_size
+        self.impr_size = config.impr_size
         self.k = config.k
         pat = re.search('MIND/(.*_(.*)/)news', news_file)
         self.mode = pat.group(2)
 
-        self.cache_path = '/'.join(['data/cache', config.embedding, pat.group(1)])
+        self.cache_path = '/'.join(['data/cache', config.embedding, pat.group(1), str(self.impr_size)+'/'])
         self.behav_path = re.search('(\w*)\.tsv', behaviors_file).group(1)
 
         if os.path.exists(self.cache_path + 'news.pkl'):
@@ -432,7 +433,6 @@ class MIND_bert(Dataset):
 
             self.max_news_length = 512
             self.max_his_size = 100
-            self.impr_size = 100
 
             # there are only two types of vocabulary
             self.tokenizer = BertTokenizerFast.from_pretrained(config.bert)
@@ -727,7 +727,7 @@ class MIND_bert(Dataset):
                 "cdd_attn_mask": cdd_attn_mask,
                 "his_attn_mask": his_attn_mask,
                 "his_mask": his_mask,
-                "labels": np.asarray(label)
+                "label": np.asarray(label)
             }
             return back_dic
 
@@ -987,7 +987,7 @@ class MIND_impr(Dataset):
             "cdd_encoded_index": np.asarray(cdd_title_index),
             'his_id': np.asarray(his_ids),
             "his_encoded_index": his_title_index,
-            "labels": np.asarray(label)
+            "label": np.asarray(label)
         }
 
         return back_dic
