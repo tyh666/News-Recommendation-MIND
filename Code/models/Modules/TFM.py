@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from collections import defaultdict
 
-class TFM(nn.Module):
+class Term_Fuser(nn.Module):
     def __init__(self, his_size, k):
         super().__init__()
         self.name = "term-fuser"

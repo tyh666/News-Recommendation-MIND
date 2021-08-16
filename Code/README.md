@@ -58,13 +58,14 @@ python esm.py -m tune -s demo -emb=bert -lr=1e-3 -bs=25 -is=50 -ws=2
   - [ ] propotion > 400
 
 ## Embedding
-- [ ] Random embedding
-- [x] add absolute position encoding
+- [x] Random embedding
+- [ ] Bert embedding
+  - [x] add absolute position encoding
+  - [x] add cls embedding
 
 ## News Encoder
 - [x] CNN encoder
-  - [ ] output hidden_dim=768
-- [ ] FIM encoder
+- [x] FIM encoder
 - [ ] Bert encoder
   - [ ] [CLS] as news repr
   - [ ] attention over the last layer as news repr
@@ -91,16 +92,14 @@ python esm.py -m tune -s demo -emb=bert -lr=1e-3 -bs=25 -is=50 -ws=2
 
 ## Term Fuser
 - [ ] differentiable and efficient
+  - basically impossible to implement
 
 ## Interactor
 - [ ] Bert
   - [x] position embedding within each news
   - [x] order embedding across the whole user history
-  - [ ] pooling
-    - [x] pool with cls
-    - [ ] pool with mean
-  - [ ] **customized bert**
-    - [x] **how to rewrite modules and load bert weight?**
+  - [x] cls pooling
+  - [ ] one-pass bert
     - [ ] relative position embedding?
   - [ ] personalized terms do not interact with each other?
   - [x] candidate news attention mask
@@ -126,18 +125,17 @@ python esm.py -m tune -s demo -emb=bert -lr=1e-3 -bs=25 -is=50 -ws=2
 - [ ] customized docker image
 - [x] prepare modify dataset.vocab
 - [ ] specify .vscode-sever location to avoid repeatedly downloading extensions
+- [ ] manager.encode
+- [x] distributed evaluate
 
 ## Issue
 - the gradient after docReducer is sharp
 - if we concat title with abstract, then there must be many duplicated words, how about removing them when preprocessing?
-- why `barrier()` causes deadlock?
 - very likely to fall into local optim
-- distributed evaluate
 - learning rate of bert
 
-
 ## Need to update
-- [ ] Encoders.MHA, NPA, Pipeline, Random Embedding
+- [ ] Encoders.MHA, NPA, Pipeline
 
 ## Phylosiphy
 ### manager
@@ -147,7 +145,7 @@ python esm.py -m tune -s demo -emb=bert -lr=1e-3 -bs=25 -is=50 -ws=2
 ### model
 - nn.Module
 - posses all necessary (used in inference) hyper parameters as attributes
-- posses some unique attributes per model (model.name)
+- posses some unique attributes per model (name, term_num)
 ### MIND
 - map dataset for MIND
 - cache enabled

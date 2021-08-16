@@ -477,14 +477,17 @@ class Manager():
         # in case the folder does not exists, create one
         os.makedirs("data/model_params/{}".format(self.name), exist_ok=True)
 
-        logger.info("training...")
+        if self.rank in [-1, 0]:
+            logger.info("training...")
         loss_func = self._get_loss(model)
         optimizer, scheduler = self._get_optim(model, len(loaders[0]))
 
         res = self._tune(model, loaders, optimizer, loss_func, scheduler=scheduler,
                         writer=writer, interval=self.interval, save_step=int(len(loaders[0])/self.val_freq - 1), distributed=(self.world_size > 1))
 
-        self._log(res)
+        if self.rank in [-1,0]:
+            logger.info("Best result: {}".format(res))
+            self._log(res)
 
 
     @torch.no_grad()
@@ -548,7 +551,7 @@ class Manager():
     # FIXME: model.batch_size cannot be reached from DDP
     def encode(self, model, loader):
         """
-            Encode news of self.scale in each mode, currently force to encode dev dataset
+            Encode news of self.scale in self.mode
         """
 
         # very important
@@ -568,14 +571,15 @@ class Manager():
                 "test": 120961
             }
         }
-
         scale = loader.dataset.scale
         mode = loader.dataset.mode
+
         news_num = news_num_dict[scale][mode]
 
+        embedding = model.embedding
         encoder = model.encoder
 
-        news_reprs = torch.zeros((news_num + 1, encoder.hidden_dim))
+        news_reprs = torch.zeros((news_num + 1, encoder.embedding_dim))
         news_embeddings = torch.zeros(
             (news_num + 1, encoder.signal_length, encoder.level, encoder.hidden_dim))
 

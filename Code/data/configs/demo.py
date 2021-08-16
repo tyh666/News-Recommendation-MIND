@@ -24,7 +24,7 @@ class config:
     # vert_num = 18
     # subvert_num = 293
 
-    embedding = 'glove'
+    embedding = 'bert'
     embedding_dim = 300
     hidden_dim = 150
     # query_dim = 200

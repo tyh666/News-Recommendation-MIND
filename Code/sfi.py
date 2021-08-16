@@ -3,8 +3,6 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 
 from utils.utils import prepare, load_manager, setup, cleanup
 
-from models.Interactors.BERT_Overlook import BERT_Interactor
-
 def main(rank, manager, dist=False):
     """ train/dev/test/tune the model (in distributed)
 
@@ -16,17 +14,12 @@ def main(rank, manager, dist=False):
     setup(rank, manager)
 
     if manager.mode == 'encode':
-        vocab, loaders = prepare(manager, news=True)
+        loaders = prepare(manager, news=True)
     else:
-        vocab, loaders = prepare(manager)
+        loaders = prepare(manager)
 
-    if manager.embedding == 'glove':
-        from models.Embeddings.GLOVE import GLOVE_Embedding
-        embedding = GLOVE_Embedding(manager, vocab)
-
-    elif manager.embedding == 'bert':
-        from models.Embeddings.BERT import BERT_Embedding
-        embedding = BERT_Embedding(manager)
+    from models.Embeddings.BERT import BERT_Embedding
+    embedding = BERT_Embedding(manager)
 
     if manager.encoderN == 'fim':
         from models.Encoders.FIM import FIM_Encoder
@@ -68,6 +61,10 @@ def main(rank, manager, dist=False):
     if manager.interactor == 'fim':
         from models.Interactors.FIM import FIM_Interactor
         interactor = FIM_Interactor(manager)
+
+    elif manager.interactor == 'selected':
+        from models.Interactors.BERT import BERT_Selected_Interactor
+        interactor = BERT_Selected_Interactor(manager)
 
     # elif manager.interactor == 'knrm':
     #     from models.Interactors.KNRM import KNRM_Interactor
