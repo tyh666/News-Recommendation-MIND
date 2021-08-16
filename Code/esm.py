@@ -2,15 +2,12 @@ from utils.utils import prepare, load_manager, setup, cleanup
 
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
-import torch.distributed as dis
 
 # from models.Interactors.BERT_Overlook import BERT_Interactor
 
 from models.Modules.DRM import DRM_Matching
 # from models.Modules.TFM import TFM
 from models.ESM import ESM
-
-import torch
 
 def main(rank, manager, dist=False):
     """ train/dev/test/tune the model (in distributed)

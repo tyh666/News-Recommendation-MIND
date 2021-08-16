@@ -115,7 +115,7 @@ class Manager():
         """
             get loss function for model
         """
-        if self.cdd_size > 1:
+        if model.training:
             loss = nn.NLLLoss()
         else:
             loss = nn.BCELoss()

@@ -1,8 +1,10 @@
 ## Environment
 ``` bash
-FILE=/data/v-pezhang/nn
 if [ -d /data/v-pezhang/nn/lib/python3.8/site-packages/torchtext ];
 then
+  git config --global user.name 'namespace-Pt'
+  git config --global user.email 'zpt@ruc.edu.cn'
+  sudo apt-get install screen
   conda init
   echo 'alias nn="conda activate /data/v-pezhang/nn"' >> ~/.bashrc
   source ~/.bashrc
