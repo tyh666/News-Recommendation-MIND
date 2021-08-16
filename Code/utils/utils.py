@@ -399,7 +399,7 @@ def load_manager():
     parser.add_argument("-lr", dest="lr",
                         help="learning rate of non-bert modules", type=float, default=1e-4)
     parser.add_argument("-blr", "--bert_lr", dest="bert_lr",
-                        help="learning rate of bert based modules", type=float, default=3e-5)
+                        help="learning rate of bert based modules", type=float, default=1e-5)
     parser.add_argument("--scheduler", dest="scheduler", help="choose schedule scheme for optimizer", choices=['linear'], default="linear")
     parser.add_argument("--warmup", dest="warmup", help="warmup steps of scheduler", type=int, default=10000)
 

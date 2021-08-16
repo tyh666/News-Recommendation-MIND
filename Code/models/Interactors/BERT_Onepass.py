@@ -14,7 +14,7 @@ class BERT_Interactor(nn.Module):
         super().__init__()
 
         self.name = 'bert-overlook'
-        self.signal_length = config.signal_length
+        self.signal_length = config.signal_length + 1
         self.term_num = config.term_num + 1
         # self.device = config.device
 
@@ -24,8 +24,8 @@ class BERT_Interactor(nn.Module):
         bert_config = BertConfig()
         # primary bert
         prim_bert = BertModel(bert_config).encoder
-        bert_config.signal_length = config.signal_length
-        bert_config.term_num = config.term_num
+        bert_config.signal_length = self.signal_length
+        bert_config.term_num = self.term_num
         bert_config.cdd_size = config.cdd_size
         for l in prim_bert.layer:
             l.attention.self = BertSelfAttention(bert_config)
@@ -41,8 +41,8 @@ class BERT_Interactor(nn.Module):
         self.order_embedding = nn.Parameter(torch.randn(1, config.his_size, 1, config.hidden_dim))
 
         # [1, *, hidden_dim]
-        self.cdd_pos_embedding = nn.Parameter(bert.embeddings.position_embeddings.weight[:config.signal_length + 1].unsqueeze(0).unsqueeze(0))
-        self.pst_pos_embedding = nn.Parameter(bert.embeddings.position_embeddings.weight[config.signal_length + 1: config.signal_length + 1 + config.term_num].unsqueeze(0))
+        self.cdd_pos_embedding = nn.Parameter(bert.embeddings.position_embeddings.weight[:self.signal_length].unsqueeze(0).unsqueeze(0))
+        self.pst_pos_embedding = nn.Parameter(bert.embeddings.position_embeddings.weight[self.signal_length: self.signal_length + self.term_num].unsqueeze(0))
 
         # [SEP] token
         self.sep_embedding = nn.Parameter(bert.embeddings.word_embeddings(torch.tensor([102])).clone().detach().requires_grad_(True).view(1,1,self.embedding_dim))
@@ -109,7 +109,7 @@ class BERT_Interactor(nn.Module):
         attn_mask = torch.cat([torch.ones(batch_size, cdd_size, 1, device=cdd_attn_mask.device), cdd_attn_mask], dim=2).view(batch_size, -1)
         attn_mask = torch.cat([attn_mask, torch.ones(batch_size, self.term_num, device=cdd_attn_mask.device)], dim=-1).view(batch_size, 1, 1, -1)
 
-        bert_output = self.bert(bert_input, attention_mask=attn_mask).last_hidden_state[:, 0 : cdd_size * (self.signal_length + 1) : self.signal_length + 1].view(batch_size, cdd_size, self.embedding_dim)
+        bert_output = self.bert(bert_input, attention_mask=attn_mask).last_hidden_state[:, 0 : cdd_size * (self.signal_length) : self.signal_length].view(batch_size, cdd_size, self.embedding_dim)
 
         return bert_output
 

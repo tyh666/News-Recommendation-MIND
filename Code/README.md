@@ -22,7 +22,7 @@ else
   ipython kernel install --name "nn" --user
 
   pip install torch==1.7.1+cu110 torchtext==0.8.1 pandas scipy scikit-learn transformers -f https://download.pytorch.org/whl/torch_stable.html
-  pip install tensorboard ipython jupyter notebook
+  pip install tensorboard ipython jupyter notebook typing
 
   cd /data/
   mkdir v-pezhang
@@ -41,6 +41,12 @@ fi
 - `python==3.8`
 - `torch==1.7.1`
 - `torchtext == 0.8.1`
+
+## Instruction
+```bash
+cd /data/v-pezhang/Code/Document-Reduction/Code
+python esm.py -m tune -s demo -emb=bert -lr=1e-3 -bs=25 -is=50 -ws=2
+```
 ## Preprocess
 - [x] remove stop words
   - not necessary

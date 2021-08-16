@@ -1,10 +1,12 @@
 import re
 import os
 import pickle
+import logging
 import numpy as np
 from torch.utils.data import Dataset
 from utils.utils import newsample, getId2idx, tokenize, getVocab
 
+logger = logging.getLogger(__name__)
 
 class MIND(Dataset):
     """ Map Style Dataset for MIND, return positive samples with negative sampling when training, or return each sample when developing.
@@ -65,7 +67,7 @@ class MIND(Dataset):
             self.subvert2onehot = getId2idx(
                 'data/dictionaries/subvert2onehot.json'
             )
-
+            logger.info("encoding news and behaviors...")
             self.init_news()
             self.init_behaviors()
 
@@ -435,7 +437,7 @@ class MIND_bert(Dataset):
             self.max_his_size = 100
 
             # there are only two types of vocabulary
-            self.tokenizer = BertTokenizerFast.from_pretrained(config.bert)
+            self.tokenizer = BertTokenizerFast.from_pretrained(config.bert, cache=config.path + 'bert_cache/')
             # self.tokenizer.max_model_input_sizes[config.bert] = 10000ok
 
             self.nid2index = getId2idx(
@@ -443,8 +445,10 @@ class MIND_bert(Dataset):
             self.uid2index = getId2idx(
                 'data/dictionaries/uid2idx_{}.json'.format(config.scale))
 
+            logger.info("encoding news and behaviors...")
             self.init_news()
             self.init_behaviors()
+
 
     def init_news(self):
         """
