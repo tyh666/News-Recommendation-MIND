@@ -3,10 +3,7 @@ from utils.utils import prepare, load_manager, setup, cleanup
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-# from models.Interactors.BERT_Overlook import BERT_Interactor
-
 from models.Modules.DRM import Document_Reducer
-# from models.Modules.TFM import TFM
 from models.ESM import ESM
 
 def main(rank, manager, dist=False):
@@ -31,20 +28,20 @@ def main(rank, manager, dist=False):
 
     docReducer = Document_Reducer(manager)
     # termFuser = TFM(manager.his_size, manager.k)
-    # interactor = CNN_Interactor(manager)
-    if manager.interactor == 'onepass':
-        from models.Interactors.BERT import BERT_Onepass_Interactor
-        interactor = BERT_Onepass_Interactor(manager)
+    # ranker = CNN_Ranker(manager)
+    if manager.ranker == 'onepass':
+        from models.Rankers.BERT import BERT_Onepass_Ranker
+        ranker = BERT_Onepass_Ranker(manager)
 
-    elif manager.interactor == 'overlook':
-        from models.Interactors.BERT import BERT_Overlook_Interactor
-        interactor = BERT_Overlook_Interactor(manager)
+    elif manager.ranker == 'overlook':
+        from models.Rankers.BERT import BERT_Overlook_Ranker
+        ranker = BERT_Overlook_Ranker(manager)
 
-    elif manager.interactor == 'cnn':
-        from models.Interactors.CNN import CNN_Interactor
-        interactor = CNN_Interactor(manager)
+    elif manager.ranker == 'cnn':
+        from models.Rankers.CNN import CNN_Ranker
+        ranker = CNN_Ranker(manager)
 
-    esm = ESM(manager, embedding, encoderN, encoderU, docReducer, None, interactor).to(rank)
+    esm = ESM(manager, embedding, encoderN, encoderU, docReducer, None, ranker).to(rank)
 
     if dist:
         esm = DDP(esm, device_ids=[rank], output_device=rank, find_unused_parameters=True)

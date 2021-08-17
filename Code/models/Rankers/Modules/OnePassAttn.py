@@ -105,10 +105,6 @@ class BertSelfAttention(nn.Module):
         # seem a bit unusual, but is taken from the original Transformer paper.
         attention_probs = self.dropout(attention_probs)
 
-        # Mask heads if we want to
-        if head_mask is not None:
-            attention_probs = attention_probs * head_mask
-
         context_layer = torch.cat([torch.matmul(attention_probs, value_layer), value_layer[:, :, -self.term_num:]], dim=-2)
 
         # [batch_size, signal_length, head_num, head_dim]

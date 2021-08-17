@@ -130,7 +130,7 @@ class Manager():
         if self.world_size > 1:
             model = model.module
 
-        base_params = [v.parameters() for k,v in model.named_children() if k not in ['embedding','interactor']]
+        base_params = [v.parameters() for k,v in model.named_children() if k not in ['embedding','ranker']]
         bert_params = []
 
 
@@ -138,10 +138,10 @@ class Manager():
             bert_params.append(model.embedding.parameters())
         else:
             base_params.append(model.embedding.parameters())
-        if self.interactor == 'bert':
-            bert_params.append(model.interactor.parameters())
+        if self.ranker == 'bert':
+            bert_params.append(model.ranker.parameters())
         else:
-            base_params.append(model.interactor.parameters())
+            base_params.append(model.ranker.parameters())
 
 
         optimizer = optim.Adam([

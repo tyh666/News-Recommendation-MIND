@@ -2,9 +2,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class History_Selector(nn.Module):
+class SFI_Selector(nn.Module):
     """
-    select history
+    select most informative k history
     """
     def __init__(self, config):
         super().__init__()
@@ -31,14 +31,13 @@ class History_Selector(nn.Module):
         Args:
             cdd_repr: tensor of [batch_size, cdd_size, hidden_dim]
             his_repr: tensor of [batch_size, his_size, hidden_dim]
-            his_embedding: tensor of [batch_size, his_size, signal_length, level, hidden_dim]
+            his_encoded_embedding: tensor of [batch_size, his_size, signal_length, hidden_dim]
+            his_embedding: tensor of [batch_size, his_size, signal_length, hidden_dim]
             his_attn_mask: tensor of [batch_size, his_size, signal_length]
 
         Returns:
-            his_activated: tensor of [batch_size, cdd_size, k, signal_length, hidden_dim]
-            his_focus: tensor of [batch_size, cdd_size, k, his_size]
-            pos_repr: tensor of [batch_size, cdd_size, contra_num, hidden_dim]
-            neg_repr: tensor of [batch_size, cdd_size, contra_num, hidden_dim]
+            his_selected: tensor of [batch_size, cdd_size, k, signal_length, hidden_dim]
+            his_mask_selected: tensor of [batch_size, cdd_size, k, signal_length]
         """
 
         # [bs, cs, hs]
@@ -52,8 +51,8 @@ class History_Selector(nn.Module):
 
         if self.k == self.his_size:
 
-            his_activated = his_embedding.unsqueeze(1)
-            his_mask_activated = his_attn_mask.unsqueeze(1)
+            his_selected = his_embedding.unsqueeze(1)
+            his_mask_selected = his_attn_mask.unsqueeze(1)
 
         else:
             # t2 = time.time()
@@ -64,12 +63,12 @@ class History_Selector(nn.Module):
             # t3 = time.time()
 
             # [bs, cs, k, sl, level, fn]
-            his_activated = his_embedding.unsqueeze(dim=1).expand(batch_size, cdd_size, self.his_size, self.signal_length, -1, self.hidden_dim).gather(
+            his_selected = his_embedding.unsqueeze(dim=1).expand(batch_size, cdd_size, self.his_size, self.signal_length, self.hidden_dim).gather(
                 dim=2,
-                index=attn_weights_index.view(batch_size, cdd_size, self.k, 1, 1, 1).expand(batch_size, cdd_size, self.k, self.signal_length, his_embedding.size(3), self.hidden_dim)
+                index=attn_weights_index.view(batch_size, cdd_size, self.k, 1, 1).expand(batch_size, cdd_size, self.k, self.signal_length, self.hidden_dim)
             )
 
-            his_mask_activated = his_attn_mask.unsqueeze(dim=1).expand(batch_size, cdd_size, self.his_size, self.signal_length).gather(
+            his_mask_selected = his_attn_mask.unsqueeze(dim=1).expand(batch_size, cdd_size, self.his_size, self.signal_length).gather(
                 dim=2,
                 index=attn_weights_index.view(batch_size, cdd_size, self.k, 1).expand(batch_size, cdd_size, self.k, self.signal_length)
             )
@@ -77,10 +76,44 @@ class History_Selector(nn.Module):
             # t4 = time.time()
 
         if hasattr(self,'threshold'):
-            his_activated = his_activated * (attn_weights.masked_fill(attn_weights<self.threshold, 0).view(batch_size, cdd_size, self.k, 1, 1, 1))
-            # his_activated = his_activated * (F.softmax(attn_weights.masked_fill(attn_weights<self.threshold, 0), dim=-1).view(batch_size, self.cdd_size, self.k, 1, 1, 1))
+            his_selected = his_selected * (attn_weights.masked_fill(attn_weights<self.threshold, 0).view(batch_size, cdd_size, self.k, 1, 1))
+            # his_selected = his_selected * (F.softmax(attn_weights.masked_fill(attn_weights<self.threshold, 0), dim=-1).view(batch_size, self.cdd_size, self.k, 1, 1, 1))
 
         # t6 = time.time()
         # print("product time:{}, sort time:{}, scatter time:{}, activate time:{}, mask time:{}".format(t2-t1, t3-t2, t4-t3, t5-t4, t6-t5))
 
-        return his_activated, his_mask_activated
+        return his_selected, his_mask_selected
+
+
+class Recent_Selector(nn.Module):
+    """
+    select recent k history
+    """
+    def __init__(self, config):
+        super().__init__()
+        self.k = config.k
+        self.his_size = config.his_size
+        self.signal_length = config.signal_length
+
+    def forward(self, cdd_repr, his_repr, his_embedding, his_attn_mask):
+        """ apply news-level attention
+
+        Args:
+            cdd_repr: tensor of [batch_size, cdd_size, hidden_dim]
+            his_repr: tensor of [batch_size, his_size, hidden_dim]
+            his_encoded_embedding: tensor of [batch_size, his_size, signal_length, hidden_dim]
+            his_embedding: tensor of [batch_size, his_size, signal_length, hidden_dim]
+            his_attn_mask: tensor of [batch_size, his_size, signal_length]
+
+        Returns:
+            his_selected: tensor of [batch_size, cdd_size, k, signal_length, hidden_dim]
+            his_mask_selected: tensor of [batch_size, cdd_size, k, signal_length]
+        """
+        batch_size = his_embedding.size(0)
+        cdd_size = cdd_repr.size(1)
+        hidden_dim = cdd_repr.size(-1)
+
+        his_selected = his_embedding[:, :self.k].unsqueeze(1).repeat(1, cdd_size, 1, 1, 1)
+        his_mask_selected = his_attn_mask[:, :self.k].unsqueeze(1).repeat(1, cdd_size, 1, 1)
+
+        return his_selected, his_mask_selected

@@ -409,10 +409,11 @@ def load_manager():
     parser.add_argument("--metrics", dest="metrics",
                         help="metrics for evaluating the model, if multiple metrics are needed, seperate with ','", type=str, default='')
 
-    parser.add_argument("-emb", "--embedding", dest="embedding", help="choose embedding", choices=['bert','random','nbert'], default='bert')
+    parser.add_argument("-emb", "--embedding", dest="embedding", help="choose embedding", choices=['bert','random'], default='bert')
     parser.add_argument("-encn", "--encoderN", dest="encoderN", help="choose news encoder", choices=['cnn','rnn','npa','fim','mha','bert'], default="cnn")
     parser.add_argument("-encu", "--encoderU", dest="encoderU", help="choose user encoder", choices=['rnn','lstur','nrms'], default="rnn")
-    parser.add_argument("-itr", "--interactor", dest="interactor", help="choose interactor", choices=['onepass','selected','overlook','recent','fim','cnn','knrm'], default="onepass")
+    parser.add_argument("-slc", "--selector", dest="selector", help="choose history selector", choices=['recent','sfi'], default="sfi")
+    parser.add_argument("-rk", "--ranker", dest="ranker", help="choose ranker", choices=['onepass','selected','overlook','cnn','knrm'], default="onepass")
 
     parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=3)
     parser.add_argument("--threshold", dest="threshold", help="threshold to mask terms", default=-float("inf"), type=float)
@@ -420,12 +421,11 @@ def load_manager():
     parser.add_argument("--coarse", dest="coarse", help="if clarified, coarse-level matching signals will be taken into consideration", action='store_true', default=False)
 
     # parser.add_argument("--ensemble", dest="ensemble", help="choose ensemble strategy for SFI-ensemble", type=str, default=None)
-    parser.add_argument("--spadam", dest="spadam", default=False)
-    parser.add_argument("--tb", dest="tb", default=False)
+    parser.add_argument("--spadam", dest="spadam", action='store_true', default=False)
+    parser.add_argument("--tb", dest="tb", action='store_true', default=False)
     parser.add_argument("--seeds", dest="seeds", default=None, type=int)
 
     parser.add_argument("--bert", dest="bert", help="choose bert model", choices=["bert-base-uncased"], default="bert-base-uncased")
-    parser.add_argument("--level", dest="level", help="intend for bert encoder, if clarified, level representations will be kept for a token", type=int, default=1)
 
     # FIXME, clarify all choices
     # parser.add_argument("--pipeline", dest="pipeline", help="choose pipeline encoder", default=None)

@@ -49,6 +49,8 @@ fi
 ```bash
 cd /data/v-pezhang/Code/Document-Reduction/Code
 python esm.py -m tune -s large -bs=25 -ws=2
+
+python sfi.py -m tune -e 5 -s demo -k=5 -encn=fim -itr=selected -sl=20 -bs=10 -is=10
 ```
 ## Preprocess
 - [x] remove stop words
@@ -61,7 +63,7 @@ python esm.py -m tune -s large -bs=25 -ws=2
 ## Embedding
 - [x] Random embedding
 - [ ] Bert embedding
-  - [x] add absolute position encoding
+  - [x] add absolute position embedding
   - [x] add cls embedding
 
 ## News Encoder
@@ -81,11 +83,12 @@ python esm.py -m tune -s large -bs=25 -ws=2
 ## Document Reducer
 - [ ] matching based
   - [x] only topk
-  - [ ] topk with threshold
+  - [x] topk with threshold
+  - [x] extract after masking
   - [ ] diversified
     - [ ] use document vector as an extraction input
     - [ ] design methods to extract non-duplicated terms within an article
-  - [ ] extract origin embedding, not after cnn
+  - [x] extract origin embedding, not after cnn
   - [ ] dynamic allocation of top k
     - [ ] read paper of yi xiaoyuan
 - [ ] Seq2Seq based
@@ -97,7 +100,6 @@ python esm.py -m tune -s large -bs=25 -ws=2
 
 ## Interactor
 - [ ] Bert
-  - [x] position embedding within each news
   - [x] order embedding across the whole user history
   - [x] cls pooling
   - [ ] one-pass bert
@@ -108,8 +110,10 @@ python esm.py -m tune -s large -bs=25 -ws=2
     - fobiddable, otherwise the [CLS] would be extracted
   - [x] position embedding in interactor
   - [x] one entry to define term_num
-  - [ ] speed compare between onepass bert and overlook bert
-  - [ ] 
+  - [x] speed compare between onepass bert and overlook bert
+    - onepass is faster when training
+    - overlook is faster when evaluating
+  - [x] recent K
 
 ## Workflow
 - [x] extract terms from every historical news when the history is updated
@@ -130,12 +134,26 @@ python esm.py -m tune -s large -bs=25 -ws=2
 - [ ] specify .vscode-sever location to avoid repeatedly downloading extensions
 - [ ] manager.encode
 - [x] distributed evaluate
+- [x] reverse history when learning user profile
 
 ## Issue
 - the gradient after docReducer is sharp
 - if we concat title with abstract, then there must be many duplicated words, how about removing them when preprocessing?
 - very likely to fall into local optim
 - learning rate of bert
+- use selected document for final bert is terrible
+- **history in MIND, the more recent is at the front or the tail**, we now use the head as the latest news by default
+
+## Ablation
+- [ ] BM25
+  - [ ] + BERT
+  - [ ] + order_embedding
+  - [ ] + onepass
+- [ ] reducer
+  - [ ] + cnn encoder, rnn user encoder
+  - [ ] + nrms encoder, nrms user encoder
+  - [ ] + cnn encoder, cdd-aware user encoder
+
 
 ## Need to update
 - [ ] Encoders.MHA, NPA, Pipeline

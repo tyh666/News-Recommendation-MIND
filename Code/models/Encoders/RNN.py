@@ -50,5 +50,5 @@ class RNN_User_Encoder(nn.Module):
         Returns:
             user_repr: user representation (coarse), [batch_size, 1, hidden_dim]
         """
-        _, user_repr = self.lstm(news_reprs)
+        _, user_repr = self.lstm(news_reprs.flip(dims=[1]))
         return user_repr[0].transpose(0,1)

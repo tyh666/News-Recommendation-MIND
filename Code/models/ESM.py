@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 class ESM(nn.Module):
-    def __init__(self, config, embedding, encoderN, encoderU, docReducer, termFuser, interactor):
+    def __init__(self, config, embedding, encoderN, encoderU, docReducer, termFuser, ranker):
         super().__init__()
 
         self.scale = config.scale
@@ -18,10 +18,10 @@ class ESM(nn.Module):
         self.encoderU = encoderU
         self.docReducer = docReducer
         self.termFuser = termFuser
-        self.interactor = interactor
+        self.ranker = ranker
 
         self.hidden_dim = encoderN.hidden_dim
-        self.final_dim = interactor.final_dim
+        self.final_dim = ranker.final_dim
 
         self.learningToRank = nn.Sequential(
             nn.Linear(self.final_dim + 1, int(self.final_dim/2)),
@@ -29,7 +29,7 @@ class ESM(nn.Module):
             nn.Linear(int(self.final_dim/2),1)
         )
 
-        self.name = '__'.join(['esm', self.encoderN.name, self.encoderU.name, self.docReducer.name, self.interactor.name])
+        self.name = '__'.join(['esm', self.encoderN.name, self.encoderU.name, self.docReducer.name, self.ranker.name])
         config.name = self.name
 
     def clickPredictor(self, reduced_tensor, cdd_news_repr, user_repr):
@@ -65,13 +65,13 @@ class ESM(nn.Module):
 
         user_repr = self.encoderU(his_news_repr)
 
-        ps_terms, ps_term_ids = self.docReducer(his_news_encoded_embedding, his_news_embedding, user_repr)
+        ps_terms, ps_term_ids = self.docReducer(his_news_encoded_embedding, his_news_embedding, user_repr, x["his_attn_mask"].to(self.device).bool())
         # if self.termFuser:
         #     ps_terms = self.termFuser(ps_terms, ps_term_ids, his_news)
 
-        # reduced_tensor = self.interactor(torch.cat([cdd_news_repr.unsqueeze(-2), cdd_news_embedding], dim=-2), torch.cat([user_repr, ps_terms], dim=-2))
+        # reduced_tensor = self.ranker(torch.cat([cdd_news_repr.unsqueeze(-2), cdd_news_embedding], dim=-2), torch.cat([user_repr, ps_terms], dim=-2))
 
-        reduced_tensor = self.interactor(cdd_news_embedding, ps_terms, x["cdd_attn_mask"].to(self.device))
+        reduced_tensor = self.ranker(cdd_news_embedding, ps_terms, x["cdd_attn_mask"].to(self.device))
 
         return self.clickPredictor(reduced_tensor, cdd_news_repr, user_repr)
 

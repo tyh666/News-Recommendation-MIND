@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -15,7 +16,11 @@ class Document_Reducer(nn.Module):
 
         config.term_num = config.k * config.his_size
 
-    def forward(self, news_selection_embedding, news_embedding, user_repr):
+        if config.threshold != -float('inf'):
+            threshold = torch.tensor([config.threshold])
+            self.register_buffer('threshold', threshold)
+
+    def forward(self, news_selection_embedding, news_embedding, user_repr, his_attn_mask):
         """
         Extract words from news text according to the overall user interest
 
@@ -33,6 +38,9 @@ class Document_Reducer(nn.Module):
 
         # [bs, hs, sl]
         scores = F.normalize(news_selection_embedding, dim=-1).matmul(F.normalize(user_repr, dim=-1).transpose(-2,-1).unsqueeze(1)).squeeze(-1)
+        # mask the padded term
+        scores = scores.masked_fill(~his_attn_mask[:, :, 1:], -float('inf'))
+
         score_k, score_kid = scores.topk(dim=-1, k=self.k)
 
         personalized_terms = news_embedding.gather(dim=-2,index=score_kid.unsqueeze(-1).expand(score_kid.size() + (news_embedding.size(-1),)))
@@ -43,18 +51,3 @@ class Document_Reducer(nn.Module):
         # print(weighted_ps_terms.grad, weighted_ps_terms.requires_grad)
 
         return weighted_ps_terms, score_kid
-
-if __name__ == "__main__":
-    import torch
-    docReducer = DRM_Matching(2)
-
-    a = torch.rand((2,3,4,1,5),requires_grad=True)
-    a.retain_grad()
-    b = torch.rand(2,1,5,requires_grad=True)
-    b.retain_grad()
-
-    c,_ = docReducer(a,b)
-    loss = (c**2).sum()
-    loss.backward()
-
-    print(a.grad)

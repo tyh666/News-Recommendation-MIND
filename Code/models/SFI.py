@@ -3,10 +3,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .Modules.HSM import History_Selector
+from .Modules.HSM import SFI_Selector, Recent_Selector
 
 class SFI(nn.Module):
-    def __init__(self, config, embedding, encoder, interactor):
+    def __init__(self, config, embedding, encoder, selector, ranker):
         super().__init__()
 
         self.scale = config.scale
@@ -19,15 +19,14 @@ class SFI(nn.Module):
 
         self.embedding = embedding
         self.encoder = encoder
-        self.interactor = interactor
-        self.hisSelector = History_Selector(config)
+        self.selector = selector
+        self.ranker = ranker
 
-        self.name = '__'.join(['sfi', self.encoder.name, self.interactor.name])
+        self.name = '__'.join(['sfi', self.encoder.name, self.ranker.name])
         config.name = self.name
 
-        self.level = encoder.level
         self.hidden_dim = encoder.hidden_dim
-        self.final_dim = interactor.final_dim
+        self.final_dim = ranker.final_dim
 
         self.learningToRank = nn.Sequential(
             nn.Linear(self.final_dim, int(self.final_dim/2)),
@@ -64,18 +63,19 @@ class SFI(nn.Module):
             # news_id=x['cdd_id'].long().to(self.device))
 
         his_news = x["his_encoded_index"].long().to(self.device)
-        his_news_embedding, his_news_repr = self.encoder(
-            self.embedding(his_news),
+        his_news_embedding = self.embedding(his_news)
+        _, his_news_repr = self.encoder(
+            his_news_embedding,
         )
             # user_index=x['user_index'].long().to(self.device),
             # news_id=x['his_id'].long().to(self.device))
             # attn_mask=x['clicked_title_pad'].to(self.device))
 
         # t2 = time.time()
-        output = self.hisSelector(cdd_news_repr, his_news_repr, his_news_embedding, x["his_attn_mask"].to(self.device))
+        output = self.selector(cdd_news_repr, his_news_repr, his_news_embedding, x["his_attn_mask"].to(self.device))
         # t3 = time.time()
 
-        fusion_tensors = self.interactor(cdd_news_embedding, output[0], x["cdd_attn_mask"].to(self.device), output[1])
+        fusion_tensors = self.ranker(cdd_news_embedding, output[0], x["cdd_attn_mask"].to(self.device), output[1])
 
         # t4 = time.time()
         # print(fusion_tensors.shape)
@@ -93,7 +93,7 @@ class SFI(nn.Module):
 
 
 class SFI_unified(nn.Module):
-    def __init__(self, config, embedding, encoder, interactor):
+    def __init__(self, config, embedding, encoder, ranker):
         super().__init__()
 
         self.scale = config.scale
@@ -106,15 +106,14 @@ class SFI_unified(nn.Module):
 
         self.embedding = embedding
         self.encoder = encoder
-        self.interactor = interactor
+        self.ranker = ranker
         self.hisSelector = History_Selector(config)
 
-        self.name = '__'.join(['sfi-coarse', encoder.name, interactor.name])
+        self.name = '__'.join(['sfi-coarse', encoder.name, ranker.name])
         config.name = self.name
 
-        self.level = encoder.level
         self.hidden_dim = encoder.hidden_dim
-        self.final_dim = interactor.final_dim + self.his_size
+        self.final_dim = ranker.final_dim + self.his_size
 
         self.learningToRank = nn.Sequential(
             nn.Linear(self.final_dim, int(self.final_dim/2)),
@@ -168,17 +167,17 @@ class SFI_unified(nn.Module):
 
         # t3 = time.time()
 
-        if self.interactor.name == 'knrm':
+        if self.ranker.name == 'knrm':
             cdd_pad = x['cdd_encoded_index_pad'].float().to(self.device).view(self.batch_size, self.cdd_size, 1, 1, -1, 1)
             if output[1] is not None:
                 his_pad = x['clicked_title_pad'].float().to(self.device).unsqueeze(dim=1).expand(self.batch_size, self.cdd_size, self.his_size, self.signal_length).gather(dim=2, index=output[1].unsqueeze(dim=-1).expand(self.batch_size, self.cdd_size, self.k, self.signal_length)).view(self.batch_size, self.cdd_size, self.k, 1, 1, self.signal_length, 1)
             else:
                 his_pad = x['clicked_title_pad'].float().to(self.device).view(self.batch_size, 1, self.k, 1, 1, self.signal_length, 1).expand(self.batch_size, self.cdd_size, self.k, 1, 1, self.signal_length, 1)
 
-            itr_tensors = self.interactor(cdd_news_embedding, output[0], cdd_pad=cdd_pad, his_pad=his_pad)
+            itr_tensors = self.ranker(cdd_news_embedding, output[0], cdd_pad=cdd_pad, his_pad=his_pad)
 
         else:
-            itr_tensors = self.interactor(cdd_news_embedding, output[0])
+            itr_tensors = self.ranker(cdd_news_embedding, output[0])
 
         # t4 = time.time()
         # print(fusion_tensors.shape)
@@ -198,7 +197,7 @@ class SFI_unified(nn.Module):
 
 # not refactored yet
 # class SFI_MultiView(nn.Module):
-#     def __init__(self, config, encoder, interactor):
+#     def __init__(self, config, encoder, ranker):
 #         super().__init__()
 
 #         self.signal_length = config['title_length'] + 2
@@ -206,14 +205,14 @@ class SFI_unified(nn.Module):
 
 #         self.k = config['k']
 
-#         if(encoder.name != 'fim' or interactor.name != 'fim'):
-#             logging.error("please use FIM encoder and FIM interactor")
+#         if(encoder.name != 'fim' or ranker.name != 'fim'):
+#             logging.error("please use FIM encoder and FIM ranker")
 
 #         self.encoder = encoder
 #         self.level = encoder.level
 #         self.hidden_dim = encoder.hidden_dim
 
-#         self.interactor = interactor
+#         self.ranker = ranker
 #         if self.k > 9:
 #             title_dim = int(int(self.k / 3) /3) * int(int(self.signal_length / 3) / 3)**2 * 16
 #             abs_dim = int(int(self.k / 3) /3) * int(int(self.abs_size / 3) / 3)**2 * 16
@@ -238,7 +237,7 @@ class SFI_unified(nn.Module):
 #             nn.Linear(self.hidden_dim, self.hidden_dim)
 #         )
 
-#         self.name = '-'.join(['sfi-multiview', encoder.name, interactor.name])
+#         self.name = '-'.join(['sfi-multiview', encoder.name, ranker.name])
 
 #         if config.threshold != -float('inf'):
 #             threshold = torch.tensor([config.threshold])
@@ -354,8 +353,8 @@ class SFI_unified(nn.Module):
 #         output_abs = self.hisSelector(
 #             cdd_abs_repr, his_abs_repr, his_abs_embedding)
 
-#         fusion_tensors_title = self.interactor(cdd_title_embedding, output_title[0])
-#         fusion_tensors_abs = self.interactor(cdd_abs_embedding, output_abs[0])
+#         fusion_tensors_title = self.ranker(cdd_title_embedding, output_title[0])
+#         fusion_tensors_abs = self.ranker(cdd_abs_embedding, output_abs[0])
 
 #         # [bs, cs, 2, hd]
 #         fusion_tensors = torch.tanh(torch.stack([self.title2view(fusion_tensors_title), self.abs2view(fusion_tensors_abs)], dim=-2))

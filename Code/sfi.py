@@ -2,6 +2,7 @@ import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from utils.utils import prepare, load_manager, setup, cleanup
+from models.SFI import SFI
 
 def main(rank, manager, dist=False):
     """ train/dev/test/tune the model (in distributed)
@@ -58,50 +59,38 @@ def main(rank, manager, dist=False):
     else:
         raise ValueError("Undefined Encoder:{}".format(manager.encoderN))
 
-    if manager.interactor == 'fim':
-        from models.Interactors.FIM import FIM_Interactor
-        interactor = FIM_Interactor(manager)
-
-    elif manager.interactor == 'selected':
-        from models.Interactors.BERT import BERT_Selected_Interactor
-        interactor = BERT_Selected_Interactor(manager)
-
-    elif manager.interactor == 'overlook':
-        from models.Interactors.BERT import BERT_Overlook_Interactor
-        interactor = BERT_Overlook_Interactor(manager)
-
-    # elif manager.interactor == 'knrm':
-    #     from models.Interactors.KNRM import KNRM_Interactor
-    #     interactor = KNRM_Interactor()
-
-    # elif manager.interactor == '2dcnn':
-    #     from models.Interactors.CNN import CNN_Interator
-    #     interactor = CNN_Interator(manager.k)
-
-    # elif manager.interactor == 'mha':
-    #     from models.Interactors.MHA import MHA_Interactor
-    #     interactor = MHA_Interactor(encoder.hidden_dim)
-
+    if manager.selector == 'recent':
+        from models.Modules.HSM import Recent_Selector
+        selector = Recent_Selector(manager)
     else:
-        raise ValueError("Undefined Interactor:{}".format(manager.interactor))
+        from models.Modules.HSM import SFI_Selector
+        selector = SFI_Selector(manager)
+
+    from models.Rankers.BERT import BERT_Selected_Ranker
+    ranker = BERT_Selected_Ranker(manager)
+
+    # elif manager.ranker == 'knrm':
+    #     from models.Rankers.KNRM import KNRM_Ranker
+    #     ranker = KNRM_Ranker()
+
+    # elif manager.ranker == '2dcnn':
+    #     from models.Rankers.CNN import CNN_Interator
+    #     ranker = CNN_Interator(manager.k)
+
+    # elif manager.ranker == 'mha':
+    #     from models.Rankers.MHA import MHA_Ranker
+    #     ranker = MHA_Ranker(encoder.hidden_dim)
 
     # if manager.multiview:
     #     if manager.coarse:
     #         from models.SFI import SFI_unified_MultiView
-    #         sfi = SFI_unified_MultiView(manager, encoder, interactor).to(manager.device)
+    #         sfi = SFI_unified_MultiView(manager, encoder, ranker).to(manager.device)
 
     #     else:
     #         from models.SFI import SFI_MultiView
-    #         sfi = SFI_MultiView(manager, encoder, interactor).to(manager.device)
+    #         sfi = SFI_MultiView(manager, encoder, ranker).to(manager.device)
 
-    # else:
-    if manager.coarse:
-        from models.SFI import SFI_unified
-        sfi = SFI_unified(manager, embedding, encoder, interactor).to(manager.device)
-
-    else:
-        from models.SFI import SFI
-        sfi = SFI(manager, embedding, encoder, interactor).to(manager.device)
+    sfi = SFI(manager, embedding, encoder, selector, ranker).to(manager.device)
 
     if dist:
         sfi = DDP(sfi, device_ids=[rank], output_device=rank, find_unused_parameters=True)
