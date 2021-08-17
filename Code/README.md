@@ -47,7 +47,7 @@ fi
 ## Instruction
 ```bash
 cd /data/v-pezhang/Code/Document-Reduction/Code
-python esm.py -m tune -s demo -emb=bert -lr=1e-3 -bs=25 -is=50 -ws=2
+python esm.py -m tune -s large -bs=25 -ws=2
 ```
 ## Preprocess
 - [x] remove stop words

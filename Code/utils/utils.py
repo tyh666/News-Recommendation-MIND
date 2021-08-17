@@ -693,6 +693,8 @@ def setup(rank, manager):
         # manager.device will be invoked in the model
         manager.device = rank
 
+        torch.cuda.set_device(rank)
+
     else:
         # one-gpu
         manager.rank = -1
