@@ -545,7 +545,6 @@ class Manager():
 
 
     @torch.no_grad()
-    # FIXME: model.batch_size cannot be reached from DDP
     def encode(self, model, loader):
         """
             Encode news of self.scale in each mode, currently force to encode dev dataset
@@ -573,32 +572,26 @@ class Manager():
         mode = loader.dataset.mode
         news_num = news_num_dict[scale][mode]
 
-        encoder = model.encoder
-
-        news_reprs = torch.zeros((news_num + 1, encoder.hidden_dim))
+        news_reprs = torch.zeros((news_num + 1, model.hidden_dim))
         news_embeddings = torch.zeros(
-            (news_num + 1, encoder.signal_length, encoder.level, encoder.hidden_dim))
+            (news_num + 1, model.signal_length, model.embedding_dim))
 
         start_pos = 0
         for x in tqdm(loader):
-            if x['cdd_encoded_index'].shape[0] != model.batch_size:
-                model.batch_size = x['cdd_encoded_index'].shape[0]
-
             news = x['cdd_encoded_index'].long()
-            news_embedding, news_repr = model.encoder(
-                news,
-                news_id=x['cdd_id'].long(),
-                attn_mask=x['cdd_encoded_index_pad'])
+            news_embedding = model.embedding(news)
+            news_repr,_ = model.encoder(news_embedding)
 
             news_reprs[start_pos:start_pos+model.batch_size] = news_repr
-            news_embeddings[start_pos:start_pos+model.batch_size] = news_embedding
+            news_embeddings[start_pos:start_pos+self.batch_size] = news_embedding
 
-            start_pos += model.batch_size
+        os.makedirs('data/tensors/news_reprs/{}/'.format(self.name), exist_ok=True)
+        os.makedirs('data/tensors/news_embeddings/{}/'.format(self.name), exist_ok=True)
 
-        torch.save(news_reprs, "data/tensors/news_repr_{}_{}-[{}].tensor".format(
-            scale, mode, self.name))
-        torch.save(news_embeddings, "data/tensors/news_embedding_{}_{}-[{}].tensor".format(
-            scale, mode, self.name))
+        torch.save(news_reprs, "data/tensors/news_reprs/{}/{}_{}.tensor".format(
+            self.name, scale, mode))
+        torch.save(news_embeddings, "data/tensors/news_embeddings/{}/{}_{}.tensor".format(
+            self.name, scale, mode))
         del news_reprs
         del news_embeddings
         logging.info("encoded news saved in data/tensors/news_**_{}_{}-[{}].tensor".format(scale, mode, self.name))
