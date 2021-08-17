@@ -31,14 +31,15 @@ else
   cd v-pezhang
   mkdir Data
   mkdir Code
+  mkdir Workspace
   cd Code
   git clone https://github.com/namespace-Pt/Document-Reduction.git
 
   sudo apt-get install rsync
   sudo apt-get install screen
   sleep infinity
-
 fi
+
 ```
 - `python==3.8`
 - `torch==1.7.1`
