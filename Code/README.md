@@ -107,6 +107,8 @@ python esm.py -m tune -s demo -emb=bert -lr=1e-3 -bs=25 -is=50 -ws=2
     - fobiddable, otherwise the [CLS] would be extracted
   - [x] position embedding in interactor
   - [x] one entry to define term_num
+  - [ ] speed compare between onepass bert and overlook bert
+  - [ ] 
 
 ## Workflow
 - [x] extract terms from every historical news when the history is updated
