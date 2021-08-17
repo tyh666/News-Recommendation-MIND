@@ -95,6 +95,7 @@ class BertSelfAttention(nn.Module):
 
         if attention_mask is not None:
             # Apply the attention mask is (precomputed for all layers in BertModel forward() function)
+            # print(one_pass_mask, attention_mask)
             attention_scores = attention_scores * attention_mask
 
         # Normalize the attention scores to probabilities.

@@ -66,6 +66,10 @@ def main(rank, manager, dist=False):
         from models.Interactors.BERT import BERT_Selected_Interactor
         interactor = BERT_Selected_Interactor(manager)
 
+    elif manager.interactor == 'overlook':
+        from models.Interactors.BERT import BERT_Overlook_Interactor
+        interactor = BERT_Overlook_Interactor(manager)
+
     # elif manager.interactor == 'knrm':
     #     from models.Interactors.KNRM import KNRM_Interactor
     #     interactor = KNRM_Interactor()

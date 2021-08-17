@@ -46,31 +46,10 @@ def main(rank, manager, dist=False):
 
     esm = ESM(manager, embedding, encoderN, encoderU, docReducer, None, interactor).to(rank)
 
-    if dist:
-        esm = DDP(esm, device_ids=[rank], output_device=rank, find_unused_parameters=True)
-
-    if manager.mode == 'dev':
-        manager.evaluate(esm, loaders[0], load=True)
-
-    elif manager.mode == 'train':
-        manager.train(esm, loaders)
-
-    elif manager.mode == 'tune':
-        manager.tune(esm, loaders)
-
-    elif manager.mode == 'test':
-        manager.test(esm, loaders[0])
-
-    if dist:
-        cleanup()
+    record = next(iter(loaders[0]))
+    print(esm(record))
 
 if __name__ == "__main__":
     manager = load_manager()
-    if manager.world_size > 1:
-        mp.spawn(
-            main,
-            args=(manager, True),
-            nprocs=manager.world_size
-        )
-    else:
-        main(manager.device, manager, dist=False)
+
+    main(manager.device, manager, dist=False)

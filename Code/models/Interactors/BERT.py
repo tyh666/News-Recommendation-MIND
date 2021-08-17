@@ -3,13 +3,13 @@ from torch._C import device
 import torch.nn as nn
 from transformers import BertModel,BertConfig
 
-from .Modules.OnePassAttn import BertSelfAttention
 
 class BERT_Onepass_Interactor(nn.Module):
     """
     one-pass bert: cdd1 cdd2 ... cddn [SEP] pst1 pst2 ...
     """
     def __init__(self, config):
+        from .Modules.OnePassAttn import BertSelfAttention
         # confirm the hidden dim to be 768
         assert config.embedding_dim == 768
         # confirm term_num + signal_length is less than 512
@@ -106,7 +106,7 @@ class BERT_Onepass_Interactor(nn.Module):
 
         bert_input = torch.cat([cdd_news_embedding, ps_terms], dim=-2)
 
-        # [bs, cs*(sl+1)]
+        # [bs, cs*sl]
         attn_mask = cdd_attn_mask.view(batch_size, -1)
         attn_mask = torch.cat([attn_mask, torch.ones(batch_size, self.term_num, device=cdd_attn_mask.device)], dim=-1).view(batch_size, 1, 1, -1)
 
@@ -124,6 +124,7 @@ class BERT_Overlook_Interactor(nn.Module):
         cddn [SEP] pst1 pst2 ...
     """
     def __init__(self, config):
+        from .Modules.OverlookAttn import BertSelfAttention
         # confirm the hidden dim to be 768
         assert config.embedding_dim == 768
         # confirm term_num + signal_length is less than 512
@@ -193,13 +194,13 @@ class BERT_Overlook_Interactor(nn.Module):
         return ps_terms
 
 
-    def forward(self, ps_terms, cdd_news_embedding, cdd_attn_mask):
+    def forward(self, cdd_news_embedding, ps_terms, cdd_attn_mask):
         """
         calculate interaction tensor and reduce it to a vector
 
         Args:
-            ps_terms: personalized terms, [batch_size, his_size, k, level, hidden_dim]
-            cdd_news_embedding: word-level representation of candidate news, [batch_size, cdd_size, signal_length, level, hidden_dim]
+            ps_terms: personalized terms, [batch_size, his_size, k, hidden_dim]
+            cdd_news_embedding: word-level representation of candidate news, [batch_size, cdd_size, signal_length, hidden_dim]
             cdd_attn_mask: attention mask of the candidate news, [batch_size, cdd_size, signal_length]
 
         Returns:
@@ -210,14 +211,15 @@ class BERT_Overlook_Interactor(nn.Module):
         bs = batch_size * cdd_size
 
         # [bs,tn,hd]
-        ps_terms = self.fusion(ps_terms, batch_size).unsqueeze(1).expand(batch_size, cdd_size, self.term_num, self.embedding_dim).reshape(-1, *ps_terms.shape[1:])
+        ps_terms = self.fusion(ps_terms, batch_size).unsqueeze(1).expand(batch_size, cdd_size, self.term_num, self.embedding_dim).reshape(-1, self.term_num, self.embedding_dim)
 
         # [CLS], cdd_news, [SEP], his_news_1, his_news_2, ...
         bert_input = torch.cat([cdd_news_embedding.view(bs, -1, self.embedding_dim), ps_terms], dim=-2)
-        attn_mask = torch.cat([cdd_attn_mask.view(bs, self.signal_length), torch.ones(bs, self.term_num, device=self.device)], dim=-1).view(bs, 1, 1, -1)
+        attn_mask = torch.cat([cdd_attn_mask.view(bs, self.signal_length), torch.ones(bs, self.term_num, device=ps_terms.device)], dim=-1).view(bs, 1, 1, -1)
         bert_output = self.bert(bert_input, attention_mask=attn_mask).last_hidden_state[:, 0].view(batch_size, cdd_size, self.embedding_dim)
 
         return bert_output
+
 
 class BERT_Selected_Interactor(nn.Module):
     """

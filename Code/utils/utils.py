@@ -367,7 +367,7 @@ def load_manager():
     parser.add_argument("-e", "--epochs", dest="epochs",
                         help="epochs to train the model", type=int, default=10)
     parser.add_argument("-d","--device", dest="device",
-                        help="device to run on", choices=["0", "1", "cpu"], default="0")
+                        help="device to run on", choices=[str(i) for i in range(10)] + ['cpu'], default="0")
     parser.add_argument("-p", "--path", dest="path", type=str, default="../../../Data/", help="root path for large-scale reusable data")
 
     parser.add_argument("-bs", "--batch_size", dest="batch_size",
@@ -412,7 +412,7 @@ def load_manager():
     parser.add_argument("-emb", "--embedding", dest="embedding", help="choose embedding", choices=['bert','random','nbert'], default='bert')
     parser.add_argument("-encn", "--encoderN", dest="encoderN", help="choose news encoder", choices=['cnn','rnn','npa','fim','mha','bert'], default="cnn")
     parser.add_argument("-encu", "--encoderU", dest="encoderU", help="choose user encoder", choices=['rnn','lstur','nrms'], default="rnn")
-    parser.add_argument("-itr", "--interactor", dest="interactor", help="choose interactor", choices=['onepass','selected','recent','fim','cnn','knrm'], default="onepass")
+    parser.add_argument("-itr", "--interactor", dest="interactor", help="choose interactor", choices=['onepass','selected','overlook','recent','fim','cnn','knrm'], default="onepass")
 
     parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=3)
     parser.add_argument("--threshold", dest="threshold", help="threshold to mask terms", default=-float("inf"), type=float)

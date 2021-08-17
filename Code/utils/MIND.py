@@ -19,7 +19,6 @@ class MIND(Dataset):
     """
 
     def __init__(self, config, news_file, behaviors_file, shuffle_pos=False):
-        from transformers import BertTokenizerFast
         # initiate the whole iterator
         self.npratio = config.npratio
         self.shuffle_pos = shuffle_pos
@@ -45,6 +44,7 @@ class MIND(Dataset):
                     setattr(self, k, v)
 
         else:
+            from transformers import BertTokenizerFast
             os.makedirs(self.cache_path, exist_ok=True)
 
             self.news_file = news_file
@@ -395,7 +395,6 @@ class MIND_news(Dataset):
     """
 
     def __init__(self, config, news_file, behaviors_file, shuffle_pos=False):
-        from transformers import BertTokenizerFast
         # initiate the whole iterator
         self.shuffle_pos = shuffle_pos
         self.signal_length = config.signal_length
@@ -412,6 +411,7 @@ class MIND_news(Dataset):
                     setattr(self, k, v)
 
         else:
+            from transformers import BertTokenizerFast
             os.makedirs(self.cache_path, exist_ok=True)
 
             self.news_file = news_file

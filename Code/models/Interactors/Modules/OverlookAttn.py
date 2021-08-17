@@ -83,7 +83,7 @@ class BertSelfAttention(nn.Module):
         attention_scores = attention_scores / math.sqrt(self.attention_head_size)
         if attention_mask is not None:
             # Apply the attention mask is (precomputed for all layers in BertModel forward() function)
-            print(attention_mask, attention_mask.shape, attention_scores.shape)
+            # print(attention_mask[:,:,:,:200])
             attention_scores = attention_scores * attention_mask
 
         # Normalize the attention scores to probabilities.
@@ -95,7 +95,7 @@ class BertSelfAttention(nn.Module):
 
         # Mask heads if we want to
         if head_mask is not None:
-            attention_probs = attention_probs * head_mask
+            attention_probs = attention_probs + head_mask
 
         # Concatenate the attention field and the references
         # [bs, hn, *, hd]

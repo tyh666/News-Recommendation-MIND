@@ -66,7 +66,6 @@ class ESM(nn.Module):
         user_repr = self.encoderU(his_news_repr)
 
         ps_terms, ps_term_ids = self.docReducer(his_news_encoded_embedding, his_news_embedding, user_repr)
-
         # if self.termFuser:
         #     ps_terms = self.termFuser(ps_terms, ps_term_ids, his_news)
 
