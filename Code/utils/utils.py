@@ -391,7 +391,7 @@ def load_manager():
 
     parser.add_argument("-st","--step", dest="step",
                         help="if clarified, save model at the interval of given steps", type=str, default="0")
-    parser.add_argument("--interval", dest="interval", help="the step interval to update processing bar", default=0, type=int)
+    parser.add_argument("--interval", dest="interval", help="the step interval to update processing bar", default=10, type=int)
     parser.add_argument("--val_freq", dest="val_freq", help="the frequency to validate during training in one epoch", type=int, default=0)
 
     parser.add_argument("-ck", "--checkpoint", dest="checkpoint",
@@ -399,7 +399,7 @@ def load_manager():
     parser.add_argument("-lr", dest="lr",
                         help="learning rate of non-bert modules", type=float, default=1e-4)
     parser.add_argument("-blr", "--bert_lr", dest="bert_lr",
-                        help="learning rate of bert based modules", type=float, default=3e-5)
+                        help="learning rate of bert based modules", type=float, default=1e-5)
     parser.add_argument("--scheduler", dest="scheduler", help="choose schedule scheme for optimizer", choices=['linear'], default="linear")
     parser.add_argument("--warmup", dest="warmup", help="warmup steps of scheduler", type=int, default=10000)
 
@@ -409,10 +409,10 @@ def load_manager():
     parser.add_argument("--metrics", dest="metrics",
                         help="metrics for evaluating the model, if multiple metrics are needed, seperate with ','", type=str, default='')
 
-    parser.add_argument("-emb", "--embedding", dest="embedding", help="choose embedding", choices=['bert','glove'], default='glove')
+    parser.add_argument("-emb", "--embedding", dest="embedding", help="choose embedding", choices=['bert','random','nbert'], default='bert')
     parser.add_argument("-encn", "--encoderN", dest="encoderN", help="choose news encoder", choices=['cnn','rnn','npa','fim','mha','bert'], default="cnn")
     parser.add_argument("-encu", "--encoderU", dest="encoderU", help="choose user encoder", choices=['rnn','lstur','nrms'], default="rnn")
-    parser.add_argument("-itr", "--interactor", dest="interactor", help="choose interactor", choices=['bert','fim','cnn','knrm'], default="bert")
+    parser.add_argument("-itr", "--interactor", dest="interactor", help="choose interactor", choices=['onepass','selected','recent','fim','cnn','knrm'], default="onepass")
 
     parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=3)
     parser.add_argument("--threshold", dest="threshold", help="threshold to mask terms", default=-float("inf"), type=float)
@@ -452,13 +452,6 @@ def load_manager():
 
     args.metrics = "auc,mean_mrr,ndcg@5,ndcg@10".split(',') + [i for i in args.metrics.split(',') if i]
 
-    if not args.interval:
-        if args.scale == "demo":
-            args.interval = 10
-        else:
-            args.interval = 100
-    else:
-        args.interval = args.interval
     if not args.val_freq:
         if args.scale == "demo":
             args.val_freq = 1
@@ -479,7 +472,7 @@ def manual_seed(seed):
     # torch.backends.cudnn.deterministic = True
 
 def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, impr=False):
-    from .MIND import MIND,MIND_news,MIND_bert,MIND_impr
+    from .MIND import MIND,MIND_news,MIND_impr
     """ prepare dataloader and several paths
 
     Args:
@@ -496,9 +489,7 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
     if config.seeds:
         manual_seed(config.seeds)
 
-    vocab = None
     mind_path = config.path + "MIND"
-    vec_cache_path = config.path + '.vector_cache'
 
     # if impr:
     #     # FIXME: if config.bert
@@ -544,6 +535,7 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
 
     #     return vocab, [loader_news_train, loader_news_dev]
 
+
     if config.mode in ["train", "tune"]:
         news_file_train = mind_path+"/MIND"+config.scale+"_train/news.tsv"
         behavior_file_train = mind_path+"/MIND" + \
@@ -551,19 +543,10 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
         news_file_dev = mind_path+"/MIND"+config.scale+"_dev/news.tsv"
         behavior_file_dev = mind_path+"/MIND"+config.scale+"_dev/behaviors.tsv"
 
-        if config.embedding == 'bert':
-            dataset_train = MIND_bert(config=config, news_file=news_file_train,
-                            behaviors_file=behavior_file_train)
-            dataset_dev = MIND_bert(config=config, news_file=news_file_dev,
-                            behaviors_file=behavior_file_dev)
-        else:
-            dataset_train = MIND(config=config, news_file=news_file_train,
-                                behaviors_file=behavior_file_train)
-            dataset_dev = MIND(config=config, news_file=news_file_dev,
-                            behaviors_file=behavior_file_dev)
-            vocab = getVocab('data/dictionaries/vocab.pkl')
-            embedding = GloVe(dim=300, cache=vec_cache_path)
-            vocab.load_vectors(embedding)
+        dataset_train = MIND(config=config, news_file=news_file_train,
+                        behaviors_file=behavior_file_train)
+        dataset_dev = MIND(config=config, news_file=news_file_dev,
+                        behaviors_file=behavior_file_dev)
 
         # FIXME: multi view dataset
 
@@ -578,22 +561,14 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
         loader_dev = DataLoader(dataset_dev, batch_size=1, pin_memory=pin_memory,
                                 num_workers=num_workers, drop_last=False, sampler=sampler_dev)
 
-        return vocab, [loader_train, loader_dev]
+        return (loader_train, loader_dev)
 
     elif config.mode == "dev":
         news_file_dev = mind_path+"/MIND"+config.scale+"_dev/news.tsv"
         behavior_file_dev = mind_path+"/MIND"+config.scale+"_dev/behaviors.tsv"
 
-        if config.embedding == 'bert':
-            dataset_dev = MIND_bert(config=config, news_file=news_file_dev,
+        dataset_dev = MIND(config=config, news_file=news_file_dev,
                             behaviors_file=behavior_file_dev)
-        else:
-            dataset_dev = MIND(config=config, news_file=news_file_dev,
-                            behaviors_file=behavior_file_dev)
-
-            vocab = getVocab('data/dictionaries/vocab.pkl')
-            embedding = GloVe(dim=300, cache=vec_cache_path)
-            vocab.load_vectors(embedding)
 
         if config.world_size > 0:
             sampler_dev = Partition_Sampler(dataset_dev, num_replicas=config.world_size, rank=config.rank)
@@ -602,21 +577,13 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
         loader_dev = DataLoader(dataset_dev, batch_size=1, pin_memory=pin_memory,
                                 num_workers=num_workers, drop_last=False, sampler=sampler_dev)
 
-        return vocab, [loader_dev]
+        return (loader_dev,)
 
     elif config.mode == "test":
         news_file_test = mind_path+"/MIND"+config.scale+"_test/news.tsv"
         behavior_file_test = mind_path+"/MIND"+config.scale+"_test/behaviors.tsv"
 
-        if config.embedding == 'bert':
-            dataset_test = MIND_bert(config, news_file_test, behavior_file_test)
-        else:
-            dataset_test = MIND(config, news_file_test, behavior_file_test)
-
-            vocab = getVocab('data/dictionaries/vocab.pkl')
-
-            embedding = GloVe(dim=300, cache=vec_cache_path)
-            vocab.load_vectors(embedding)
+        dataset_test = MIND(config, news_file_test, behavior_file_test)
 
         # FIXME distributed test
         if config.world_size > 0:
@@ -626,7 +593,8 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
         loader_test = DataLoader(dataset_test, batch_size=1, pin_memory=pin_memory,
                                  num_workers=num_workers, drop_last=False, sampler=sampler_test)
 
-        return vocab, [loader_test]
+        return (loader_test,)
+
 
 
 def analyse(config):

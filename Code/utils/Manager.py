@@ -13,7 +13,7 @@ from typing import OrderedDict
 from itertools import chain
 from collections import defaultdict
 from transformers import get_linear_schedule_with_warmup
-from torch.utils.tensorboard import SummaryWriter
+# from torch.utils.tensorboard import SummaryWriter
 from sklearn.metrics import roc_auc_score, log_loss, mean_squared_error, accuracy_score, f1_score
 
 import torch.distributed as dist
@@ -115,7 +115,7 @@ class Manager():
         """
             get loss function for model
         """
-        if self.cdd_size > 1:
+        if model.training:
             loss = nn.NLLLoss()
         else:
             loss = nn.BCELoss()
@@ -477,14 +477,17 @@ class Manager():
         # in case the folder does not exists, create one
         os.makedirs("data/model_params/{}".format(self.name), exist_ok=True)
 
-        logger.info("training...")
+        if self.rank in [-1, 0]:
+            logger.info("training...")
         loss_func = self._get_loss(model)
         optimizer, scheduler = self._get_optim(model, len(loaders[0]))
 
         res = self._tune(model, loaders, optimizer, loss_func, scheduler=scheduler,
                         writer=writer, interval=self.interval, save_step=int(len(loaders[0])/self.val_freq - 1), distributed=(self.world_size > 1))
 
-        self._log(res)
+        if self.rank in [-1,0]:
+            logger.info("Best result: {}".format(res))
+            self._log(res)
 
 
     @torch.no_grad()
@@ -547,7 +550,7 @@ class Manager():
     @torch.no_grad()
     def encode(self, model, loader):
         """
-            Encode news of self.scale in each mode, currently force to encode dev dataset
+            Encode news of self.scale in self.mode
         """
 
         # very important
@@ -567,9 +570,9 @@ class Manager():
                 "test": 120961
             }
         }
-
         scale = loader.dataset.scale
         mode = loader.dataset.mode
+
         news_num = news_num_dict[scale][mode]
 
         news_reprs = torch.zeros((news_num + 1, model.hidden_dim))

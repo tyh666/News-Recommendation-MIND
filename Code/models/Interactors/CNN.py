@@ -25,13 +25,13 @@ class CNN_Interactor(nn.Module):
         nn.init.xavier_normal_(self.SeqCNN2D[0].weight)
         nn.init.xavier_normal_(self.SeqCNN2D[3].weight)
 
-    def forward(self, ps_terms, cdd_news_embedding, *args):
+    def forward(self, cdd_news_embedding, ps_terms, *args):
         """
         calculate interaction tensor and reduce it to a vector
 
         Args:
-            cdd_news_embedding: word-level representation of candidate news, [batch_size, cdd_size, signal_length, hidden_dim]
             ps_terms: personalized terms, [batch_size, his_size, k, hidden_dim]
+            cdd_news_embedding: word-level representation of candidate news, [batch_size, cdd_size, signal_length, hidden_dim]
 
         Returns:
             reduced_tensor: output tensor after CNN2d, [batch_size, cdd_size, final_dim]

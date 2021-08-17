@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
 
-class DRM_Matching(nn.Module):
+class Document_Reducer(nn.Module):
     """
     basic document reducer: topk of each historical article
     """
@@ -28,6 +28,8 @@ class DRM_Matching(nn.Module):
             weighted_pt: weighted embedding for personalized terms, [batch_size, his_size, k, hidden_dim]
             score_kid: index of top k terms in the text, [batch_size, his_size, k]
         """
+        # strip off [CLS]
+        news_selection_embedding = news_selection_embedding[:, :, 1:]
 
         # [bs, hs, sl]
         scores = F.normalize(news_selection_embedding, dim=-1).matmul(F.normalize(user_repr, dim=-1).transpose(-2,-1).unsqueeze(1)).squeeze(-1)
