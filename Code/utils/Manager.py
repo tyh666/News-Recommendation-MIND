@@ -249,7 +249,7 @@ class Manager():
         model.eval()
 
         if load:
-            self.load(model, self.epochs, self.step[0], optimizer, scheduler)
+            self.load(model, self.step, optimizer, scheduler)
 
         if self.rank in [0,-1]:
             logger.info("evaluating...")
@@ -286,8 +286,7 @@ class Manager():
 
             if log and self.rank in [0, -1]:
                 res["epoch"] = self.epochs
-                res["step"] = self.step[0]
-
+                res["step"] = self.step
                 self._log(res)
 
         return res
@@ -393,10 +392,10 @@ class Manager():
         steps = 0
         interval = self.interval
 
-        if self.scale == 'demo':
-            save_step = len(loaders[0]) - 1
-        else:
-            save_step = self.step
+        # if self.scale == 'demo':
+        #     save_step = len(loaders[0]) - 1
+        # else:
+        save_step = self.step
 
         distributed = self.world_size > 1
         # if self.tb:
