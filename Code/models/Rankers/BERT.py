@@ -104,7 +104,7 @@ class BERT_Onepass_Ranker(nn.Module):
 
         super().__init__()
 
-        self.name = 'onepass-bert-no-order'
+        self.name = 'onepass-bert'
         self.signal_length = config.signal_length
 
         # extra [SEP] token
@@ -133,14 +133,14 @@ class BERT_Onepass_Ranker(nn.Module):
         self.dropOut = bert.embeddings.dropout
 
         # self.inte_embedding = nn.Parameter(torch.randn(1,1,1,self.embedding_dim))
-        # self.order_embedding = nn.Parameter(torch.randn(1, config.his_size, 1, config.embedding_dim))
+        self.order_embedding = nn.Parameter(torch.randn(1, config.his_size, 1, config.embedding_dim))
         # [2, 1, 1, embedding_ldim]
         self.token_type_embedding = nn.Parameter(bert.embeddings.token_type_embeddings.weight)
         # [SEP] token
         self.sep_embedding = nn.Parameter(bert.embeddings.word_embeddings(torch.tensor([102])).clone().detach().requires_grad_(True).view(1,1,self.embedding_dim))
 
         # nn.init.xavier_normal_(self.inte_embedding)
-        # nn.init.xavier_normal_(self.order_embedding)
+        nn.init.xavier_normal_(self.order_embedding)
 
     def fusion(self, ps_terms, batch_size):
         """
@@ -158,8 +158,8 @@ class BERT_Onepass_Ranker(nn.Module):
         # ps_terms = torch.cat([ps_terms, self.inte_embedding.expand(batch_size, self.his_size, 1, self.embedding_dim)], dim=-2)
 
         # add order embedding and sep embedding
-        # ps_terms = (ps_terms + self.order_embedding).view(batch_size, -1, self.embedding_dim)
-        ps_terms = (ps_terms).reshape(batch_size, -1, self.embedding_dim)
+        ps_terms = (ps_terms + self.order_embedding).view(batch_size, -1, self.embedding_dim)
+        # ps_terms = (ps_terms).reshape(batch_size, -1, self.embedding_dim)
 
         ps_terms = torch.cat([self.sep_embedding.expand(batch_size, 1, self.embedding_dim), ps_terms], dim=1)
 
