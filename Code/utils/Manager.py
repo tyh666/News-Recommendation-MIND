@@ -392,10 +392,10 @@ class Manager():
         steps = 0
         interval = self.interval
 
-        # if self.scale == 'demo':
-        #     save_step = len(loaders[0]) - 1
-        # else:
-        save_step = self.step
+        if self.scale == 'demo':
+            save_step = len(loaders[0]) - 1
+        else:
+            save_step = self.step
 
         distributed = self.world_size > 1
         # if self.tb:
