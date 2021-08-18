@@ -78,6 +78,6 @@ class BM25_Reducer(nn.Module):
             score_kid: index of top k terms in the text, [batch_size, his_size, k]
         """
         # strip off [CLS]
-        ps_terms = news_selection_embedding[:, :, 1:]
+        ps_terms = news_embedding[:, :, 1:]
 
         return ps_terms, None

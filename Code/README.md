@@ -93,6 +93,9 @@ python sfi.py -m tune -e 5 -s demo -k=5 -encn=fim -itr=selected -sl=20 -bs=10 -i
   - [x] extract origin embedding, not after cnn
   - [ ] dynamic allocation of top k
     - [ ] read paper of yi xiaoyuan
+  - [x] extract terms from every historical news when the history is updated
+  - [ ] extract terms incrementally
+  - [ ] long and short term extraction
 - [ ] Seq2Seq based
 - [ ] RL based
 
@@ -104,9 +107,8 @@ python sfi.py -m tune -e 5 -s demo -k=5 -encn=fim -itr=selected -sl=20 -bs=10 -i
 - [ ] Bert
   - [x] order embedding across the whole user history
   - [x] cls pooling
-  - [ ] one-pass bert
-    - [ ] relative position embedding?
-  - [ ] personalized terms do not interact with each other?
+  - [x] one-pass bert
+  - [x] personalized terms do not interact with each other?
   - [x] candidate news attention mask
   - [x] insert CLS in embedding layer, not fusion
     - fobiddable, otherwise the [CLS] would be extracted
@@ -118,9 +120,6 @@ python sfi.py -m tune -e 5 -s demo -k=5 -encn=fim -itr=selected -sl=20 -bs=10 -i
   - [x] recent K
 
 ## Workflow
-- [x] extract terms from every historical news when the history is updated
-- [ ] extract terms incrementally
-- [ ] long and short term extraction
 - [x] auto-regressive user modeling
 - [x] distributed training
 - [x] **config.filter_num -> config.hidden_dim**
@@ -134,7 +133,7 @@ python sfi.py -m tune -e 5 -s demo -k=5 -encn=fim -itr=selected -sl=20 -bs=10 -i
 - [ ] customized docker image
 - [x] prepare modify dataset.vocab
 - [ ] specify .vscode-sever location to avoid repeatedly downloading extensions
-- [ ] manager.encode
+- [x] manager.encode
 - [x] distributed evaluate
 - [x] reverse history when learning user profile
 
