@@ -40,14 +40,15 @@ class MIND(Dataset):
                     setattr(self, k, v)
 
         else:
-            os.makedirs(self.cache_directory + str(self.impr_size), exist_ok=True)
-            self.behaviors_file = behaviors_file
-            self.max_his_size = 100
-            self.nid2index = getId2idx('data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, self.mode))
-            self.uid2index = getId2idx('data/dictionaries/uid2idx_{}.json'.format(config.scale))
+            if config.rank in [-1, 0]:
+                logger.info("encoding user behaviros...")
+                os.makedirs(self.cache_directory + str(self.impr_size), exist_ok=True)
+                self.behaviors_file = behaviors_file
+                self.max_his_size = 100
+                self.nid2index = getId2idx('data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, self.mode))
+                self.uid2index = getId2idx('data/dictionaries/uid2idx_{}.json'.format(config.scale))
 
-            # logger.info("encoding behaviors...")
-            self.init_behaviors()
+                self.init_behaviors()
 
         self.reducer = config.reducer
 
@@ -59,14 +60,15 @@ class MIND(Dataset):
                     for k,v in news.items():
                         setattr(self, k, v)
             else:
-                from transformers import BertTokenizerFast
-                from .utils import BM25
-                self.news_file = news_file
-                self.max_news_length = 512
-                # there are only two types of vocabulary
-                self.tokenizer = BertTokenizerFast.from_pretrained(config.bert, cache=config.path + 'bert_cache/')
-                self.nid2index = getId2idx('data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, self.mode))
-                self.init_news(reducer=BM25())
+                if config.rank in [-1, 0]:
+                    from transformers import BertTokenizerFast
+                    from .utils import BM25
+                    self.news_file = news_file
+                    self.max_news_length = 512
+                    # there are only two types of vocabulary
+                    self.tokenizer = BertTokenizerFast.from_pretrained(config.bert, cache=config.path + 'bert_cache/')
+                    self.nid2index = getId2idx('data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, self.mode))
+                    self.init_news(reducer=BM25())
 
         else:
             self.news_path = self.cache_directory + 'news.pkl'
@@ -76,13 +78,14 @@ class MIND(Dataset):
                     for k,v in news.items():
                         setattr(self, k, v)
             else:
-                from transformers import BertTokenizerFast
-                self.news_file = news_file
-                self.max_news_length = 512
-                # there are only two types of vocabulary
-                self.tokenizer = BertTokenizerFast.from_pretrained(config.bert, cache=config.path + 'bert_cache/')
-                self.nid2index = getId2idx('data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, self.mode))
-                self.init_news()
+                if config.rank in [-1, 0]:
+                    from transformers import BertTokenizerFast
+                    self.news_file = news_file
+                    self.max_news_length = 512
+                    # there are only two types of vocabulary
+                    self.tokenizer = BertTokenizerFast.from_pretrained(config.bert, cache=config.path + 'bert_cache/')
+                    self.nid2index = getId2idx('data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, self.mode))
+                    self.init_news()
 
 
     def init_news(self, reducer=None):
