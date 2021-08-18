@@ -11,7 +11,6 @@ then
   nn
 
   code -r /data/v-pezhang/Workspaces/Research.code-workspace
-  screen -S pt
   sleep infinity
 
 else
@@ -27,7 +26,7 @@ else
   ipython kernel install --name "nn" --user
 
   pip install torch+cu111 -f https://download.pytorch.org/whl/torch_stable.html
-  pip install tensorboard ipython jupyter notebook typing pandas scipy scikit-learn transformers nltk
+  pip install tensorboard ipython jupyter notebook typing pandas scipy scikit-learn transformers
 
   cd /data/
   mkdir v-pezhang
@@ -154,9 +153,10 @@ python sfi.py -m tune -e 5 -s demo -k=5 -encn=fim -itr=selected -sl=20 -bs=10 -i
 
 ## Ablation
 - [ ] BM25
-  - [ ] + BERT
-  - [ ] + order_embedding
-  - [ ] + onepass
+  - [ ] + BERT + 3
+  - [ ] + onepass + 3
+  - [ ] + onepass + 5
+
 - [ ] reducer
   - [ ] + cnn encoder, rnn user encoder
   - [ ] + nrms encoder, nrms user encoder
