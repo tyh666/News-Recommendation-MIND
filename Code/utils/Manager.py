@@ -293,7 +293,7 @@ class Manager():
         return res
 
 
-    def _train(self, model, dataloader, optimizer, loss_func, epochs, scheduler=None, writer=None, interval=100, save_step=None, distributed=False):
+    def _train(self, model, dataloader, optimizer, loss_func, epochs, scheduler=None):
         """ train model and print loss meanwhile
         Args:
             dataloader(torch.utils.data.DataLoader): provide data
@@ -307,8 +307,14 @@ class Manager():
         Returns:
             model: trained model
         """
-        total_loss = 0
-        total_steps = 0
+        steps = 0
+        interval = self.interval
+        save_step = self.save_step
+        distributed = self.world_size > 1
+
+        # if self.tb:
+        #     writer = SummaryWriter("data/tb/{}/{}/{}/".format(
+        #         self.name, self.scale, datetime.now().strftime("%Y%m%d-%H")))
 
         for epoch in range(epochs):
             epoch_loss = 0
@@ -326,7 +332,6 @@ class Manager():
                 loss = loss_func(pred, label)
 
                 epoch_loss += loss
-                total_loss += loss
 
                 loss.backward()
 
@@ -337,24 +342,19 @@ class Manager():
 
                 if step % interval == 0:
                     tqdm_.set_description(
-                        "epoch {:d} , step {:d} , loss: {:.4f}".format(epoch+1, step, epoch_loss / step))
-                    if writer:
-                        for name, param in model.named_parameters():
-                            writer.add_histogram(name, param, step)
+                        "epoch {:d} , step {:d} , loss: {:.4f}".format(steps, epoch_loss / step))
+                    # if writer:
+                    #     for name, param in model.named_parameters():
+                    #         writer.add_histogram(name, param, step)
 
-                        writer.add_scalar("data_loss",
-                                        total_loss/total_steps)
+                    #     writer.add_scalar("data_loss",
+                    #                     total_loss/total_steps)
 
                 if save_step:
-                    if step % save_step == 0 and step > 0:
-                        self.save(model, epoch+1, step, optimizer)
+                    if steps % save_step == 0 and steps > 0:
+                        self.save(model, steps, optimizer)
 
-                total_steps += 1
-
-            if writer:
-                writer.add_scalar("epoch_loss", epoch_loss, epoch)
-
-            self.save(model, epoch+1, 0, optimizer)
+                steps += 1
 
 
     def train(self, model, loaders, tb=False):
@@ -366,11 +366,6 @@ class Manager():
             en: shell parameter
         """
         model.train()
-        writer = None
-
-        if tb:
-            writer = SummaryWriter("data/tb/{}/{}/{}/".format(
-                self.name, self.scale, datetime.now().strftime("%Y%m%d-%H")))
 
         # in case the folder does not exists, create one
         os.makedirs("data/model_params/{}".format(self.name), exist_ok=True)
@@ -379,11 +374,10 @@ class Manager():
         loss_func = self._get_loss(model)
         optimizer, scheduler = self._get_optim(model, len(loaders[0]))
 
-        self._train(model, loaders[0], optimizer, loss_func, self.epochs, scheduler=scheduler,
-                        writer=writer, interval=self.interval, save_step=self.step[0], distributed=(self.world_size > 1))
+        self._train(model, loaders[0], optimizer, loss_func, self.epochs, scheduler=scheduler)
 
 
-    def _tune(self, model, loaders, optimizer, loss_func, scheduler=None, writer=None, interval=100, save_step=None, distributed=False):
+    def _tune(self, model, loaders, optimizer, loss_func, scheduler=None):
         """ train model and evaluate on validation set once every save_step
         Args:
             dataloader(torch.utils.data.DataLoader): provide data
@@ -396,10 +390,21 @@ class Manager():
         Returns:
             model: trained model
         """
-        total_loss = 0
-        total_steps = 0
+        steps = 0
+        interval = self.interval
+        
+        if self.scale == 'demo':
+            save_step = len(loaders[0])
+        else:
+            save_step = self.save_step
+
+        distributed = self.world_size > 1
+        # if self.tb:
+        #     writer = SummaryWriter("data/tb/{}/{}/{}/".format(
+        #         self.name, self.scale, datetime.now().strftime("%Y%m%d-%H")))
 
         best_res = {"auc":0}
+
 
         for epoch in range(self.epochs):
             epoch_loss = 0
@@ -415,12 +420,9 @@ class Manager():
                 label = x['label'].to(model.device)
 
                 loss = loss_func(pred, label)
-
                 epoch_loss += loss
-                total_loss += loss
 
                 loss.backward()
-
                 optimizer.step()
 
                 if scheduler:
@@ -428,32 +430,30 @@ class Manager():
 
                 if step % interval == 0:
                     tqdm_.set_description(
-                        "epoch {:d} , step {:d} , loss: {:.4f}".format(epoch+1, step, epoch_loss / step))
-                    if writer:
-                        for name, param in model.named_parameters():
-                            writer.add_histogram(name, param, step)
+                        "steps {:d} , loss: {:.4f}".format(steps, epoch_loss / step))
+                    # if writer:
+                    #     for name, param in model.named_parameters():
+                    #         writer.add_histogram(name, param, step)
 
-                        writer.add_scalar("data_loss",
-                                        total_loss/total_steps)
+                    #     writer.add_scalar("data_loss",
+                    #                     total_loss/total_steps)
 
-                if step % save_step == 0 and step > 0:
+                if steps % save_step == 0 and steps > 0:
                     print("\n")
                     with torch.no_grad():
                         result = self.evaluate(model, loaders[1], log=False)
 
                         if self.rank in [0,-1]:
-                            result["epoch"] = epoch+1
-                            result["step"] = step
+                            result["step"] = steps
 
                             if result["auc"] > best_res["auc"]:
                                 best_res = result
-                                self.save(model, epoch+1, step, optimizer)
+                                self.save(model, steps, optimizer)
                                 self._log(result)
                     # continue training
                     model.train()
 
-            if writer:
-                writer.add_scalar("epoch_loss", epoch_loss, epoch)
+                steps += 1
 
         return best_res
 
@@ -468,11 +468,6 @@ class Manager():
         """
 
         model.train()
-        writer = None
-
-        if self.tb:
-            writer = SummaryWriter("data/tb/{}/{}/{}/".format(
-                self.name, self.scale, datetime.now().strftime("%Y%m%d-%H")))
 
         # in case the folder does not exists, create one
         os.makedirs("data/model_params/{}".format(self.name), exist_ok=True)
@@ -482,8 +477,7 @@ class Manager():
         loss_func = self._get_loss(model)
         optimizer, scheduler = self._get_optim(model, len(loaders[0]))
 
-        res = self._tune(model, loaders, optimizer, loss_func, scheduler=scheduler,
-                        writer=writer, interval=self.interval, save_step=int(len(loaders[0])/self.val_freq - 1), distributed=(self.world_size > 1))
+        res = self._tune(model, loaders, optimizer, loss_func, scheduler=scheduler)
 
         if self.rank in [-1,0]:
             logger.info("Best result: {}".format(res))

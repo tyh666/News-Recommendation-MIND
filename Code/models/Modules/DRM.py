@@ -39,7 +39,7 @@ class Matching_Reducer(nn.Module):
         # [bs, hs, sl]
         scores = F.normalize(news_selection_embedding, dim=-1).matmul(F.normalize(user_repr, dim=-1).transpose(-2,-1).unsqueeze(1)).squeeze(-1)
         # mask the padded term
-        scores = scores.masked_fill(~his_attn_mask[:, :, 1:], -float('inf'))
+        scores = scores * his_attn_mask[:, :, 1:]
 
         score_k, score_kid = scores.topk(dim=-1, k=self.k)
 

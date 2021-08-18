@@ -152,9 +152,9 @@ python sfi.py -m tune -e 5 -s demo -k=5 -encn=fim -itr=selected -sl=20 -bs=10 -i
 
 ## Ablation
 - [ ] BM25
-  - [ ] + BERT + 3
-  - [ ] + onepass + 3
+  - [ ] + BERT + 3 + order embedding
   - [ ] + onepass + 5
+  - [ ] + onepass + 5 + order embedding
 
 - [ ] reducer
   - [ ] + cnn encoder, rnn user encoder

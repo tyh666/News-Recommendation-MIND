@@ -390,7 +390,7 @@ def load_manager():
                     help="dropout probability", type=float, default=0.2)
 
     parser.add_argument("-st","--step", dest="step",
-                        help="if clarified, save model at the interval of given steps", type=str, default="0")
+                        help="if clarified, save model at the interval of given steps", type=str, default="10000")
     parser.add_argument("--interval", dest="interval", help="the step interval to update processing bar", default=10, type=int)
     parser.add_argument("--val_freq", dest="val_freq", help="the frequency to validate during training in one epoch", type=int, default=0)
 
@@ -445,7 +445,6 @@ def load_manager():
 
     args = parser.parse_args()
 
-    args.step = [int(i) for i in args.step.split(",")]
     args.cdd_size = args.npratio + 1
 
     if len(args.device) == 1:
