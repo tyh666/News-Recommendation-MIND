@@ -12,12 +12,16 @@ class BERT_Original_Ranker(nn.Module):
         cddn [SEP] his1 [SEP] his2 ...
     """
     def __init__(self, config):
+        assert config.embedding_dim == 768
+        assert config.term_num + config.signal_length < 512
         super().__init__()
 
         self.name = 'original-bert'
         self.term_num = config.term_num + 1
         self.signal_length = config.signal_length
         self.embedding_dim = config.embedding_dim
+
+        self.final_dim = self.embedding_dim
 
         bert = BertModel.from_pretrained(
             config.bert,
@@ -77,7 +81,7 @@ class BERT_Original_Ranker(nn.Module):
         # [bs, cs*sl, hd]
         cdd_news_embedding = (cdd_news_embedding + self.token_type_embedding[0]).view(bs, self.signal_length, self.embedding_dim)
 
-        bert_input = torch.cat([cdd_news_embedding, ps_terms.view(bs, self.term_num, self.embedding_dim)], dim=-2)
+        bert_input = torch.cat([cdd_news_embedding, ps_terms.reshape(bs, self.term_num, self.embedding_dim)], dim=-2)
         # bert_input = self.dropOut(bert_input)
 
         # [bs, cs*sl]

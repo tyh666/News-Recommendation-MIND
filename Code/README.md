@@ -9,6 +9,9 @@ then
   echo 'alias nn="conda activate /data/v-pezhang/nn"' >> ~/.bashrc
   source ~/.bashrc
   nn
+
+  code -r /data/v-pezhang/Workspaces/Research.code-workspace
+  screen -S pt
   sleep infinity
 
 else
