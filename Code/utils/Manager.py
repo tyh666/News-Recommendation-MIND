@@ -33,13 +33,14 @@ class Manager():
             if not k.startswith('__'):
                 setattr(self, k, v)
 
-    def save(self, model, epoch, step, optimizer=None, scheduler=None):
+    def save(self, model, step, optimizer=None, scheduler=None):
         """
             shortcut for saving the model and optimizer
         """
+        save_path = "data/model_params/{}/{}_step{}_[k={}].model".format(
+            self.name, self.scale, step, self.k)
 
-        save_path = "data/model_params/{}/{}_epoch{}_step{}_[k={}].model".format(
-            self.name, self.scale, epoch, step, self.k)
+        logger.info("saving model at {}...".format(save_path))
 
         state_dict = model.state_dict()
 
@@ -53,17 +54,17 @@ class Manager():
         save_dict["scheduler"] = scheduler
 
         torch.save(save_dict, save_path)
-        logger.info("saved model of step {}, epoch {} at {}".format(
-            step, epoch, save_path))
 
 
-    def load(self, model, epoch, step, optimizer=None, scheduler=None):
+    def load(self, model, step, optimizer=None, scheduler=None):
         """
             shortcut for loading model and optimizer parameters
         """
 
-        save_path = "data/model_params/{}/{}_epoch{}_step{}_[k={}].model".format(
-            self.name, self.scale, epoch, step, self.k)
+        save_path = "data/model_params/{}/{}_step{}_[k={}].model".format(
+            self.name, self.scale, step, self.k)
+
+        logger.info("loading model from {}...".format(save_path))
 
         state_dict = torch.load(save_path, map_location=torch.device(model.device))
 
@@ -91,7 +92,6 @@ class Manager():
         if scheduler:
             scheduler.load_state_dict(state_dict["scheduler"])
 
-        logger.info("Loading model from {}...".format(save_path))
 
 
     def _log(self, res):
@@ -392,9 +392,9 @@ class Manager():
         """
         steps = 0
         interval = self.interval
-        
+
         if self.scale == 'demo':
-            save_step = len(loaders[0])
+            save_step = len(loaders[0]) - 1
         else:
             save_step = self.save_step
 
@@ -525,7 +525,7 @@ class Manager():
             save_directory = "data/results/{}".format(self.name)
             os.makedirs(save_directory, exist_ok=True)
 
-            save_path = save_directory + "/{}_epoch{}_step{}_[k={}].txt".format(
+            save_path = save_directory + "/{}_step{}_[k={}].txt".format(
                 self.scale, self.epochs, self.step[0], self.k)
 
             index = 1
