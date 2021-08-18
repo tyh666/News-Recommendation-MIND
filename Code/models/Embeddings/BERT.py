@@ -41,6 +41,6 @@ class BERT_Embedding(nn.Module):
         # [bs, cs/hs, sl]
         word_embeds = self.embedding(news_batch)
 
-        embedding = self.dropOut(self.layerNorm(self.pos_embedding + word_embeds))
+        embedding = self.dropOut(self.layerNorm(self.pos_embedding[:,:,:word_embeds.size(2)] + word_embeds))
 
         return embedding

@@ -3,7 +3,6 @@ from utils.utils import prepare, load_manager, setup, cleanup
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-from models.Modules.DRM import Document_Reducer
 from models.ESM import ESM
 
 def main(rank, manager, dist=False):
@@ -25,18 +24,20 @@ def main(rank, manager, dist=False):
     if manager.encoderU == 'rnn':
         from models.Encoders.RNN import RNN_User_Encoder
         encoderU = RNN_User_Encoder(manager)
-
-    docReducer = Document_Reducer(manager)
+    if manager.reducer == 'matching':
+        from models.Modules.DRM import Matching_Reducer
+        docReducer = Matching_Reducer(manager)
+    elif manager.reducer == 'bm25':
+        from models.Modules.DRM import BM25_Reducer
+        docReducer = BM25_Reducer(manager)
     # termFuser = TFM(manager.his_size, manager.k)
     # ranker = CNN_Ranker(manager)
     if manager.ranker == 'onepass':
         from models.Rankers.BERT import BERT_Onepass_Ranker
         ranker = BERT_Onepass_Ranker(manager)
-
-    elif manager.ranker == 'overlook':
-        from models.Rankers.BERT import BERT_Overlook_Ranker
-        ranker = BERT_Overlook_Ranker(manager)
-
+    elif manager.ranker == 'original':
+        from models.Rankers.BERT import BERT_Original_Ranker
+        ranker = BERT_Original_Ranker(manager)
     elif manager.ranker == 'cnn':
         from models.Rankers.CNN import CNN_Ranker
         ranker = CNN_Ranker(manager)

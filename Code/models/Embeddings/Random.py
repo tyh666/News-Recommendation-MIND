@@ -1,6 +1,5 @@
 import torch.nn as nn
 
-
 class Random_Embedding(nn.Module):
     """
         pretrained glove embedding

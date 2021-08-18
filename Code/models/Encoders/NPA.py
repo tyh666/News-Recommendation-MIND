@@ -1,5 +1,5 @@
 import torch.nn as nn
-from ..Attention import Attention
+from ..Modules.Attention import Attention
 
 
 class NPA_Encoder(nn.Module):

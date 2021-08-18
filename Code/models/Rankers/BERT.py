@@ -1,8 +1,91 @@
 import torch
-from torch._C import device
 import torch.nn as nn
 from transformers import BertModel,BertConfig
 
+
+class BERT_Original_Ranker(nn.Module):
+    """
+    original bert:
+        cdd1 [SEP] his1 [SEP] his2 ...
+        cdd2 [SEP] his1 [SEP] his2 ...
+        ...
+        cddn [SEP] his1 [SEP] his2 ...
+    """
+    def __init__(self, config):
+        super().__init__()
+
+        self.name = 'original-bert'
+        self.term_num = config.term_num + 1
+        self.signal_length = config.signal_length
+        self.embedding_dim = config.embedding_dim
+
+        bert = BertModel.from_pretrained(
+            config.bert,
+            cache_dir=config.path + 'bert_cache/'
+        )
+        self.bert = bert.encoder
+
+        self.order_embedding = nn.Parameter(torch.randn(1, config.his_size, 1, config.embedding_dim))
+        # [2, 1, 1, embedding_ldim]
+        self.token_type_embedding = nn.Parameter(bert.embeddings.token_type_embeddings.weight)
+        # [SEP] token
+        self.sep_embedding = nn.Parameter(bert.embeddings.word_embeddings(torch.tensor([102])).clone().detach().requires_grad_(True).view(1,1,self.embedding_dim))
+
+    def fusion(self, ps_terms, batch_size):
+        """
+        fuse the personalized terms, add interval embedding and order embedding
+
+        Args:
+            ps_terms: [batch_size, his_size, k, embedding_dim]
+
+        Returns:
+            ps_terms: [batch_size, term_num (his_size*k (+ his_size)), embedding_dim]
+        """
+
+        # insert interval embedding between historical news
+        # [bs,hs,k+1,hd]
+        # ps_terms = torch.cat([ps_terms, self.inte_embedding.expand(batch_size, self.his_size, 1, self.embedding_dim)], dim=-2)
+
+        # add order embedding and sep embedding
+        ps_terms = (ps_terms + self.order_embedding).view(batch_size, -1, self.embedding_dim)
+        ps_terms = torch.cat([self.sep_embedding.expand(batch_size, 1, self.embedding_dim), ps_terms], dim=1)
+
+        # add 0 to [SEP]
+        ps_terms[:,1:] += self.token_type_embedding[1]
+        ps_terms[:,0] += self.token_type_embedding[0]
+        return ps_terms
+
+    def forward(self, cdd_news_embedding, ps_terms, cdd_attn_mask):
+        """
+        calculate interaction tensor and reduce it to a vector
+
+        Args:
+            cdd_news_embedding: word-level representation of candidate news, [batch_size, cdd_size, signal_length, embedding_dim]
+            ps_terms: personalized terms, [batch_size, his_size, k, embedding_dim]
+            cdd_attn_mask: attention mask of the candidate news, [batch_size, cdd_size, signal_length]
+
+        Returns:
+            reduced_tensor: output tensor after CNN2d, [batch_size, cdd_size, final_dim]
+        """
+        batch_size = cdd_news_embedding.size(0)
+        cdd_size = cdd_news_embedding.size(1)
+        bs = batch_size * cdd_size
+
+        # [bs,tn,hd]
+        ps_terms = self.fusion(ps_terms, batch_size).unsqueeze(1).expand(batch_size, cdd_size, self.term_num, self.embedding_dim)
+
+        # [bs, cs*sl, hd]
+        cdd_news_embedding = (cdd_news_embedding + self.token_type_embedding[0]).view(bs, self.signal_length, self.embedding_dim)
+
+        bert_input = torch.cat([cdd_news_embedding, ps_terms.view(bs, self.term_num, self.embedding_dim)], dim=-2)
+        # bert_input = self.dropOut(bert_input)
+
+        # [bs, cs*sl]
+        attn_mask = torch.cat([cdd_attn_mask.view(bs, -1), torch.ones(bs, self.term_num, device=cdd_attn_mask.device)], dim=-1).view(bs, 1, 1, -1)
+
+        bert_output = self.bert(bert_input, attention_mask=attn_mask).last_hidden_state[:, 0].view(batch_size, cdd_size, self.embedding_dim)
+
+        return bert_output
 
 class BERT_Onepass_Ranker(nn.Module):
     """
@@ -49,14 +132,11 @@ class BERT_Onepass_Ranker(nn.Module):
         self.order_embedding = nn.Parameter(torch.randn(1, config.his_size, 1, config.embedding_dim))
         # [2, 1, 1, embedding_ldim]
         self.token_type_embedding = nn.Parameter(bert.embeddings.token_type_embeddings.weight)
-
         # [SEP] token
         self.sep_embedding = nn.Parameter(bert.embeddings.word_embeddings(torch.tensor([102])).clone().detach().requires_grad_(True).view(1,1,self.embedding_dim))
 
         # nn.init.xavier_normal_(self.inte_embedding)
         nn.init.xavier_normal_(self.order_embedding)
-
-
 
     def fusion(self, ps_terms, batch_size):
         """
@@ -81,7 +161,6 @@ class BERT_Onepass_Ranker(nn.Module):
         ps_terms[:,1:] += self.token_type_embedding[1]
         ps_terms[:,0] += self.token_type_embedding[0]
         return ps_terms
-
 
     def forward(self, cdd_news_embedding, ps_terms, cdd_attn_mask):
         """
@@ -118,7 +197,7 @@ class BERT_Onepass_Ranker(nn.Module):
 
 class BERT_Selected_Ranker(nn.Module):
     """
-    original Bert, full self-attention:
+    original Bert for selected history, full self-attention:
         cdd1 [SEP] his1 [SEP] his2 ...
         cdd2 [SEP] his1 [SEP] his2 ...
         ...

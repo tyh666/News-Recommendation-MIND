@@ -1,9 +1,8 @@
 import torch
 import torch.nn as nn
-from ..Attention import Attention
+from ..Modules.Attention import Attention
 
-
-class MHA_Interactor(nn.Module):
+class MHA_Ranker(nn.Module):
     def __init__(self, hidden_dim):
         super().__init__()
         self.name = 'mha-encoder'

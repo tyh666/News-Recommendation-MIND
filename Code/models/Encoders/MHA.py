@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from ..Attention import Attention
+from ..Modules.Attention import Attention
 
 
 class MHA_Encoder(nn.Module):

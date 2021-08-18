@@ -13,7 +13,7 @@ from typing import OrderedDict
 from itertools import chain
 from collections import defaultdict
 from transformers import get_linear_schedule_with_warmup
-# from torch.utils.tensorboard import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 from sklearn.metrics import roc_auc_score, log_loss, mean_squared_error, accuracy_score, f1_score
 
 import torch.distributed as dist

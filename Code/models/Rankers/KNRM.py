@@ -35,7 +35,7 @@ def kernel_sigmas(n_kernels):
     l_sigma += [0.1] * (n_kernels - 1)
     return l_sigma
 
-class KNRM_Interactor(nn.Module):
+class KNRM_Ranker(nn.Module):
     def __init__(self, kernel_num=11):
         super().__init__()
         self.name = 'knrm'

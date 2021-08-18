@@ -2,14 +2,14 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class Document_Reducer(nn.Module):
+class Matching_Reducer(nn.Module):
     """
     basic document reducer: topk of each historical article
     """
     def __init__(self, config):
         super().__init__()
 
-        self.name = "matching-based"
+        self.name = "matching-reducer"
 
         self.k = config.k
         self.threshold = config.threshold
@@ -51,3 +51,33 @@ class Document_Reducer(nn.Module):
         # print(weighted_ps_terms.grad, weighted_ps_terms.requires_grad)
 
         return weighted_ps_terms, score_kid
+
+class BM25_Reducer(nn.Module):
+    """
+    topk BM25 score
+    """
+    def __init__(self, config):
+        super().__init__()
+
+        self.name = "bm25-reducer"
+
+        config.term_num = config.k * config.his_size
+
+
+    def forward(self, news_selection_embedding, news_embedding, user_repr, his_attn_mask):
+        """
+        Extract words from news text according to the overall user interest
+
+        Args:
+            news_selection_embedding: encoded word-level embedding, [batch_size, his_size, signal_length, hidden_dim]
+            news_embedding: word-level news embedding, [batch_size, his_size, signal_length, hidden_dim]
+            user_repr: user representation, [batch_size, 1, hidden_dim]
+
+        Returns:
+            weighted_pt: weighted embedding for personalized terms, [batch_size, his_size, k, hidden_dim]
+            score_kid: index of top k terms in the text, [batch_size, his_size, k]
+        """
+        # strip off [CLS]
+        ps_terms = news_selection_embedding[:, :, 1:]
+
+        return ps_terms, None

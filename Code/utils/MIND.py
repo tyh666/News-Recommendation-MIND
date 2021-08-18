@@ -1,3 +1,4 @@
+from posixpath import join
 import re
 import os
 import pickle
@@ -29,77 +30,112 @@ class MIND(Dataset):
         pat = re.search('MIND/(.*_(.*)/)news', news_file)
         self.mode = pat.group(2)
 
-        self.cache_path = '/'.join(['data/cache', config.embedding, pat.group(1), str(self.impr_size)+'/'])
-        self.behav_path = re.search('(\w*)\.tsv', behaviors_file).group(1)
+        self.cache_directory = '/'.join(['data/cache', config.embedding, pat.group(1)])
+        self.behav_path = self.cache_directory + '{}/{}'.format(self.impr_size, re.search('(\w*\.)tsv', behaviors_file).group(1) + '.pkl')
 
-        if os.path.exists(self.cache_path + 'news.pkl'):
-            with open(self.cache_path + 'news.pkl', 'rb') as f:
-                news = pickle.load(f)
-                for k,v in news.items():
-                    setattr(self, k, v)
-
-            with open(self.cache_path + 'behaviors.pkl', 'rb') as f:
+        if os.path.exists(self.behav_path):
+            with open(self.behav_path, 'rb') as f:
                 behaviors = pickle.load(f)
                 for k,v in behaviors.items():
                     setattr(self, k, v)
 
         else:
-            from transformers import BertTokenizerFast
-            os.makedirs(self.cache_path, exist_ok=True)
-
-            self.news_file = news_file
+            os.makedirs(self.cache_directory + str(self.impr_size), exist_ok=True)
             self.behaviors_file = behaviors_file
-            self.col_spliter = '\t'
-
-            self.max_news_length = 512
             self.max_his_size = 100
+            self.nid2index = getId2idx('data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, self.mode))
+            self.uid2index = getId2idx('data/dictionaries/uid2idx_{}.json'.format(config.scale))
 
-            # there are only two types of vocabulary
-            self.tokenizer = BertTokenizerFast.from_pretrained(config.bert, cache=config.path + 'bert_cache/')
-            # self.tokenizer.max_model_input_sizes[config.bert] = 10000ok
-
-            self.nid2index = getId2idx(
-                'data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, self.mode))
-            self.uid2index = getId2idx(
-                'data/dictionaries/uid2idx_{}.json'.format(config.scale))
-
-            logger.info("encoding news and behaviors...")
-            self.init_news()
+            # logger.info("encoding behaviors...")
             self.init_behaviors()
 
+        self.reducer = config.reducer
 
-    def init_news(self):
+        if config.reducer == 'bm25':
+            self.news_path = self.cache_directory + 'news_bm25.pkl'
+            if os.path.exists(self.news_path):
+                with open(self.news_path, 'rb') as f:
+                    news = pickle.load(f)
+                    for k,v in news.items():
+                        setattr(self, k, v)
+            else:
+                from transformers import BertTokenizerFast
+                from .utils import BM25
+                self.news_file = news_file
+                self.max_news_length = 512
+                # there are only two types of vocabulary
+                self.tokenizer = BertTokenizerFast.from_pretrained(config.bert, cache=config.path + 'bert_cache/')
+                self.nid2index = getId2idx('data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, self.mode))
+                self.init_news(reducer=BM25())
+
+        else:
+            self.news_path = self.cache_directory + 'news.pkl'
+            if os.path.exists(self.news_path):
+                with open(self.news_path, 'rb') as f:
+                    news = pickle.load(f)
+                    for k,v in news.items():
+                        setattr(self, k, v)
+            else:
+                from transformers import BertTokenizerFast
+                self.news_file = news_file
+                self.max_news_length = 512
+                # there are only two types of vocabulary
+                self.tokenizer = BertTokenizerFast.from_pretrained(config.bert, cache=config.path + 'bert_cache/')
+                self.nid2index = getId2idx('data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, self.mode))
+                self.init_news()
+
+
+    def init_news(self, reducer=None):
         """
             init news information given news file, such as news_title_array.
+
+        Args:
+            bm25: whether to sort the terms by bm25 score
         """
 
         # VERY IMPORTANT!!! FIXME
         # The nid2idx dictionary must follow the original order of news in news.tsv
 
-        documents = ['[PAD]'*self.max_news_length]
+        documents = ['']
 
         with open(self.news_file, "r", encoding='utf-8') as rd:
             for idx in rd:
-                nid, vert, subvert, title, ab, url, _, _ = idx.strip("\n").split(self.col_spliter)
-                # concat all fields to form the document
-                # try:
-                #     self.tokenizer.tokenize(' '.join(['[CLS]', title, ab, vert, subvert]))
-                # except:
-                #     print(' '.join(['[CLS]', title, ab, vert, subvert]))
+                nid, vert, subvert, title, ab, url, _, _ = idx.strip("\n").split('\t')
                 documents.append(' '.join(['[CLS]', title, ab, vert, subvert]))
 
-        encoded_dict = self.tokenizer(documents, add_special_tokens=False, padding=True, truncation=True, max_length=self.max_news_length, return_tensors='np')
-        self.encoded_news = encoded_dict.input_ids
-        self.attn_mask = encoded_dict.attention_mask
+        if reducer:
+            documents_sorted = reducer(documents)
+            encoded_dict_sorted = self.tokenizer(documents_sorted, add_special_tokens=False, padding=True, truncation=True, max_length=self.max_news_length, return_tensors='np')
 
-        with open(self.cache_path + 'news.pkl', 'wb') as f:
-            pickle.dump(
-                {
-                    'encoded_news': self.encoded_news,
-                    'attn_mask': self.attn_mask
-                },
-                f
-            )
+            self.encoded_news_sorted = encoded_dict_sorted.input_ids
+            self.attn_mask_sorted = encoded_dict_sorted.attention_mask
+
+            encoded_dict = self.tokenizer(documents, add_special_tokens=False, padding=True, truncation=True, max_length=self.max_news_length, return_tensors='np')
+            self.encoded_news = encoded_dict.input_ids
+            self.attn_mask = encoded_dict.attention_mask
+            with open(self.news_path, 'wb') as f:
+                pickle.dump(
+                    {
+                        'encoded_news': self.encoded_news,
+                        'encoded_news_sorted': self.encoded_news_sorted,
+                        'attn_mask': self.attn_mask,
+                        'attn_mask_sorted': self.attn_mask_sorted
+                    },
+                    f
+                )
+        else:
+            encoded_dict = self.tokenizer(documents, add_special_tokens=False, padding=True, truncation=True, max_length=self.max_news_length, return_tensors='np')
+            self.encoded_news = encoded_dict.input_ids
+            self.attn_mask = encoded_dict.attention_mask
+
+            with open(self.news_path, 'wb') as f:
+                pickle.dump(
+                    {
+                        'encoded_news': self.encoded_news,
+                        'attn_mask': self.attn_mask
+                    },
+                    f
+                )
 
 
     def init_behaviors(self):
@@ -126,7 +162,7 @@ class MIND(Dataset):
 
             with open(self.behaviors_file, "r", encoding='utf-8') as rd:
                 for idx in rd:
-                    _, uid, time, history, impr = idx.strip("\n").split(self.col_spliter)
+                    _, uid, time, history, impr = idx.strip("\n").split('\t')
 
                     history = [self.nid2index[i] for i in history.split()]
                     his_sizes.append(len(history))
@@ -175,7 +211,7 @@ class MIND(Dataset):
 
             with open(self.behaviors_file, "r", encoding='utf-8') as rd:
                 for idx in rd:
-                    _, uid, time, history, impr = idx.strip("\n").split(self.col_spliter)
+                    _, uid, time, history, impr = idx.strip("\n").split('\t')
 
                     history = [self.nid2index[i] for i in history.split()]
                     his_sizes.append(len(history))
@@ -216,7 +252,7 @@ class MIND(Dataset):
 
             with open(self.behaviors_file, "r", encoding='utf-8') as rd:
                 for idx in rd:
-                    _, uid, time, history, impr = idx.strip("\n").split(self.col_spliter)
+                    _, uid, time, history, impr = idx.strip("\n").split('\t')
 
                     history = [self.nid2index[i] for i in history.split()]
                     his_sizes.append(len(history))
@@ -249,7 +285,7 @@ class MIND(Dataset):
                 'uindexes': self.uindexes
             }
 
-        with open(self.cache_path + self.behav_path + '.pkl', 'wb') as f:
+        with open(self.behav_path, 'wb') as f:
             pickle.dump(save_dict, f)
 
 
@@ -302,9 +338,13 @@ class MIND(Dataset):
             # cdd_mask = [1] * neg_pad + [0] * (self.npratio + 1 - neg_pad)
 
             cdd_encoded_index = self.encoded_news[cdd_ids][:, :self.signal_length]
-            his_encoded_index = self.encoded_news[his_ids][:, :self.signal_length]
             cdd_attn_mask = self.attn_mask[cdd_ids][:, :self.signal_length]
-            his_attn_mask = self.attn_mask[his_ids][:, :self.signal_length]
+            if self.reducer == 'bm25':
+                his_encoded_index = self.encoded_news_sorted[his_ids][:, :self.k + 1]
+                his_attn_mask = self.attn_mask_sorted[his_ids][:, :self.k + 1]
+            else:
+                his_encoded_index = self.encoded_news[his_ids][:, :self.signal_length]
+                his_attn_mask = self.attn_mask[his_ids][:, :self.signal_length]
 
             back_dic = {
                 "user_index": np.asarray(user_index),
@@ -335,9 +375,13 @@ class MIND(Dataset):
             his_mask[:self.his_sizes[impr_index]] = 1
 
             cdd_encoded_index = self.encoded_news[cdd_ids][:, :self.signal_length]
-            his_encoded_index = self.encoded_news[his_ids][:, :self.signal_length]
             cdd_attn_mask = self.attn_mask[cdd_ids][:, :self.signal_length]
-            his_attn_mask = self.attn_mask[his_ids][:, :self.signal_length]
+            if self.reducer == 'bm25':
+                his_encoded_index = self.encoded_news_sorted[his_ids][:, :self.k + 1]
+                his_attn_mask = self.attn_mask_sorted[his_ids][:, :self.k + 1]
+            else:
+                his_encoded_index = self.encoded_news[his_ids][:, :self.signal_length]
+                his_attn_mask = self.attn_mask[his_ids][:, :self.signal_length]
 
             back_dic = {
                 "impression_index": impr_index + 1,
@@ -364,9 +408,13 @@ class MIND(Dataset):
             his_mask[:self.his_sizes[impr_index]] = 1
 
             cdd_encoded_index = self.encoded_news[cdd_ids][:, :self.signal_length]
-            his_encoded_index = self.encoded_news[his_ids][:, :self.signal_length]
             cdd_attn_mask = self.attn_mask[cdd_ids][:, :self.signal_length]
-            his_attn_mask = self.attn_mask[his_ids][:, :self.signal_length]
+            if self.reducer == 'bm25':
+                his_encoded_index = self.encoded_news_sorted[his_ids][:, :self.k + 1]
+                his_attn_mask = self.attn_mask_sorted[his_ids][:, :self.k + 1]
+            else:
+                his_encoded_index = self.encoded_news[his_ids][:, :self.signal_length]
+                his_attn_mask = self.attn_mask[his_ids][:, :self.signal_length]
 
             back_dic = {
                 "impression_index": impr_index + 1,
@@ -385,6 +433,7 @@ class MIND(Dataset):
             raise ValueError("Mode {} not defined".format(self.mode))
 
 
+# FIXME: refactor with bm25
 class MIND_news(Dataset):
     """ Map Dataset for MIND, return each news, intended for pipeline(obtaining news representation in advance)
 
@@ -402,21 +451,20 @@ class MIND_news(Dataset):
         pat = re.search('MIND/(.*_(.*)/)news', news_file)
         self.mode = pat.group(2)
 
-        self.cache_path = '/'.join(['data/cache', config.embedding, pat.group(1), str(self.impr_size)+'/'])
+        self.news_path = '/'.join(['data/cache', config.embedding, pat.group(1), 'news.pkl'])
 
-        if os.path.exists(self.cache_path + 'news.pkl'):
-            with open(self.cache_path + 'news.pkl', 'rb') as f:
+        if os.path.exists(self.news_path):
+            with open(self.news_path, 'rb') as f:
                 news = pickle.load(f)
                 for k,v in news.items():
                     setattr(self, k, v)
 
         else:
             from transformers import BertTokenizerFast
-            os.makedirs(self.cache_path, exist_ok=True)
+            os.makedirs(self.cache_directory, exist_ok=True)
 
             self.news_file = news_file
             self.behaviors_file = behaviors_file
-            self.col_spliter = '\t'
 
             self.max_news_length = 512
 
@@ -442,7 +490,7 @@ class MIND_news(Dataset):
 
         with open(self.news_file, "r", encoding='utf-8') as rd:
             for idx in rd:
-                nid, vert, subvert, title, ab, url, _, _ = idx.strip("\n").split(self.col_spliter)
+                nid, vert, subvert, title, ab, url, _, _ = idx.strip("\n").split('\t')
                 # concat all fields to form the document
                 # try:
                 #     self.tokenizer.tokenize(' '.join(['[CLS]', title, ab, vert, subvert]))
@@ -454,7 +502,7 @@ class MIND_news(Dataset):
         self.encoded_news = encoded_dict.input_ids
         self.attn_mask = encoded_dict.attention_mask
 
-        with open(self.cache_path + 'news.pkl', 'wb') as f:
+        with open(self.news_path, 'wb') as f:
             pickle.dump(
                 {
                     'encoded_news': self.encoded_news,
@@ -504,7 +552,6 @@ class MIND_impr(Dataset):
 
         self.news_file = news_file
         self.behaviors_file = behaviors_file
-        self.col_spliter = '\t'
         self.title_length = config.title_length
         self.abs_length = config.abs_length
         self.his_size = config.his_size
@@ -544,7 +591,7 @@ class MIND_impr(Dataset):
 
         with open(self.news_file, "r", encoding='utf-8') as rd:
             for idx in rd:
-                nid, vert, subvert, title, ab, url, _, _ = idx.strip("\n").split(self.col_spliter)
+                nid, vert, subvert, title, ab, url, _, _ = idx.strip("\n").split('\t')
 
                 title_token = tokenize(title, self.vocab)
                 titles.append(title_token[:self.max_title_length] + [1] * (self.max_title_length - len(title_token)))
@@ -574,7 +621,7 @@ class MIND_impr(Dataset):
 
         with open(self.behaviors_file, "r", encoding='utf-8') as rd:
             for idx in rd:
-                _, uid, time, history, impr = idx.strip("\n").split(self.col_spliter)
+                _, uid, time, history, impr = idx.strip("\n").split('\t')
 
                 history = [self.nid2index[i] for i in history.split()]
                 # tailor user's history or pad 0

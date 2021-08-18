@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from ..Attention import Attention
+from ..Modules.Attention import Attention
 
 class FIM_Encoder(nn.Module):
     def __init__(self, config):
@@ -8,7 +8,7 @@ class FIM_Encoder(nn.Module):
         self.name = 'fim'
 
         self.kernel_size = 3
-        
+
         self.level = 3
         config.level = self.level
 

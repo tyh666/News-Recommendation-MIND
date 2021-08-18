@@ -25,6 +25,10 @@ class config:
     # subvert_num = 293
 
     embedding = 'bert'
+    selector = 'sfi'
+    reducer = 'match'
+    interactor = 'onepass'
+    
     embedding_dim = 300
     hidden_dim = 150
     # query_dim = 200

@@ -1,7 +1,7 @@
 import math
 import torch.nn as nn
 
-class CNN_Interactor(nn.Module):
+class CNN_Ranker(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.name = '2dcnn'

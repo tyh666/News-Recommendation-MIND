@@ -3,12 +3,14 @@ import re
 import os
 import json
 import pickle
+import math
 import torch
 import argparse
 import logging
 import pandas as pd
 import numpy as np
 import torch.distributed as dist
+from nltk.corpus import stopwords
 # import torch.multiprocessing as mp
 from collections import defaultdict
 from datetime import datetime
@@ -23,20 +25,19 @@ from utils.Manager import Manager
 logging.basicConfig(level=logging.INFO,
                     format="[%(asctime)s] %(levelname)s (%(name)s) %(message)s")
 
-def tokenize(sent, vocab):
-    """ Split sentence into wordID list using regex and vocabulary
+def tokenize(sent):
+    """ Split sentence into words
     Args:
         sent (str): Input sentence
-        vocab : vocabulary
 
     Return:
         list: word list
     """
     pat = re.compile(r"[-\w_]+|[.,!?;|]")
-    if isinstance(sent, str):
-        return [vocab[x] for x in pat.findall(sent.lower())]
-    else:
-        return []
+    stpwords = stopwords.words('english')
+    stpwords.extend(['cls','pad'])
+
+    return [x for x in pat.findall(sent.lower()) if x not in stpwords]
 
 
 def newsample(news, ratio):
@@ -413,7 +414,8 @@ def load_manager():
     parser.add_argument("-encn", "--encoderN", dest="encoderN", help="choose news encoder", choices=['cnn','rnn','npa','fim','mha','bert'], default="cnn")
     parser.add_argument("-encu", "--encoderU", dest="encoderU", help="choose user encoder", choices=['rnn','lstur','nrms'], default="rnn")
     parser.add_argument("-slc", "--selector", dest="selector", help="choose history selector", choices=['recent','sfi'], default="sfi")
-    parser.add_argument("-rk", "--ranker", dest="ranker", help="choose ranker", choices=['onepass','selected','overlook','cnn','knrm'], default="onepass")
+    parser.add_argument("-red", "--reducer", dest="reducer", help="choose document reducer", choices=['bm25','matching'], default="match")
+    parser.add_argument("-rk", "--ranker", dest="ranker", help="choose ranker", choices=['onepass','selected','original','cnn','knrm'], default="onepass")
 
     parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=3)
     parser.add_argument("--threshold", dest="threshold", help="threshold to mask terms", default=-float("inf"), type=float)
@@ -704,3 +706,61 @@ def cleanup():
     shut down the distributed training process
     """
     dist.destroy_process_group()
+
+
+class BM25(object):
+    """
+    compute bm25 score
+    """
+    def __init__(self, k=2, epsilon=0.5):
+        self.k = k
+        self.epsilon = epsilon
+
+    def _build_tf_idf(self, documents):
+        """
+        build term frequencies (how many times a term occurs in one news) and document frequencies (how many documents contains a term)
+        """
+        word_count = 0
+        doc_count = len(documents)
+
+        tfs = []
+        df = defaultdict(int)
+        for document in documents:
+            tf = defaultdict(int)
+            for term in tokenize(document):
+                tf[term] += 1
+                df[term] += 1
+                word_count + 1
+
+            tfs.append(tf)
+
+        self.tfs = tfs
+
+        idf = defaultdict(float)
+        for term,freq in df.items():
+            idf[term] = math.log((doc_count - freq + 0.5 ) / (freq + 0.5) + 1)
+
+        self.idf = idf
+
+
+    def __call__(self, documents):
+        """
+        compute bm25 score of each term in each document and sort the terms by it
+        with b=0, totally ignoring the effect of document length
+
+        Args:
+            documents: list of strings
+        """
+        logging.info('building bm25 scores...')
+        self._build_tf_idf(documents)
+        bm25_scores = []
+        for tf in self.tfs:
+            score = defaultdict(float)
+            for term, freq in tf.items():
+                score[term] = (self.idf[term] * freq * (self.k + 1)) / (freq + self.k)
+
+            bm25_scores.append(dict(sorted(score.items(), key=lambda item: item[1], reverse=True)))
+
+        sorted_documents = ['[CLS] ' + ' '.join(list(bm25.keys())) for bm25 in bm25_scores]
+
+        return sorted_documents

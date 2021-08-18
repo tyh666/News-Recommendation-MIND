@@ -1,6 +1,6 @@
 ## Environment
 ``` bash
-if [ -d /data/v-pezhang/nn/lib/python3.8/site-packages/torchtext ];
+if [ -d /data/v-pezhang/nn/lib/python3.8/site-packages/torch ];
 then
   git config --global user.name 'namespace-Pt'
   git config --global user.email 'zpt@ruc.edu.cn'
@@ -23,8 +23,8 @@ else
 
   ipython kernel install --name "nn" --user
 
-  pip install torch==1.7.1+cu110 torchtext==0.8.1 pandas scipy scikit-learn transformers -f https://download.pytorch.org/whl/torch_stable.html
-  pip install tensorboard ipython jupyter notebook typing
+  pip install torch+cu111 -f https://download.pytorch.org/whl/torch_stable.html
+  pip install tensorboard ipython jupyter notebook typing pandas scipy scikit-learn transformers
 
   cd /data/
   mkdir v-pezhang
@@ -143,6 +143,11 @@ python sfi.py -m tune -e 5 -s demo -k=5 -encn=fim -itr=selected -sl=20 -bs=10 -i
 - learning rate of bert
 - use selected document for final bert is terrible
 - **history in MIND, the more recent is at the front or the tail**, we now use the head as the latest news by default
+- tokenizer will add [CLS] to padded nwes, is that expected?
+
+- headline news recommendation (zero shot)
+- recall
+
 
 ## Ablation
 - [ ] BM25

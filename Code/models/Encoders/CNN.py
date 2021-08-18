@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from ..Attention import Attention
+from ..Modules.Attention import Attention
 
 class CNN_Encoder(nn.Module):
     def __init__(self, config):
