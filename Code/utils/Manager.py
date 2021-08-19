@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import scipy.stats as ss
+from torch.utils.data import dataloader
 
 from tqdm import tqdm
 from typing import OrderedDict
@@ -287,6 +288,7 @@ class Manager():
 
         if self.rank in [0, -1]:
             logger.info("training...")
+            logger.info("total training step: {}".format(self.epochs * len(dataloader)))
 
         # if self.tb:
         #     writer = SummaryWriter("data/tb/{}/{}/{}/".format(
@@ -318,7 +320,7 @@ class Manager():
 
                 if step % interval == 0:
                     tqdm_.set_description(
-                        "epoch {:d} , step {:d} , loss: {:.4f}".format(steps, epoch_loss / step))
+                        "step: {:d} , loss: {:.4f}".format(steps, epoch_loss / step))
                     # if writer:
                     #     for name, param in model.named_parameters():
                     #         writer.add_histogram(name, param, step)
@@ -386,6 +388,7 @@ class Manager():
 
         if self.rank in [0, -1]:
             logger.info("tuning...")
+            logger.info("total training step: {}".format(self.epochs * len(loaders[0])))
 
         for epoch in range(self.epochs):
             epoch_loss = 0
@@ -411,7 +414,7 @@ class Manager():
 
                 if step % interval == 0:
                     tqdm_.set_description(
-                        "steps {:d} , loss: {:.4f}".format(steps, epoch_loss / step))
+                        "step: {:d} , loss: {:.4f}".format(steps, epoch_loss / step))
                     # if writer:
                     #     for name, param in model.named_parameters():
                     #         writer.add_histogram(name, param, step)
