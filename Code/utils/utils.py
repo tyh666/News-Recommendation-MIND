@@ -367,7 +367,7 @@ def load_manager():
     parser.add_argument("-e", "--epochs", dest="epochs",
                         help="epochs to train the model", type=int, default=10)
     parser.add_argument("-d","--device", dest="device",
-                        help="device to run on", choices=[str(i) for i in range(10)] + ['cpu'], default="0")
+                        help="device to run on", choices=[i for i in range(10)] + ['cpu'], default=0)
     parser.add_argument("-p", "--path", dest="path", type=str, default="../../../Data/", help="root path for large-scale reusable data")
 
     parser.add_argument("-bs", "--batch_size", dest="batch_size",
@@ -413,7 +413,7 @@ def load_manager():
     parser.add_argument("-red", "--reducer", dest="reducer", help="choose document reducer", choices=['bm25','matching'], default="matching")
     parser.add_argument("-rk", "--ranker", dest="ranker", help="choose ranker", choices=['onepass','selected','original','cnn','knrm'], default="onepass")
 
-    parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=3)
+    parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=5)
     parser.add_argument("--threshold", dest="threshold", help="threshold to mask terms", default=-float("inf"), type=float)
 
     parser.add_argument("--spadam", dest="spadam", action='store_true', default=False)

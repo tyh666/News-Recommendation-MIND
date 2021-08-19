@@ -140,15 +140,13 @@ python sfi.py -m tune -e 5 -s demo -k=5 -encn=fim -itr=selected -sl=20 -bs=10 -i
 ## Issue
 - the gradient after docReducer is sharp
 - if we concat title with abstract, then there must be many duplicated words, how about removing them when preprocessing?
-- very likely to fall into local optim
 - learning rate of bert
 - use selected document for final bert is terrible
 - **history in MIND, the more recent is at the front or the tail**, we now use the head as the latest news by default
 - tokenizer will add [CLS] to padded nwes, is that expected?
-
+- [SEP] no position embedding
 - headline news recommendation (zero shot)
 - recall
-
 
 ## Ablation
 - [ ] BM25
