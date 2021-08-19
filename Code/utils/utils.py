@@ -372,17 +372,16 @@ def load_manager():
 
     parser.add_argument("-bs", "--batch_size", dest="batch_size",
                         help="batch size", type=int, default=100)
+    parser.add_argument("-hs", "--his_size", dest="his_size",
+                        help="history size", type=int, default=50)
+    parser.add_argument("-is", "--impr_size", dest="impr_size",
+                        help="impression size for evaluating", type=int, default=50)
     parser.add_argument("-tl", "--title_length", dest="title_length",
                         help="news title size", type=int, default=20)
     parser.add_argument("-as", "--abs_length", dest="abs_length",
                         help="news abstract length", type=int, default=40)
     parser.add_argument("-sl", "--signal_length", dest="signal_length",
                     help="length of the bert tokenized tokens", type=int, default=100)
-    parser.add_argument("-hs", "--his_size", dest="his_size",
-                        help="history size", type=int, default=50)
-    parser.add_argument("-is", "--impr_size", dest="impr_size",
-                        help="impression size for evaluating", type=int, default=50)
-
 
     parser.add_argument("-hd", "--hidden_dim", dest="hidden_dim",
                     help="number of hidden states", type=int, default=200)
@@ -392,22 +391,20 @@ def load_manager():
     parser.add_argument("-st","--step", dest="step",
                         help="if clarified, save model at the interval of given steps", type=int, default=10000)
     parser.add_argument("--interval", dest="interval", help="the step interval to update processing bar", default=10, type=int)
-    parser.add_argument("--val_freq", dest="val_freq", help="the frequency to validate during training in one epoch", type=int, default=0)
 
-    parser.add_argument("-ck", "--checkpoint", dest="checkpoint",
-                        help="the checkpoint model to load", type=str)
     parser.add_argument("-lr", dest="lr",
                         help="learning rate of non-bert modules", type=float, default=1e-4)
     parser.add_argument("-blr", "--bert_lr", dest="bert_lr",
                         help="learning rate of bert based modules", type=float, default=1e-5)
+    parser.add_argument("-sm", "--smoothing", dest="smoothing", help="smoothing factor of tqdm", type=float, default=0.3)
+    parser.add_argument("--num_workers", dest="num_workers", help="worker number of a dataloader", type=int, default=0)
+    parser.add_argument("--shuffle", dest="shuffle", help="whether to shuffle the indices", action='store_true', default=False)
+    parser.add_argument("--pin_memory", dest="pin_memory", help="whether to pin memory to speed up tensor transfer", default=True)
     parser.add_argument("--scheduler", dest="scheduler", help="choose schedule scheme for optimizer", choices=['linear'], default="linear")
     parser.add_argument("--warmup", dest="warmup", help="warmup steps of scheduler", type=int, default=10000)
 
-
-    parser.add_argument("--npratio", dest="npratio",
-                        help="the number of unclicked news to sample when training", type=int, default=4)
-    parser.add_argument("--metrics", dest="metrics",
-                        help="metrics for evaluating the model, if multiple metrics are needed, seperate with ','", type=str, default='')
+    parser.add_argument("--npratio", dest="npratio", help="the number of unclicked news to sample when training", type=int, default=4)
+    parser.add_argument("--metrics", dest="metrics", help="metrics for evaluating the model", type=str, default='')
 
     parser.add_argument("-emb", "--embedding", dest="embedding", help="choose embedding", choices=['bert','random'], default='bert')
     parser.add_argument("-encn", "--encoderN", dest="encoderN", help="choose news encoder", choices=['cnn','rnn','npa','fim','mha','bert'], default="cnn")
@@ -418,18 +415,12 @@ def load_manager():
 
     parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=3)
     parser.add_argument("--threshold", dest="threshold", help="threshold to mask terms", default=-float("inf"), type=float)
-    # parser.add_argument("--multiview", dest="multiview", help="if clarified, SFI-MultiView will be called", action="store_true")
-    parser.add_argument("--coarse", dest="coarse", help="if clarified, coarse-level matching signals will be taken into consideration", action='store_true', default=False)
 
-    # parser.add_argument("--ensemble", dest="ensemble", help="choose ensemble strategy for SFI-ensemble", type=str, default=None)
     parser.add_argument("--spadam", dest="spadam", action='store_true', default=False)
     parser.add_argument("--tb", dest="tb", action='store_true', default=False)
     parser.add_argument("--seeds", dest="seeds", default=None, type=int)
 
     parser.add_argument("--bert", dest="bert", help="choose bert model", choices=["bert-base-uncased"], default="bert-base-uncased")
-
-    # FIXME, clarify all choices
-    # parser.add_argument("--pipeline", dest="pipeline", help="choose pipeline encoder", default=None)
 
     parser.add_argument("-hn", "--head_num", dest="head_num",
                         help="number of multi-heads", type=int, default=16)
@@ -441,24 +432,12 @@ def load_manager():
     parser.add_argument("-ws", "--world_size", dest="world_size", help="total number of gpus", default=0, type=int)
 
 
-    # parser.add_argument("--onehot", dest="onehot", help="if clarified, one hot encode of category/subcategory will be returned by dataloader", action="store_true")
-
     args = parser.parse_args()
 
     args.cdd_size = args.npratio + 1
-
-    if len(args.device) == 1:
-        args.device = int(args.device)
-
     args.metrics = "auc,mean_mrr,ndcg@5,ndcg@10".split(',') + [i for i in args.metrics.split(',') if i]
-
-    if not args.val_freq:
-        if args.scale == "demo":
-            args.val_freq = 1
-        else:
-            args.val_freq = 4
-    else:
-        args.val_freq = args.val_freq
+    if args.device == 'cpu':
+        args.pin_memory = False
 
     manager = Manager(args)
     return manager
@@ -471,7 +450,7 @@ def manual_seed(seed):
     torch.cuda.manual_seed_all(seed)
     # torch.backends.cudnn.deterministic = True
 
-def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, impr=False):
+def prepare(config):
     from .MIND import MIND,MIND_news,MIND_impr
     """ prepare dataloader and several paths
 
@@ -490,6 +469,9 @@ def prepare(config, shuffle=False, news=False, pin_memory=True, num_workers=4, i
         manual_seed(config.seeds)
 
     mind_path = config.path + "MIND"
+    shuffle = config.shuffle
+    pin_memory = config.pin_memory
+    num_workers = config.num_workers
 
     # if impr:
     #     # FIXME: if config.bert
@@ -650,6 +632,36 @@ def analyse(config):
         avg_title_length, avg_abstract_length, avg_his_length, avg_imp_length, cnt_his_lg_50, cnt_his_eq_0, cnt_imp_multi))
 
 
+def setup(rank, manager):
+    """
+    set up distributed training and fix seeds
+    """
+    if manager.world_size > 1:
+        os.environ['MASTER_ADDR'] = 'localhost'
+        os.environ['MASTER_PORT'] = '12355'
+
+        # initialize the process group
+        dist.init_process_group("nccl", rank=rank, world_size=manager.world_size)
+
+        os.environ['TOKENIZERS_PARALLELISM'] = 'True'
+        # manager.rank will be invoked in creating DistributedSampler
+        manager.rank = rank
+        # manager.device will be invoked in the model
+        manager.device = rank
+
+        torch.cuda.set_device(rank)
+
+    else:
+        # one-gpu
+        manager.rank = -1
+
+
+def cleanup():
+    """
+    shut down the distributed training process
+    """
+    dist.destroy_process_group()
+
 class Partition_Sampler():
     def __init__(self, dataset, num_replicas, rank) -> None:
         super().__init__()
@@ -675,35 +687,6 @@ class Partition_Sampler():
 
     def __len__(self):
         return self.end - self.start
-
-def setup(rank, manager):
-    """
-    set up distributed training and fix seeds
-    """
-    if manager.world_size > 1:
-        os.environ['MASTER_ADDR'] = 'localhost'
-        os.environ['MASTER_PORT'] = '12355'
-
-        # initialize the process group
-        dist.init_process_group("nccl", rank=rank, world_size=manager.world_size)
-
-        os.environ['TOKENIZERS_PARALLELISM'] = 'True'
-        # manager.rank will be invoked in creating DistributedSampler
-        manager.rank = rank
-        # manager.device will be invoked in the model
-        manager.device = rank
-
-        torch.cuda.set_device(rank)
-
-    else:
-        # one-gpu
-        manager.rank = -1
-
-def cleanup():
-    """
-    shut down the distributed training process
-    """
-    dist.destroy_process_group()
 
 
 class BM25(object):

@@ -31,7 +31,6 @@ def main(rank, manager, dist=False):
         from models.Modules.DRM import BM25_Reducer
         docReducer = BM25_Reducer(manager)
     # termFuser = TFM(manager.his_size, manager.k)
-    # ranker = CNN_Ranker(manager)
     if manager.ranker == 'onepass':
         from models.Rankers.BERT import BERT_Onepass_Ranker
         ranker = BERT_Onepass_Ranker(manager)

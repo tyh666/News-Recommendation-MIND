@@ -17,7 +17,6 @@ from torch.utils.tensorboard import SummaryWriter
 from sklearn.metrics import roc_auc_score, log_loss, mean_squared_error, accuracy_score, f1_score
 
 import torch.distributed as dist
-# from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
 
@@ -189,7 +188,7 @@ class Manager():
 
 
     @torch.no_grad()
-    def _eval(self, model, dataloader, smoothing=1):
+    def _eval(self, model, dataloader):
         """ making prediction and gather results into groups according to impression_id
 
         Args:
@@ -206,27 +205,10 @@ class Manager():
         labels = []
         preds = []
 
-        for x in tqdm(dataloader, smoothing=smoothing):
+        for x in tqdm(dataloader, smoothing=self.smoothing):
             impr_indexes.extend(x["impression_index"].tolist())
             preds.extend(model(x).tolist())
             labels.extend(x["label"].tolist())
-
-
-        # all_preds = []
-        # all_labels = []
-        # tmp_preds = []
-        # tmp_labels = []
-        # prev_impr = 1
-        # for label, pred, impr_index in zip(labels, preds, impr_indexes):
-        #     if impr_index != prev_impr:
-        #         all_labels.append(tmp_labels.copy())
-        #         all_preds.append(tmp_preds.copy())
-        #         tmp_labels.clear()
-        #         tmp_preds.clear()
-        #         prev_impr += 1
-
-        #     tmp_labels.extend(label)
-        #     tmp_preds.extend(pred)
 
         return impr_indexes, labels, preds
 
@@ -409,7 +391,7 @@ class Manager():
             epoch_loss = 0
             if distributed:
                 loaders[0].sampler.set_epoch(epoch)
-            tqdm_ = tqdm(loaders[0], smoothing=0)
+            tqdm_ = tqdm(loaders[0], smoothing=self.smoothing)
 
             for step, x in enumerate(tqdm_):
 
@@ -493,14 +475,14 @@ class Manager():
         """
         model.eval()
 
-        self.load(model, self.epochs, self.step[0])
+        self.load(model, self.step)
 
         if self.rank in [0,-1]:
             logger.info("testing...")
 
         impr_indexes = []
         preds = []
-        for x in tqdm(loader_test, smoothing=0):
+        for x in tqdm(loader_test, smoothing=self.smoothing):
             impr_indexes.extend(x["impression_index"])
             preds.extend(model(x).tolist())
 
@@ -525,7 +507,7 @@ class Manager():
             os.makedirs(save_directory, exist_ok=True)
 
             save_path = save_directory + "/{}_step{}_[k={}].txt".format(
-                self.scale, self.epochs, self.step[0], self.k)
+                self.scale, self.step, self.k)
 
             index = 1
             with open(save_path, 'w') as f:

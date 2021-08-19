@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class SFI_Selector(nn.Module):
     """
     select most informative k history

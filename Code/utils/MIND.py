@@ -44,7 +44,7 @@ class MIND(Dataset):
                 logger.info("encoding user behaviros...")
                 os.makedirs(self.cache_directory + str(self.impr_size), exist_ok=True)
                 self.behaviors_file = behaviors_file
-                self.max_his_size = 100
+                self.max_his_size = 200
                 self.nid2index = getId2idx('data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, self.mode))
                 self.uid2index = getId2idx('data/dictionaries/uid2idx_{}.json'.format(config.scale))
 
