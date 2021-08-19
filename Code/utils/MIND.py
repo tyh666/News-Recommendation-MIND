@@ -338,6 +338,7 @@ class MIND(Dataset):
             else:
                 his_encoded_index = self.encoded_news[his_ids][:, :self.signal_length]
                 his_attn_mask = self.attn_mask[his_ids][:, :self.signal_length]
+                his_attn_mask[:, :self.k+1] = 1
 
             back_dic = {
                 "user_index": np.asarray(user_index),
@@ -379,6 +380,7 @@ class MIND(Dataset):
             else:
                 his_encoded_index = self.encoded_news[his_ids][:, :self.signal_length]
                 his_attn_mask = self.attn_mask[his_ids][:, :self.signal_length]
+                his_attn_mask[:, :self.k+1] = 1
 
             back_dic = {
                 "impr_index": impr_index + 1,
@@ -417,6 +419,7 @@ class MIND(Dataset):
             else:
                 his_encoded_index = self.encoded_news[his_ids][:, :self.signal_length]
                 his_attn_mask = self.attn_mask[his_ids][:, :self.signal_length]
+                his_attn_mask[:, :self.k+1] = 1
 
             back_dic = {
                 "impr_index": impr_index + 1,

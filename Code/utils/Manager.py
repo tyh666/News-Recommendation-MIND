@@ -6,7 +6,6 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import scipy.stats as ss
-from torch.utils.data import dataloader
 
 from tqdm import tqdm
 from typing import OrderedDict
@@ -319,7 +318,7 @@ class Manager():
 
                 if step % interval == 0:
                     tqdm_.set_description(
-                        "step: {:d} , loss: {:.4f}".format(steps, epoch_loss / step))
+                        "epoch: {:d}  step: {:d} total_step: {:d}  loss: {:.4f}".format(epoch, step, steps, epoch_loss / step))
                     # if writer:
                     #     for name, param in model.named_parameters():
                     #         writer.add_histogram(name, param, step)
@@ -406,6 +405,8 @@ class Manager():
                 epoch_loss += loss
 
                 loss.backward()
+
+                # nn.utils.clip_grad_norm_(model.parameters(), max_norm=2.0, norm_type=2)
                 optimizer.step()
 
                 if scheduler:
@@ -413,7 +414,7 @@ class Manager():
 
                 if step % interval == 0:
                     tqdm_.set_description(
-                        "step: {:d} , loss: {:.4f}".format(steps, epoch_loss / step))
+                        "epoch: {:d},  step: {:d},  total_step: {:d},  loss: {:.4f}".format(epoch, step, steps, epoch_loss / step))
                     # if writer:
                     #     for name, param in model.named_parameters():
                     #         writer.add_histogram(name, param, step)

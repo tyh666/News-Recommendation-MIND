@@ -466,7 +466,7 @@ def prepare(config):
         vocab
         loaders(list of dataloaders): 0-loader_train/test/dev, 1-loader_dev, 2-loader_validate
     """
-    logger.info("Hyper Parameters are {}".format(info(config)))
+    logger.info("Hyper Parameters are \m{}".format(info(config)))
 
     logger.info("preparing dataset...")
 

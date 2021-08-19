@@ -12,7 +12,7 @@ class config:
     threshold = 0
     title_length = 20
     abs_length = 40
-    signal_length = 50
+    signal_length = 80
 
     npratio = 4
     his_size = 50
