@@ -1,7 +1,6 @@
 import torch
 import re
 import os
-import datetime
 import logging
 import torch.nn as nn
 import torch.optim as optim

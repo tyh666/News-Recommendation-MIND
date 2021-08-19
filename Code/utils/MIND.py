@@ -1,4 +1,3 @@
-from posixpath import join
 import re
 import os
 import pickle
@@ -35,6 +34,7 @@ class MIND(Dataset):
         self.behav_path = self.cache_directory + '{}/{}'.format(self.impr_size, re.search('(\w*\.)tsv', behaviors_file).group(1) + '.pkl')
 
         if os.path.exists(self.behav_path):
+            logger.info('using cached user behavior from {}'.format(self.behav_path))
             with open(self.behav_path, 'rb') as f:
                 behaviors = pickle.load(f)
                 for k,v in behaviors.items():
@@ -42,7 +42,7 @@ class MIND(Dataset):
 
         else:
             if config.rank in [-1, 0]:
-                logger.info("encoding user behaviros...")
+                logger.info("encoding user behaviors of {}...".format(behaviors_file))
                 os.makedirs(self.cache_directory + str(self.impr_size), exist_ok=True)
                 self.behaviors_file = behaviors_file
                 self.nid2index = getId2idx('data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, self.mode))
@@ -55,6 +55,7 @@ class MIND(Dataset):
         if config.reducer == 'bm25':
             self.news_path = self.cache_directory + 'news_bm25.pkl'
             if os.path.exists(self.news_path):
+                logger.info('using cached news tokenization from {}'.format(self.news_path))
                 with open(self.news_path, 'rb') as f:
                     news = pickle.load(f)
                     for k,v in news.items():
@@ -63,6 +64,7 @@ class MIND(Dataset):
                 if config.rank in [-1, 0]:
                     from transformers import BertTokenizerFast
                     from .utils import BM25
+                    logger.info("encoding news of {}...".format(news_file))
                     self.news_file = news_file
                     self.max_news_length = 512
                     # there are only two types of vocabulary
@@ -73,6 +75,7 @@ class MIND(Dataset):
         else:
             self.news_path = self.cache_directory + 'news.pkl'
             if os.path.exists(self.news_path):
+                logger.info('using cached news tokenization from {}'.format(self.news_path))
                 with open(self.news_path, 'rb') as f:
                     news = pickle.load(f)
                     for k,v in news.items():
@@ -80,6 +83,7 @@ class MIND(Dataset):
             else:
                 if config.rank in [-1, 0]:
                     from transformers import BertTokenizerFast
+                    logger.info("encoding news of {}...".format(news_file))
                     self.news_file = news_file
                     self.max_news_length = 512
                     # there are only two types of vocabulary
