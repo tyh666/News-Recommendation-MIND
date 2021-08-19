@@ -1,3 +1,6 @@
+from random import shuffle
+
+
 class config:
     scale = 'demo'
     mode = 'tune'
@@ -26,9 +29,9 @@ class config:
 
     embedding = 'bert'
     selector = 'sfi'
-    reducer = 'match'
+    reducer = 'matching'
     interactor = 'onepass'
-    
+
     embedding_dim = 300
     hidden_dim = 150
     # query_dim = 200
@@ -36,12 +39,16 @@ class config:
 
     rank = 0
     world_size = 0
-    step = [0]
+    step = 0
     seeds = 42
     interval = 10
     val_freq = 2
     schedule = 'linear'
+    order_history = False
     warmup = 100
+    pin_memory = False
+    shuffle = False
+    num_workers = 0
     path = "../../../Data/"
     tb = False
 

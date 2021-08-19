@@ -27,6 +27,7 @@ class MIND(Dataset):
         self.his_size = config.his_size
         self.impr_size = config.impr_size
         self.k = config.k
+        self.order_history = config.order_history
         pat = re.search('MIND/(.*_(.*)/)news', news_file)
         self.mode = pat.group(2)
 
@@ -44,7 +45,6 @@ class MIND(Dataset):
                 logger.info("encoding user behaviros...")
                 os.makedirs(self.cache_directory + str(self.impr_size), exist_ok=True)
                 self.behaviors_file = behaviors_file
-                self.max_his_size = 200
                 self.nid2index = getId2idx('data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, self.mode))
                 self.uid2index = getId2idx('data/dictionaries/uid2idx_{}.json'.format(config.scale))
 
@@ -149,8 +149,6 @@ class MIND(Dataset):
         histories = []
         # list of user index
         uindexes = []
-        # list of list of history padding length
-        his_sizes = []
         # list of impression indexes
         # self.impr_indexes = []
 
@@ -158,25 +156,21 @@ class MIND(Dataset):
 
         # only store positive behavior
         if self.mode == 'train':
-            # list of list of his cdd news index along with its impression index
+            # list of lists, each list represents a
             imprs = []
-            # dictionary of list of unhis cdd news index
-            negatives = {}
+            negatives = []
 
             with open(self.behaviors_file, "r", encoding='utf-8') as rd:
                 for idx in rd:
                     _, uid, time, history, impr = idx.strip("\n").split('\t')
 
                     history = [self.nid2index[i] for i in history.split()]
-                    his_sizes.append(len(history))
 
-                    # tailor user's history or pad 0
-                    history = history[:self.max_his_size] + [0] * (self.max_his_size - len(history))
                     impr_news = [self.nid2index[i.split("-")[0]] for i in impr.split()]
                     labels = [int(i.split("-")[1]) for i in impr.split()]
+
                     # user will always in uid2index
                     uindex = self.uid2index[uid]
-
                     # store negative samples of each impression
                     negative = []
 
@@ -188,21 +182,19 @@ class MIND(Dataset):
 
                     # 1 impression correspond to 1 of each of the following properties
                     histories.append(history)
-                    negatives[impr_index] = negative
+                    negatives.append(negative)
                     uindexes.append(uindex)
 
                     impr_index += 1
 
             self.imprs = imprs
             self.histories = histories
-            self.his_sizes = his_sizes
             self.negatives = negatives
             self.uindexes = uindexes
 
             save_dict = {
                 'imprs': self.imprs,
                 'histories': self.histories,
-                'his_sizes': self.his_sizes,
                 'negatives': self.negatives,
                 'uindexes': self.uindexes
             }
@@ -217,8 +209,6 @@ class MIND(Dataset):
                     _, uid, time, history, impr = idx.strip("\n").split('\t')
 
                     history = [self.nid2index[i] for i in history.split()]
-                    his_sizes.append(len(history))
-                    history = history[:self.max_his_size] + [0] * (self.max_his_size - len(history))
 
                     impr_news = [self.nid2index[i.split("-")[0]] for i in impr.split()]
                     labels = [int(i.split("-")[1]) for i in impr.split()]
@@ -229,7 +219,6 @@ class MIND(Dataset):
                     for i in range(0, len(impr_news), self.impr_size):
                         imprs.append((impr_index, impr_news[i:i+self.impr_size], labels[i:i+self.impr_size]))
 
-
                     # 1 impression correspond to 1 of each of the following properties
                     histories.append(history)
                     uindexes.append(uindex)
@@ -238,13 +227,11 @@ class MIND(Dataset):
 
             self.imprs = imprs
             self.histories = histories
-            self.his_sizes = his_sizes
             self.uindexes = uindexes
 
             save_dict = {
                 'imprs': self.imprs,
                 'histories': self.histories,
-                'his_sizes': self.his_sizes,
                 'uindexes': self.uindexes
             }
 
@@ -258,9 +245,6 @@ class MIND(Dataset):
                     _, uid, time, history, impr = idx.strip("\n").split('\t')
 
                     history = [self.nid2index[i] for i in history.split()]
-                    his_sizes.append(len(history))
-                    # tailor user's history or pad 0
-                    history = history[:self.max_his_size] + [0] * (self.max_his_size - len(history))
 
                     impr_news = [self.nid2index[i] for i in impr.split()]
                     # user will always in uid2index
@@ -278,13 +262,11 @@ class MIND(Dataset):
 
             self.imprs = imprs
             self.histories = histories
-            self.his_sizes = his_sizes
             self.uindexes = uindexes
 
             save_dict = {
                 'imprs': self.imprs,
                 'histories': self.histories,
-                'his_sizes': self.his_sizes,
                 'uindexes': self.uindexes
             }
 
@@ -332,10 +314,14 @@ class MIND(Dataset):
             label = np.arange(0, len(cdd_ids), 1)[label == 1][0]
 
             his_ids = self.histories[impr_index][:self.his_size]
-
             # true means the corresponding history news is padded
             his_mask = np.zeros((self.his_size), dtype=bool)
-            his_mask[:self.his_sizes[impr_index]] = 1
+            his_mask[:len(his_ids)] = 1
+
+            if self.order_history:
+                his_ids = his_ids + [0] * (self.his_size - len(his_ids))
+            else:
+                his_ids = his_ids[::-1] + [0] * (self.his_size - len(his_ids))
 
             # pad in cdd
             # cdd_mask = [1] * neg_pad + [0] * (self.npratio + 1 - neg_pad)
@@ -369,13 +355,17 @@ class MIND(Dataset):
             cdd_ids = impr_news
 
             his_ids = self.histories[impr_index][:self.his_size]
+            # true means the corresponding history news is padded
+            his_mask = np.zeros((self.his_size), dtype=bool)
+            his_mask[:len(his_ids)] = 1
+
+            if self.order_history:
+                his_ids = his_ids + [0] * (self.his_size - len(his_ids))
+            else:
+                his_ids = his_ids[::-1] + [0] * (self.his_size - len(his_ids))
 
             user_index = [self.uindexes[impr_index]]
             label = impr[2]
-
-            # true means the corresponding history news is padded
-            his_mask = np.zeros((self.his_size), dtype=bool)
-            his_mask[:self.his_sizes[impr_index]] = 1
 
             cdd_encoded_index = self.encoded_news[cdd_ids][:, :self.signal_length]
             cdd_attn_mask = self.attn_mask[cdd_ids][:, :self.signal_length]
@@ -387,7 +377,7 @@ class MIND(Dataset):
                 his_attn_mask = self.attn_mask[his_ids][:, :self.signal_length]
 
             back_dic = {
-                "impression_index": impr_index + 1,
+                "impr_index": impr_index + 1,
                 "user_index": np.asarray(user_index),
                 'cdd_id': np.asarray(cdd_ids),
                 'his_id': np.asarray(his_ids),
@@ -404,11 +394,16 @@ class MIND(Dataset):
             cdd_ids = impr_news
 
             his_ids = self.histories[impr_index][:self.his_size]
-
-            user_index = [self.uindexes[impr_index]]
             # true means the corresponding history news is padded
             his_mask = np.zeros((self.his_size), dtype=bool)
-            his_mask[:self.his_sizes[impr_index]] = 1
+            his_mask[:len(his_ids)] = 1
+
+            if self.order_history:
+                his_ids = his_ids + [0] * (self.his_size - len(his_ids))
+            else:
+                his_ids = his_ids[::-1] + [0] * (self.his_size - len(his_ids))
+
+            user_index = [self.uindexes[impr_index]]
 
             cdd_encoded_index = self.encoded_news[cdd_ids][:, :self.signal_length]
             cdd_attn_mask = self.attn_mask[cdd_ids][:, :self.signal_length]
@@ -420,7 +415,7 @@ class MIND(Dataset):
                 his_attn_mask = self.attn_mask[his_ids][:, :self.signal_length]
 
             back_dic = {
-                "impression_index": impr_index + 1,
+                "impr_index": impr_index + 1,
                 "user_index": np.asarray(user_index),
                 'cdd_id': np.asarray(cdd_ids),
                 'his_id': np.asarray(his_ids),
@@ -675,7 +670,7 @@ class MIND_impr(Dataset):
         cdd_title_index = self.news_title_array[cdd_ids][:, :self.title_length]
         his_title_index = self.news_title_array[his_ids][:, :self.title_length]
         back_dic = {
-            "impression_index": impr_index + 1,
+            "impr_index": impr_index + 1,
             "user_index": np.asarray(user_index),
             'cdd_id': np.asarray(cdd_ids),
             "cdd_encoded_index": np.asarray(cdd_title_index),

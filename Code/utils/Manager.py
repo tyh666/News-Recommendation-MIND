@@ -32,7 +32,7 @@ class Manager():
             if not k.startswith('__'):
                 setattr(self, k, v)
 
-    def save(self, model, step, optimizer=None, scheduler=None):
+    def save(self, model, step, optimizer=None):
         """
             shortcut for saving the model and optimizer
         """
@@ -41,21 +41,16 @@ class Manager():
 
         logger.info("saving model at {}...".format(save_path))
 
-        state_dict = model.state_dict()
-
-        if re.search("pipeline", self.name):
-            state_dict = {k: v for k, v in state_dict.items() if k not in [
-                "encoder.news_repr.weight", "encoder.news_embedding.weight"]}
+        model_dict = model.state_dict()
 
         save_dict = {}
-        save_dict["model"] = state_dict
-        save_dict["optimizer"] = optimizer
-        save_dict["scheduler"] = scheduler
+        save_dict["model"] = model_dict
+        save_dict["optimizer"] = optimizer.state_dict()
 
         torch.save(save_dict, save_path)
 
 
-    def load(self, model, step, optimizer=None, scheduler=None):
+    def load(self, model, step, optimizer=None):
         """
             shortcut for loading model and optimizer parameters
         """
@@ -88,9 +83,6 @@ class Manager():
 
         if optimizer:
             optimizer.load_state_dict(state_dict["optimizer"])
-        if scheduler:
-            scheduler.load_state_dict(state_dict["scheduler"])
-
 
 
     def _log(self, res):
@@ -206,7 +198,7 @@ class Manager():
         preds = []
 
         for x in tqdm(dataloader, smoothing=self.smoothing):
-            impr_indexes.extend(x["impression_index"].tolist())
+            impr_indexes.extend(x["impr_index"].tolist())
             preds.extend(model(x).tolist())
             labels.extend(x["label"].tolist())
 
@@ -231,7 +223,7 @@ class Manager():
         model.eval()
 
         if load:
-            self.load(model, self.step, optimizer, scheduler)
+            self.load(model, self.checkpoint, optimizer)
 
         if self.rank in [0,-1]:
             logger.info("evaluating...")
@@ -293,6 +285,9 @@ class Manager():
         save_step = self.step
         distributed = self.world_size > 1
 
+        if self.rank in [0, -1]:
+            logger.info("training...")
+
         # if self.tb:
         #     writer = SummaryWriter("data/tb/{}/{}/{}/".format(
         #         self.name, self.scale, datetime.now().strftime("%Y%m%d-%H")))
@@ -348,12 +343,15 @@ class Manager():
         """
         model.train()
 
-        # in case the folder does not exists, create one
-        os.makedirs("data/model_params/{}".format(self.name), exist_ok=True)
+        if self.rank in [0,-1]:
+            # in case the folder does not exists, create one
+            os.makedirs("data/model_params/{}".format(self.name), exist_ok=True)
 
-        logger.info("training...")
         loss_func = self._get_loss(model)
         optimizer, scheduler = self._get_optim(model, len(loaders[0]))
+
+        if self.checkpoint:
+            self.load(model, self.checkpoint, optimizer)
 
         self._train(model, loaders[0], optimizer, loss_func, self.epochs, scheduler=scheduler)
 
@@ -386,6 +384,8 @@ class Manager():
 
         best_res = {"auc":0}
 
+        if self.rank in [0, -1]:
+            logger.info("tuning...")
 
         for epoch in range(self.epochs):
             epoch_loss = 0
@@ -450,13 +450,15 @@ class Manager():
 
         model.train()
 
-        # in case the folder does not exists, create one
-        os.makedirs("data/model_params/{}".format(self.name), exist_ok=True)
-
         if self.rank in [-1, 0]:
-            logger.info("training...")
+            # in case the folder does not exists, create one
+            os.makedirs("data/model_params/{}".format(self.name), exist_ok=True)
+
         loss_func = self._get_loss(model)
         optimizer, scheduler = self._get_optim(model, len(loaders[0]))
+
+        if self.checkpoint:
+            self.load(model, self.checkpoint, optimizer)
 
         res = self._tune(model, loaders, optimizer, loss_func, scheduler=scheduler)
 
@@ -475,7 +477,7 @@ class Manager():
         """
         model.eval()
 
-        self.load(model, self.step)
+        self.load(model, self.checkpoint)
 
         if self.rank in [0,-1]:
             logger.info("testing...")
@@ -483,7 +485,7 @@ class Manager():
         impr_indexes = []
         preds = []
         for x in tqdm(loader_test, smoothing=self.smoothing):
-            impr_indexes.extend(x["impression_index"])
+            impr_indexes.extend(x["impr_index"])
             preds.extend(model(x).tolist())
 
         if self.world_size > 1:

@@ -23,6 +23,7 @@ from utils.Manager import Manager
 
 logging.basicConfig(level=logging.INFO,
                     format="[%(asctime)s] %(levelname)s (%(name)s) %(message)s")
+logger = logging.getLogger(__name__)
 
 stopwords = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', "you're", "you've", "you'll", "you'd", 'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his', 'himself', 'she', "she's", 'her', 'hers', 'herself', 'it', "it's", 'its', 'itself', 'they', 'them', 'their', 'theirs', 'themselves', 'what', 'which', 'who', 'whom', 'this', 'that', "that'll", 'these', 'those', 'am', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'having', 'do', 'does', 'did', 'doing', 'a', 'an', 'the', 'and', 'but', 'if', 'or', 'because', 'as', 'until', 'while', 'of', 'at', 'by', 'for', 'with', 'about', 'against', 'between', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'to', 'from', 'up', 'down', 'in', 'out', 'on', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 's', 't', 'can', 'will', 'just', 'don', "don't", 'should', "should've", 'now', 'd', 'll', 'm', 'o', 're', 've', 'y', 'ain', 'aren', "aren't", 'couldn', "couldn't", 'didn', "didn't", 'doesn', "doesn't", 'hadn', "hadn't", 'hasn', "hasn't", 'haven', "haven't", 'isn', "isn't", 'ma', 'mightn', "mightn't", 'mustn', "mustn't", 'needn', "needn't", 'shan', "shan't", 'shouldn', "shouldn't", 'wasn', "wasn't", 'weren', "weren't", 'won', "won't", 'wouldn', "wouldn't"]
 
@@ -257,7 +258,7 @@ def tailor_data(tsvFile, num):
     news_file_new = re.sub("behaviors", "news", behavior_file)
 
     os.system("cp {} {}".format(news_file, news_file_new))
-    logging.info("tailored {} behaviors to {}, copied news file also".format(
+    logger.info("tailored {} behaviors to {}, copied news file also".format(
         num, behavior_file))
     return
 
@@ -367,7 +368,7 @@ def load_manager():
     parser.add_argument("-e", "--epochs", dest="epochs",
                         help="epochs to train the model", type=int, default=10)
     parser.add_argument("-d","--device", dest="device",
-                        help="device to run on", choices=[i for i in range(10)] + ['cpu'], default=0)
+                        help="device to run on, -1 means cpu", choices=[i for i in range(-1,10)], type=int, default=0)
     parser.add_argument("-p", "--path", dest="path", type=str, default="../../../Data/", help="root path for large-scale reusable data")
 
     parser.add_argument("-bs", "--batch_size", dest="batch_size",
@@ -389,19 +390,22 @@ def load_manager():
                     help="dropout probability", type=float, default=0.2)
 
     parser.add_argument("-st","--step", dest="step",
-                        help="if clarified, save model at the interval of given steps", type=int, default=10000)
-    parser.add_argument("--interval", dest="interval", help="the step interval to update processing bar", default=10, type=int)
+                        help="save/evaluate the model every step", type=int, default=10000)
+    parser.add_argument("-ck","--checkpoint", dest="checkpoint",
+                        help="load the model from checkpoint before training/evaluating", type=int, default=0)
 
     parser.add_argument("-lr", dest="lr",
                         help="learning rate of non-bert modules", type=float, default=1e-4)
     parser.add_argument("-blr", "--bert_lr", dest="bert_lr",
                         help="learning rate of bert based modules", type=float, default=1e-5)
     parser.add_argument("-sm", "--smoothing", dest="smoothing", help="smoothing factor of tqdm", type=float, default=0.3)
+    parser.add_argument("--order_history", dest="order_history", help="whether to ordered history", action='store_true', default=False)
     parser.add_argument("--num_workers", dest="num_workers", help="worker number of a dataloader", type=int, default=0)
     parser.add_argument("--shuffle", dest="shuffle", help="whether to shuffle the indices", action='store_true', default=False)
     parser.add_argument("--pin_memory", dest="pin_memory", help="whether to pin memory to speed up tensor transfer", default=True)
     parser.add_argument("--scheduler", dest="scheduler", help="choose schedule scheme for optimizer", choices=['linear'], default="linear")
     parser.add_argument("--warmup", dest="warmup", help="warmup steps of scheduler", type=int, default=10000)
+    parser.add_argument("--interval", dest="interval", help="the step interval to update processing bar", default=10, type=int)
 
     parser.add_argument("--npratio", dest="npratio", help="the number of unclicked news to sample when training", type=int, default=4)
     parser.add_argument("--metrics", dest="metrics", help="metrics for evaluating the model", type=str, default='')
@@ -436,7 +440,8 @@ def load_manager():
 
     args.cdd_size = args.npratio + 1
     args.metrics = "auc,mean_mrr,ndcg@5,ndcg@10".split(',') + [i for i in args.metrics.split(',') if i]
-    if args.device == 'cpu':
+    if args.device == -1:
+        args.device = 'cpu'
         args.pin_memory = False
 
     manager = Manager(args)
@@ -461,9 +466,9 @@ def prepare(config):
         vocab
         loaders(list of dataloaders): 0-loader_train/test/dev, 1-loader_dev, 2-loader_validate
     """
-    logging.info("Hyper Parameters are {}".format(info(config)))
+    logger.info("Hyper Parameters are {}".format(info(config)))
 
-    logging.info("preparing dataset...")
+    logger.info("preparing dataset...")
 
     if config.seeds:
         manual_seed(config.seeds)
@@ -732,7 +737,7 @@ class BM25(object):
         Args:
             documents: list of strings
         """
-        logging.info('building bm25 scores...')
+        logger.info('building bm25 scores...')
         self._build_tf_idf(documents)
         bm25_scores = []
         for tf in self.tfs:
