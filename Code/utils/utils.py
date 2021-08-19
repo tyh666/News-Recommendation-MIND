@@ -352,9 +352,9 @@ def my_collate(data):
     return dict(result)
 
 
-
 def info(config):
     return "\n".join(["{}:{}".format(k,v) for k,v in vars(config).items() if not k.startswith('__')])
+
 
 def load_manager():
     """
