@@ -111,15 +111,15 @@ class MIND(Dataset):
                 documents.append(' '.join(['[CLS]', title, ab, vert, subvert]))
 
         if reducer:
-            documents_sorted = reducer(documents)
-            encoded_dict_sorted = self.tokenizer(documents_sorted, add_special_tokens=False, padding=True, truncation=True, max_length=self.max_news_length, return_tensors='np')
-
-            self.encoded_news_sorted = encoded_dict_sorted.input_ids
-            self.attn_mask_sorted = encoded_dict_sorted.attention_mask
-
             encoded_dict = self.tokenizer(documents, add_special_tokens=False, padding=True, truncation=True, max_length=self.max_news_length, return_tensors='np')
             self.encoded_news = encoded_dict.input_ids
             self.attn_mask = encoded_dict.attention_mask
+
+            documents_sorted, attn_mask_sorted = reducer(documents)
+
+            self.encoded_news_sorted = documents_sorted
+            self.attn_mask_sorted = attn_mask_sorted * self.attn_mask
+
             with open(self.news_path, 'wb') as f:
                 pickle.dump(
                     {

@@ -713,10 +713,13 @@ class BM25(object):
         df = defaultdict(int)
         for document in documents:
             tf = defaultdict(int)
-            for term in tokenize(document):
-                tf[term] += 1
-                df[term] += 1
-                word_count + 1
+            # ignore [CLS]
+            for term in document[1:]:
+                # ignore [PAD]
+                if term != 0:
+                    tf[term] += 1
+                    df[term] += 1
+                    word_count + 1
 
             tfs.append(tf)
 
@@ -737,8 +740,10 @@ class BM25(object):
         Args:
             documents: list of strings
         """
-        logger.info('building bm25 scores...')
+        logger.info("computing BM25 scores...")
         self._build_tf_idf(documents)
+
+        document_length = len(documents[0])
         bm25_scores = []
         for tf in self.tfs:
             score = defaultdict(float)
@@ -747,6 +752,13 @@ class BM25(object):
 
             bm25_scores.append(dict(sorted(score.items(), key=lambda item: item[1], reverse=True)))
 
-        sorted_documents = ['[CLS] ' + ' '.join(list(bm25.keys())) for bm25 in bm25_scores]
+        sorted_documents = []
+        sorted_attn_mask = []
+        for bm25 in bm25_scores:
+            bm25_length = len(bm25) + 1
+            pad_length = document_length - bm25_length
 
-        return sorted_documents
+            sorted_documents.append([101] + list(bm25.keys()) + [0]*pad_length)
+            sorted_attn_mask.append([1] * bm25_length + [0] * pad_length)
+
+        return np.asarray(sorted_documents), np.asarray(sorted_attn_mask)
