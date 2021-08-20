@@ -1,6 +1,3 @@
-from random import shuffle
-
-
 class config:
     scale = 'demo'
     mode = 'tune'
@@ -8,8 +5,8 @@ class config:
 
     batch_size = 10
 
-    k = 3
-    threshold = 0
+    k = 5
+    threshold = -float('inf')
     title_length = 20
     abs_length = 40
     signal_length = 80

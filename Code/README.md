@@ -25,7 +25,7 @@ else
 
   ipython kernel install --name "nn" --user
 
-  pip install torch+cu111 -f https://download.pytorch.org/whl/torch_stable.html
+  pip install torch+cu110 -f https://download.pytorch.org/whl/torch_stable.html
   pip install tensorboard ipython jupyter notebook typing pandas scipy scikit-learn transformers
 
   cd /data/

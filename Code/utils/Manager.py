@@ -285,7 +285,7 @@ class Manager():
         distributed = self.world_size > 1
 
         if self.rank in [0, -1]:
-            logger.info("training...")
+            logger.info("training...{}".format(self.name))
             logger.info("total training step: {}".format(self.epochs * len(dataloader)))
 
         # if self.tb:
@@ -385,7 +385,7 @@ class Manager():
         best_res = {"auc":0}
 
         if self.rank in [0, -1]:
-            logger.info("tuning...")
+            logger.info("tuning {}...".format(self.name))
             logger.info("total training step: {}".format(self.epochs * len(loaders[0])))
 
         for epoch in range(self.epochs):

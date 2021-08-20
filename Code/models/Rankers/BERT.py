@@ -105,7 +105,7 @@ class BERT_Onepass_Ranker(nn.Module):
 
         super().__init__()
 
-        self.name = 'onepass-bert-without-order'
+        self.name = 'onepass-bert'
         self.signal_length = config.signal_length
 
         # extra [SEP] token
