@@ -1,3 +1,4 @@
+from importlib.abc import Loader
 import torch
 import re
 import os
@@ -6,6 +7,7 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import scipy.stats as ss
+from torchtext.vocab import FastText
 
 from tqdm import tqdm
 from typing import OrderedDict
@@ -318,7 +320,7 @@ class Manager():
 
                 if step % interval == 0:
                     tqdm_.set_description(
-                        "epoch: {:d}  step: {:d} total_step: {:d}  loss: {:.4f}".format(epoch, step, steps, epoch_loss / step))
+                        "epoch: {:d}  step: {:d} total_step: {:d}  loss: {:.4f}".format(epoch + 1, step, steps, epoch_loss / step))
                     # if writer:
                     #     for name, param in model.named_parameters():
                     #         writer.add_histogram(name, param, step)
@@ -414,7 +416,7 @@ class Manager():
 
                 if step % interval == 0:
                     tqdm_.set_description(
-                        "epoch: {:d},  step: {:d},  total_step: {:d},  loss: {:.4f}".format(epoch, step, steps, epoch_loss / step))
+                        "epoch: {:d},  step: {:d},  total_step: {:d},  loss: {:.4f}".format(epoch + 1, step, steps, epoch_loss / step))
                     # if writer:
                     #     for name, param in model.named_parameters():
                     #         writer.add_histogram(name, param, step)
@@ -578,6 +580,52 @@ class Manager():
         del news_reprs
         del news_embeddings
         logging.info("encoded news saved in data/tensors/news_**_{}_{}-[{}].tensor".format(scale, mode, self.name))
+
+
+    @torch.no_grad()
+    def inspect_ps_terms(self, model, checkpoint, loader, bm25=False):
+        """
+        inspect personalized terms
+        """
+        from transformers import BertTokenizer
+
+        model.eval()
+
+        if bm25:
+            import pickle
+            bm25_file = pickle.load(open('data/cache/bert/MIND{}_{}/news_bm25.pkl'.format(self.scale, loader.dataset.mode),'rb'))
+            bm25_terms = bm25_file['encoded_news_sorted']
+
+        self.load(model, checkpoint)
+        t = BertTokenizer.from_pretrained('bert-base-uncased')
+
+        jumpout = False
+        for x in loader:
+            _, term_indexes = model(x)
+            term_ids = x['his_encoded_index'][:,:,1:].gather(index=term_indexes, dim=-1)
+            for i,batch in enumerate(term_ids):
+                for j,doc in enumerate(batch):
+                    print('*******************************************************')
+                    ps_terms = t.decode(doc)
+                    if ps_terms[0:5] == '[PAD]':
+                        jumpout = True
+                        break
+                    else:
+                        print("[personalized terms]\n\t {}".format(ps_terms))
+                        if bm25:
+                            print("[bm25 terms]\n\t {}".format(t.decode(bm25_terms[x['his_id'][i][j]])))
+
+                        print("[original news]\n\t {}".format(t.decode(x['his_encoded_index'][i][j])))
+
+                        command = input()
+                        if command == 'n':
+                            break
+                        elif command == 'q':
+                            return
+
+                if jumpout:
+                    jumpout = False
+                    break
 
 
 def mrr_score(y_true, y_score):

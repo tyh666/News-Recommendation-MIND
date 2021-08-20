@@ -39,14 +39,18 @@ class config:
     step = 0
     seeds = 42
     interval = 10
-    val_freq = 2
+
+    ascend_history = False
+    disable_dedup = False
+
     schedule = 'linear'
-    order_history = False
     warmup = 100
     pin_memory = False
     shuffle = False
+    bert = 'bert-base-uncased'
     num_workers = 0
+
     path = "../../../Data/"
+
     tb = False
 
-    bert = 'bert-base-uncased'

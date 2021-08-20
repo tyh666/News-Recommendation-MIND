@@ -35,7 +35,7 @@ class Matching_Reducer(nn.Module):
         news_selection_embedding = news_selection_embedding[:, :, 1:]
         news_embedding = news_embedding[:, :, 1:]
 
-        # [bs, hs, sl]
+        # [bs, hs, sl - 1]
         scores = F.normalize(news_selection_embedding, dim=-1).matmul(F.normalize(user_repr, dim=-1).transpose(-2,-1).unsqueeze(1)).squeeze(-1)
         # mask the padded term
         scores = scores.masked_fill(~his_attn_mask[:, :, 1:], -float('inf'))
@@ -50,6 +50,7 @@ class Matching_Reducer(nn.Module):
         # print(weighted_ps_terms.grad, weighted_ps_terms.requires_grad)
 
         return weighted_ps_terms, score_kid
+
 
 class BM25_Reducer(nn.Module):
     """

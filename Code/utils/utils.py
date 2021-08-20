@@ -7,6 +7,7 @@ import math
 import torch
 import argparse
 import logging
+import transformers
 import pandas as pd
 import numpy as np
 import torch.distributed as dist
@@ -15,7 +16,7 @@ from collections import defaultdict
 from datetime import datetime
 # from itertools import product
 from torchtext.data.utils import get_tokenizer
-from torchtext.vocab import build_vocab_from_iterator, GloVe
+from torchtext.vocab import build_vocab_from_iterator
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 
@@ -23,6 +24,8 @@ from utils.Manager import Manager
 
 logging.basicConfig(level=logging.INFO,
                     format="[%(asctime)s] %(levelname)s (%(name)s) %(message)s")
+transformers.logging.set_verbosity_error()
+
 logger = logging.getLogger(__name__)
 
 stopwords = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', "you're", "you've", "you'll", "you'd", 'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his', 'himself', 'she', "she's", 'her', 'hers', 'herself', 'it', "it's", 'its', 'itself', 'they', 'them', 'their', 'theirs', 'themselves', 'what', 'which', 'who', 'whom', 'this', 'that', "that'll", 'these', 'those', 'am', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'having', 'do', 'does', 'did', 'doing', 'a', 'an', 'the', 'and', 'but', 'if', 'or', 'because', 'as', 'until', 'while', 'of', 'at', 'by', 'for', 'with', 'about', 'against', 'between', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'to', 'from', 'up', 'down', 'in', 'out', 'on', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 's', 't', 'can', 'will', 'just', 'don', "don't", 'should', "should've", 'now', 'd', 'll', 'm', 'o', 're', 've', 'y', 'ain', 'aren', "aren't", 'couldn', "couldn't", 'didn', "didn't", 'doesn', "doesn't", 'hadn', "hadn't", 'hasn', "hasn't", 'haven', "haven't", 'isn', "isn't", 'ma', 'mightn', "mightn't", 'mustn', "mustn't", 'needn', "needn't", 'shan', "shan't", 'shouldn', "shouldn't", 'wasn', "wasn't", 'weren', "weren't", 'won', "won't", 'wouldn', "wouldn't"]
@@ -399,7 +402,10 @@ def load_manager():
     parser.add_argument("-blr", "--bert_lr", dest="bert_lr",
                         help="learning rate of bert based modules", type=float, default=1e-5)
     parser.add_argument("-sm", "--smoothing", dest="smoothing", help="smoothing factor of tqdm", type=float, default=0.3)
-    parser.add_argument("--order_history", dest="order_history", help="whether to ordered history", action='store_true', default=False)
+
+    parser.add_argument("--ascend_history", dest="ascend_history", help="whether to order history by time in ascending", action='store_true', default=False)
+    parser.add_argument("--disable_dedup", dest="disable_dedup", help="whether to disable deduplication forarticles", action='store_true', default=False)
+
     parser.add_argument("--num_workers", dest="num_workers", help="worker number of a dataloader", type=int, default=0)
     parser.add_argument("--shuffle", dest="shuffle", help="whether to shuffle the indices", action='store_true', default=False)
     parser.add_argument("--pin_memory", dest="pin_memory", help="whether to pin memory to speed up tensor transfer", default=True)
@@ -466,7 +472,7 @@ def prepare(config):
         vocab
         loaders(list of dataloaders): 0-loader_train/test/dev, 1-loader_dev, 2-loader_validate
     """
-    logger.info("Hyper Parameters are \m{}".format(info(config)))
+    logger.info("Hyper Parameters are \n{}".format(info(config)))
 
     logger.info("preparing dataset...")
 
@@ -667,6 +673,7 @@ def cleanup():
     """
     dist.destroy_process_group()
 
+
 class Partition_Sampler():
     def __init__(self, dataset, num_replicas, rank) -> None:
         super().__init__()
@@ -734,11 +741,11 @@ class BM25(object):
 
     def __call__(self, documents):
         """
-        compute bm25 score of each term in each document and sort the terms by it
+        compute bm25 score of each term (index) in each document and sort the terms by it
         with b=0, totally ignoring the effect of document length
 
         Args:
-            documents: list of strings
+            documents: list of lists
         """
         logger.info("computing BM25 scores...")
         self._build_tf_idf(documents)
@@ -762,3 +769,49 @@ class BM25(object):
             sorted_attn_mask.append([1] * bm25_length + [0] * pad_length)
 
         return np.asarray(sorted_documents), np.asarray(sorted_attn_mask)
+
+
+class DeDuplicate(object):
+    """
+    mask duplicated terms in one document by attention masks
+    """
+    def __init__(self, k, signal_length) -> None:
+        super().__init__()
+        self.k = k
+        self.signal_length = signal_length
+
+    def __call__(self, documents, attn_masks):
+        """
+        return modified attention masks, where duplicated terms are masked
+        """
+        logger.info("deduplicating...")
+        for i, document in enumerate(documents):
+            terms = {}
+            duplicated = []
+            # ignore [CLS]
+            for j, term in enumerate(document[1:self.signal_length]):
+                if term in terms:
+                    # if the term duplicates
+                    duplicated.append(j)
+                else:
+                    terms[term] = 1
+
+            # ignore [CLS]
+            term_num = attn_masks[i][1:self.signal_length].sum()
+            if term_num - len(duplicated) > self.k:
+                # in case the non-duplicate terms are more than k, then mask duplicated terms
+                attn_masks[i, duplicated] = 0
+            else:
+                # otherwise, only maks part of them
+                maskable_term_num = term_num - self.k
+                attn_masks[i, duplicated[:maskable_term_num]] = 0
+
+        return documents, attn_masks
+
+
+class DoNothing(object):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def __call__(self, documents, attn_masks):
+        return documents, attn_masks

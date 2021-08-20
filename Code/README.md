@@ -57,6 +57,7 @@ python sfi.py -m tune -e 5 -s demo -k=5 -encn=fim -itr=selected -sl=20 -bs=10 -i
 ## Preprocess
 - [x] remove stop words
   - not necessary
+- [ ] **currently we append the topic and subtopic at the tail of document, maybe at the front may be better?**
 - [ ] check the average length of title+abstract+vert
   - [ ] propotion > 200
   - [ ] propotion > 300
@@ -96,6 +97,8 @@ python sfi.py -m tune -e 5 -s demo -k=5 -encn=fim -itr=selected -sl=20 -bs=10 -i
   - [x] extract terms from every historical news when the history is updated
   - [ ] extract terms incrementally
   - [ ] long and short term extraction
+  - [ ] **modify his_attn_mask to excludes repetitve terms from selection**
+
 - [ ] Seq2Seq based
 - [ ] RL based
 
@@ -143,7 +146,6 @@ python sfi.py -m tune -e 5 -s demo -k=5 -encn=fim -itr=selected -sl=20 -bs=10 -i
 - learning rate of bert
 - use selected document for final bert is terrible
 - **history in MIND, the more recent is at the front or the tail**, we now use the head as the latest news by default
-- tokenizer will add [CLS] to padded nwes, is that expected?
 - [SEP] no position embedding
 - headline news recommendation (zero shot)
 - recall

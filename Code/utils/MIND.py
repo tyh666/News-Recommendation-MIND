@@ -26,7 +26,7 @@ class MIND(Dataset):
         self.his_size = config.his_size
         self.impr_size = config.impr_size
         self.k = config.k
-        self.order_history = config.order_history
+        self.ascend_history = config.ascend_history
         pat = re.search('MIND/(.*_(.*)/)news', news_file)
         self.mode = pat.group(2)
 
@@ -80,6 +80,21 @@ class MIND(Dataset):
                     news = pickle.load(f)
                     for k,v in news.items():
                         setattr(self, k, v)
+
+                # set the attention mask of padded news to have k unpadded terms
+                self.attn_mask[0, :self.k + 1] = 1
+                # Any article must have at least k non-padded terms
+                for i, mask in enumerate(self.attn_mask):
+                    if mask.sum() < self.k + 1:
+                        self.attn_mask[i][:self.k+1] = 1
+
+                # deduplicate
+                if not config.disable_dedup:
+                    from .utils import DeDuplicate
+                    dedup = DeDuplicate(self.k, self.signal_length)
+                    _, attn_mask = dedup(self.encoded_news, self.attn_mask)
+                    self.attn_mask = attn_mask
+
             else:
                 if config.rank in [-1, 0]:
                     from transformers import BertTokenizerFast
@@ -89,6 +104,9 @@ class MIND(Dataset):
                     # there are only two types of vocabulary
                     self.tokenizer = BertTokenizerFast.from_pretrained(config.bert, cache=config.path + 'bert_cache/')
                     self.nid2index = getId2idx('data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, self.mode))
+
+                    # from .utils import DoNothing
+                    # self.init_news(DoNothing())
                     self.init_news()
 
 
@@ -110,7 +128,7 @@ class MIND(Dataset):
                 nid, vert, subvert, title, ab, url, _, _ = idx.strip("\n").split('\t')
                 documents.append(' '.join(['[CLS]', title, ab, vert, subvert]))
 
-        if reducer:
+        if self.reducer == 'bm25':
             encoded_dict = self.tokenizer(documents, add_special_tokens=False, padding=True, truncation=True, max_length=self.max_news_length, return_tensors='np')
             self.encoded_news = encoded_dict.input_ids
             self.attn_mask = encoded_dict.attention_mask
@@ -132,6 +150,7 @@ class MIND(Dataset):
                 )
         else:
             encoded_dict = self.tokenizer(documents, add_special_tokens=False, padding=True, truncation=True, max_length=self.max_news_length, return_tensors='np')
+            # encoded_news, attn_mask = reducer(encoded_dict.input_ids, encoded_dict.attention_mask)
             self.encoded_news = encoded_dict.input_ids
             self.attn_mask = encoded_dict.attention_mask
 
@@ -322,7 +341,7 @@ class MIND(Dataset):
             his_mask = np.zeros((self.his_size), dtype=bool)
             his_mask[:len(his_ids)] = 1
 
-            if self.order_history:
+            if self.ascend_history:
                 his_ids = his_ids + [0] * (self.his_size - len(his_ids))
             else:
                 his_ids = his_ids[::-1] + [0] * (self.his_size - len(his_ids))
@@ -338,7 +357,6 @@ class MIND(Dataset):
             else:
                 his_encoded_index = self.encoded_news[his_ids][:, :self.signal_length]
                 his_attn_mask = self.attn_mask[his_ids][:, :self.signal_length]
-                his_attn_mask[:, :self.k+1] = 1
 
             back_dic = {
                 "user_index": np.asarray(user_index),
@@ -364,7 +382,7 @@ class MIND(Dataset):
             his_mask = np.zeros((self.his_size), dtype=bool)
             his_mask[:len(his_ids)] = 1
 
-            if self.order_history:
+            if self.ascend_history:
                 his_ids = his_ids + [0] * (self.his_size - len(his_ids))
             else:
                 his_ids = his_ids[::-1] + [0] * (self.his_size - len(his_ids))
@@ -380,7 +398,6 @@ class MIND(Dataset):
             else:
                 his_encoded_index = self.encoded_news[his_ids][:, :self.signal_length]
                 his_attn_mask = self.attn_mask[his_ids][:, :self.signal_length]
-                his_attn_mask[:, :self.k+1] = 1
 
             back_dic = {
                 "impr_index": impr_index + 1,
@@ -404,7 +421,7 @@ class MIND(Dataset):
             his_mask = np.zeros((self.his_size), dtype=bool)
             his_mask[:len(his_ids)] = 1
 
-            if self.order_history:
+            if self.ascend_history:
                 his_ids = his_ids + [0] * (self.his_size - len(his_ids))
             else:
                 his_ids = his_ids[::-1] + [0] * (self.his_size - len(his_ids))
@@ -419,7 +436,6 @@ class MIND(Dataset):
             else:
                 his_encoded_index = self.encoded_news[his_ids][:, :self.signal_length]
                 his_attn_mask = self.attn_mask[his_ids][:, :self.signal_length]
-                his_attn_mask[:, :self.k+1] = 1
 
             back_dic = {
                 "impr_index": impr_index + 1,
