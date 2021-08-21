@@ -45,7 +45,6 @@ fi
 ```
 - `python==3.8`
 - `torch==1.7.1`
-- `torchtext == 0.8.1`
 
 ## Instruction
 ```bash

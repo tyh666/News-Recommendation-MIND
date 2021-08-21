@@ -81,20 +81,6 @@ class MIND(Dataset):
                     for k,v in news.items():
                         setattr(self, k, v)
 
-                # set the attention mask of padded news to have k unpadded terms
-                self.attn_mask[0, :self.k + 1] = 1
-                # Any article must have at least k non-padded terms
-                for i, mask in enumerate(self.attn_mask):
-                    if mask.sum() < self.k + 1:
-                        self.attn_mask[i][:self.k+1] = 1
-
-                # deduplicate
-                if not config.disable_dedup:
-                    from .utils import DeDuplicate
-                    dedup = DeDuplicate(self.k, self.signal_length)
-                    _, attn_mask = dedup(self.encoded_news, self.attn_mask)
-                    self.attn_mask = attn_mask
-
             else:
                 if config.rank in [-1, 0]:
                     from transformers import BertTokenizerFast
@@ -108,6 +94,20 @@ class MIND(Dataset):
                     # from .utils import DoNothing
                     # self.init_news(DoNothing())
                     self.init_news()
+
+            # set the attention mask of padded news to have k unpadded terms
+            self.attn_mask[0, :self.k + 1] = 1
+            # Any article must have at least k non-padded terms
+            for i, mask in enumerate(self.attn_mask):
+                if mask.sum() < self.k + 1:
+                    self.attn_mask[i][:self.k+1] = 1
+
+            # deduplicate
+            if not config.disable_dedup:
+                from .utils import DeDuplicate
+                dedup = DeDuplicate(self.k, self.signal_length)
+                _, attn_mask = dedup(self.encoded_news, self.attn_mask)
+                self.attn_mask = attn_mask
 
 
     def init_news(self, reducer=None):
