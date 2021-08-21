@@ -154,7 +154,6 @@ class MIND(Dataset):
                 )
         else:
             encoded_dict = self.tokenizer(documents, add_special_tokens=False, padding=True, truncation=True, max_length=self.max_news_length, return_tensors='np')
-            # encoded_news, attn_mask = reducer(encoded_dict.input_ids, encoded_dict.attention_mask)
             self.encoded_news = encoded_dict.input_ids
             self.attn_mask = encoded_dict.attention_mask
 
