@@ -13,16 +13,14 @@ class BERT_Embedding(nn.Module):
         self.embedding_dim = 768
         config.embedding_dim = self.embedding_dim
 
-        # FIXME: problemastic
-        config.hidden_dim = 768
-
         bert = BertModel.from_pretrained(
             config.bert,
             cache_dir=config.path + 'bert_cache/'
         )
         self.embedding = bert.embeddings.word_embeddings
         # [1, (1,) *, embedding_dim]
-        self.pos_embedding = nn.Parameter(bert.embeddings.position_embeddings.weight[:config.signal_length].unsqueeze(0).unsqueeze(0))
+        self.pos_embedding = nn.Parameter(bert.embeddings.position_embeddings.weight[:config.signal_length])
+        # self.token_type_embedding = nn.Parameter(bert.embeddings.token_type_embeddings.weight[0])
 
         self.layerNorm = bert.embeddings.LayerNorm
         self.dropOut = nn.Dropout(config.dropout_p)
@@ -38,9 +36,10 @@ class BERT_Embedding(nn.Module):
             news_embedding: hidden vector of each token in news, of size [batch_size, *, signal_length, emedding_dim]
         """
 
-        # [bs, cs/hs, sl]
+        # [bs, cs/hs, sl, ed]
         word_embeds = self.embedding(news_batch)
 
-        embedding = self.dropOut(self.layerNorm(self.pos_embedding[:,:,:word_embeds.size(2)] + word_embeds))
+        # embedding = self.dropOut(self.layerNorm(word_embeds + self.pos_embedding[:word_embeds.size(2)] + self.token_type_embedding))
+        embedding = self.dropOut(self.layerNorm(word_embeds + self.pos_embedding[:word_embeds.size(2)]))
 
         return embedding

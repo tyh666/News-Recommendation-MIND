@@ -130,10 +130,11 @@ class Manager():
             bert_params.append(model.embedding.parameters())
         else:
             base_params.append(model.embedding.parameters())
-        if self.ranker == 'bert':
-            bert_params.append(model.ranker.parameters())
-        else:
-            base_params.append(model.ranker.parameters())
+        if hasattr(model, 'ranker'):
+            if self.ranker == 'bert':
+                bert_params.append(model.ranker.parameters())
+            else:
+                base_params.append(model.ranker.parameters())
 
 
         optimizer = optim.Adam([

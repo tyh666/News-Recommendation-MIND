@@ -1,8 +1,7 @@
-from utils.utils import prepare, load_manager, setup, cleanup
-
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 
+from utils.utils import prepare, load_manager, setup, cleanup
 from models.ESM import ESM
 
 def main(rank, manager, dist=False):
@@ -21,6 +20,7 @@ def main(rank, manager, dist=False):
     if manager.encoderN == 'cnn':
         from models.Encoders.CNN import CNN_Encoder
         encoderN = CNN_Encoder(manager)
+
     if manager.encoderU == 'rnn':
         from models.Encoders.RNN import RNN_User_Encoder
         encoderU = RNN_User_Encoder(manager)
@@ -30,7 +30,11 @@ def main(rank, manager, dist=False):
     elif manager.reducer == 'bm25':
         from models.Modules.DRM import BM25_Reducer
         docReducer = BM25_Reducer(manager)
-    # termFuser = TFM(manager.his_size, manager.k)
+
+    # if manager.fuser == 'union':
+    #     from models.Modules.TFM import Union_Fuser
+    #     termFuser = Union_Fuser(manager)
+
     if manager.ranker == 'onepass':
         from models.Rankers.BERT import BERT_Onepass_Ranker
         ranker = BERT_Onepass_Ranker(manager)

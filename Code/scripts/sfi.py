@@ -66,8 +66,8 @@ def main(rank, manager, dist=False):
         from models.Modules.HSM import SFI_Selector
         selector = SFI_Selector(manager)
 
-    from models.Rankers.BERT import BERT_Selected_Ranker
-    ranker = BERT_Selected_Ranker(manager)
+    from models.Rankers.BERT import BERT_Original_Ranker
+    ranker = BERT_Original_Ranker(manager)
 
     # elif manager.ranker == 'knrm':
     #     from models.Rankers.KNRM import KNRM_Ranker

@@ -49,9 +49,9 @@ fi
 ## Instruction
 ```bash
 cd /data/v-pezhang/Code/Document-Reduction/Code
-python esm.py -m tune -s large -bs=25 -ws=2
+python -m scripts.esm -m tune -s large -bs=25 -ws=2
 
-python sfi.py -m tune -e 5 -s demo -k=5 -encn=fim -itr=selected -sl=20 -bs=10 -is=10
+python -m scripts.sfi -m tune -e 5 -s demo -k=5 -encn=fim -itr=selected -sl=20 -bs=10 -is=10
 ```
 ## Preprocess
 - [x] remove stop words
@@ -61,12 +61,14 @@ python sfi.py -m tune -e 5 -s demo -k=5 -encn=fim -itr=selected -sl=20 -bs=10 -i
   - [ ] propotion > 200
   - [ ] propotion > 300
   - [ ] propotion > 400
+- [ ] **bag of words input**
 
 ## Embedding
 - [x] Random embedding
 - [ ] Bert embedding
   - [x] add absolute position embedding
   - [x] add cls embedding
+  - [ ] add token type embedding
 
 ## News Encoder
 - [x] CNN encoder
@@ -74,7 +76,6 @@ python sfi.py -m tune -e 5 -s demo -k=5 -encn=fim -itr=selected -sl=20 -bs=10 -i
 - [ ] Bert encoder
   - [ ] [CLS] as news repr
   - [ ] attention over the last layer as news repr
-- [ ] **how to deal with the categories**
 
 ## User Encoder
 - [x] RNN encoder

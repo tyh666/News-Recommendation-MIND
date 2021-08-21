@@ -1,4 +1,4 @@
-import logging
+# selective fine-grained interaction framework
 import torch
 import torch.nn as nn
 
@@ -54,8 +54,9 @@ class SFI(nn.Module):
             self.batch_size = x['cdd_encoded_index'].shape[0]
 
         cdd_news = x['cdd_encoded_index'].long().to(self.device)
-        cdd_news_embedding, cdd_news_repr = self.encoder(
-            self.embedding(cdd_news)
+        cdd_news_embedding = self.embedding(cdd_news)
+        _, cdd_news_repr = self.encoder(
+            cdd_news_embedding
         )
             # user_index=x['user_index'].long().to(self.device),
             # news_id=x['cdd_id'].long().to(self.device))
@@ -76,7 +77,6 @@ class SFI(nn.Module):
         itr_tensors = self.ranker(cdd_news_embedding, output[0], x["cdd_attn_mask"].to(self.device), output[1])
         repr_tensors = cdd_news_repr.unsqueeze(dim=2).matmul(his_news_repr.unsqueeze(dim=1).transpose(-2,-1)).squeeze(dim=-2)
         # t4 = time.time()
-        # print(fusion_tensors.shape)
         # print("encoding time:{} selection time:{} interacting time:{}".format(t2-t1, t3-t2, t4-t3))
 
         return self._click_predictor(itr_tensors, repr_tensors)

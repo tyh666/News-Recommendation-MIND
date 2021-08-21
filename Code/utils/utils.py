@@ -404,7 +404,7 @@ def load_manager():
     parser.add_argument("-sm", "--smoothing", dest="smoothing", help="smoothing factor of tqdm", type=float, default=0.3)
 
     parser.add_argument("--ascend_history", dest="ascend_history", help="whether to order history by time in ascending", action='store_true', default=False)
-    parser.add_argument("--disable_dedup", dest="disable_dedup", help="whether to disable deduplication forarticles", action='store_true', default=False)
+    parser.add_argument("--no_dedup", dest="no_dedup", help="whether to disable deduplication forarticles", action='store_true', default=False)
 
     parser.add_argument("--num_workers", dest="num_workers", help="worker number of a dataloader", type=int, default=0)
     parser.add_argument("--shuffle", dest="shuffle", help="whether to shuffle the indices", action='store_true', default=False)
@@ -421,7 +421,8 @@ def load_manager():
     parser.add_argument("-encu", "--encoderU", dest="encoderU", help="choose user encoder", choices=['rnn','lstur','nrms'], default="rnn")
     parser.add_argument("-slc", "--selector", dest="selector", help="choose history selector", choices=['recent','sfi'], default="sfi")
     parser.add_argument("-red", "--reducer", dest="reducer", help="choose document reducer", choices=['bm25','matching'], default="matching")
-    parser.add_argument("-rk", "--ranker", dest="ranker", help="choose ranker", choices=['onepass','selected','original','cnn','knrm'], default="onepass")
+    parser.add_argument("-fus", "--fuser", dest="fuser", help="choose term fuser", choices=['union'], default="union")
+    parser.add_argument("-rk", "--ranker", dest="ranker", help="choose ranker", choices=['onepass','original','cnn','knrm'], default="onepass")
 
     parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=5)
     parser.add_argument("--threshold", dest="threshold", help="threshold to mask terms", default=-float("inf"), type=float)
@@ -761,12 +762,15 @@ class BM25(object):
 
         sorted_documents = []
         sorted_attn_mask = []
-        for bm25 in bm25_scores:
+        for i, bm25 in enumerate(bm25_scores):
             bm25_length = len(bm25) + 1
             pad_length = document_length - bm25_length
-
-            sorted_documents.append([101] + list(bm25.keys()) + [0]*pad_length)
-            sorted_attn_mask.append([1] * bm25_length + [0] * pad_length)
+            if not i:
+                sorted_documents.append([0] * document_length)
+                sorted_attn_mask.append([0] * document_length)
+            else:
+                sorted_documents.append([101] + list(bm25.keys()) + [0]*pad_length)
+                sorted_attn_mask.append([1] * bm25_length + [0] * pad_length)
 
         return np.asarray(sorted_documents), np.asarray(sorted_attn_mask)
 

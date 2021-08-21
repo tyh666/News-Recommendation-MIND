@@ -9,7 +9,7 @@ class Matching_Reducer(nn.Module):
     def __init__(self, config):
         super().__init__()
 
-        self.name = "matching-reducer"
+        self.name = "matching"
 
         self.k = config.k
 
@@ -18,7 +18,7 @@ class Matching_Reducer(nn.Module):
         threshold = torch.tensor([config.threshold])
         self.register_buffer('threshold', threshold)
 
-    def forward(self, news_selection_embedding, news_embedding, user_repr, his_attn_mask):
+    def forward(self, news_selection_embedding, news_embedding, user_repr, his_attn_mask, his_attn_mask_k):
         """
         Extract words from news text according to the overall user interest
 
@@ -28,8 +28,8 @@ class Matching_Reducer(nn.Module):
             user_repr: user representation, [batch_size, 1, hidden_dim]
 
         Returns:
-            weighted_pt: weighted embedding for personalized terms, [batch_size, his_size, k, hidden_dim]
-            score_kid: index of top k terms in the text, [batch_size, his_size, k]
+            ps_terms: weighted embedding for personalized terms, [batch_size, his_size, k, hidden_dim]
+            ps_term_mask: attention mask of output terms, [batch_size, his_size, k]
         """
         # strip off [CLS]
         news_selection_embedding = news_selection_embedding[:, :, 1:]
@@ -38,18 +38,22 @@ class Matching_Reducer(nn.Module):
         # [bs, hs, sl - 1]
         scores = F.normalize(news_selection_embedding, dim=-1).matmul(F.normalize(user_repr, dim=-1).transpose(-2,-1).unsqueeze(1)).squeeze(-1)
         # mask the padded term
-        scores = scores.masked_fill(~his_attn_mask[:, :, 1:], -float('inf'))
+        scores = scores.masked_fill(~his_attn_mask_k[:, :, 1:], -float('inf'))
 
         score_k, score_kid = scores.topk(dim=-1, k=self.k, sorted=False)
 
         personalized_terms = news_embedding.gather(dim=-2,index=score_kid.unsqueeze(-1).expand(score_kid.size() + (news_embedding.size(-1),)))
-        # weighted_ps_terms = personalized_terms * (nn.functional.softmax(score_k.masked_fill(score_k < self.threshold, 0), dim=-1).unsqueeze(-1))
-        weighted_ps_terms = personalized_terms * (score_k.masked_fill(score_k < self.threshold, 0).unsqueeze(-1))
+        ps_term_mask = his_attn_mask[:, :, 1:].gather(dim=-1, index=score_kid)
+
+        mask_pos = score_k < self.threshold
+        # ps_terms = personalized_terms * (nn.functional.softmax(score_k.masked_fill(score_k < self.threshold, 0), dim=-1).unsqueeze(-1))
+        ps_terms = personalized_terms * (score_k.masked_fill(mask_pos, 0).unsqueeze(-1))
+        ps_term_mask = ps_term_mask * (~mask_pos)
 
         # weighted_ps_terms.retain_grad()
         # print(weighted_ps_terms.grad, weighted_ps_terms.requires_grad)
 
-        return weighted_ps_terms, score_kid
+        return ps_terms, ps_term_mask
 
 
 class BM25_Reducer(nn.Module):
@@ -59,12 +63,12 @@ class BM25_Reducer(nn.Module):
     def __init__(self, config):
         super().__init__()
 
-        self.name = "bm25-reducer"
+        self.name = "bm25"
 
         config.term_num = config.k * config.his_size
 
 
-    def forward(self, news_selection_embedding, news_embedding, user_repr, his_attn_mask):
+    def forward(self, news_selection_embedding, news_embedding, user_repr, his_attn_mask, his_attn_mask_k=None):
         """
         Extract words from news text according to the overall user interest
 

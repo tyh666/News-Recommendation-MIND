@@ -1,8 +1,9 @@
+# Personalized terms
 import torch
 import torch.nn as nn
 
 class ESM(nn.Module):
-    def __init__(self, config, embedding, encoderN, encoderU, docReducer, termFuser, ranker):
+    def __init__(self, config, embedding, encoderN, encoderU, reducer, fuser, ranker):
         super().__init__()
 
         self.scale = config.scale
@@ -16,11 +17,10 @@ class ESM(nn.Module):
         self.embedding = embedding
         self.encoderN = encoderN
         self.encoderU = encoderU
-        self.docReducer = docReducer
-        self.termFuser = termFuser
+        self.reducer = reducer
+        self.fuser = fuser
         self.ranker = ranker
 
-        self.hidden_dim = encoderN.hidden_dim
         self.final_dim = ranker.final_dim
 
         self.learningToRank = nn.Sequential(
@@ -29,7 +29,7 @@ class ESM(nn.Module):
             nn.Linear(int(self.final_dim/2),1)
         )
 
-        self.name = '__'.join(['esm', self.encoderN.name, self.encoderU.name, self.docReducer.name, self.ranker.name])
+        self.name = '__'.join(['esm', self.encoderN.name, self.encoderU.name, self.reducer.name, self.ranker.name])
         config.name = self.name
 
     def clickPredictor(self, reduced_tensor, cdd_news_repr, user_repr):
@@ -57,21 +57,28 @@ class ESM(nn.Module):
         _, cdd_news_repr = self.encoderN(
             cdd_news_embedding
         )
-        his_news = x["his_encoded_index"].long().to(self.device)
+        if self.reducer.name == 'bm25':
+            his_news = x["his_reduced_index"].long().to(self.device)
+        else:
+            his_news = x["his_encoded_index"].long().to(self.device)
         his_news_embedding = self.embedding(his_news)
         his_news_encoded_embedding, his_news_repr = self.encoderN(
             his_news_embedding
         )
 
         user_repr = self.encoderU(his_news_repr)
+        if self.reducer.name == 'matching':
+            ps_terms, ps_term_mask = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, x["his_attn_mask_dedup"].to(self.device), x["his_attn_mask_k"].to(self.device).bool())
 
-        ps_terms, ps_term_ids = self.docReducer(his_news_encoded_embedding, his_news_embedding, user_repr, x["his_attn_mask"].to(self.device).bool())
-        # if self.termFuser:
-        #     ps_terms = self.termFuser(ps_terms, ps_term_ids, his_news)
+        else:
+            ps_terms, ps_term_mask = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, x["his_attn_mask"].to(self.device))
+
+        if self.fuser:
+            ps_terms, ps_term_mask = self.fuser(ps_terms, ps_term_mask)
 
         # reduced_tensor = self.ranker(torch.cat([cdd_news_repr.unsqueeze(-2), cdd_news_embedding], dim=-2), torch.cat([user_repr, ps_terms], dim=-2))
 
-        reduced_tensor = self.ranker(cdd_news_embedding, ps_terms, x["cdd_attn_mask"].to(self.device))
+        reduced_tensor = self.ranker(cdd_news_embedding, ps_terms, x["cdd_attn_mask"].to(self.device), ps_term_mask)
 
         return self.clickPredictor(reduced_tensor, cdd_news_repr, user_repr)
 

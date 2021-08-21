@@ -95,19 +95,23 @@ class MIND(Dataset):
                     # self.init_news(DoNothing())
                     self.init_news()
 
-            # set the attention mask of padded news to have k unpadded terms
-            self.attn_mask[0, :self.k + 1] = 1
-            # Any article must have at least k non-padded terms
-            for i, mask in enumerate(self.attn_mask):
-                if mask.sum() < self.k + 1:
-                    self.attn_mask[i][:self.k+1] = 1
+            attn_mask = self.attn_mask
 
             # deduplicate
-            if not config.disable_dedup:
+            if not config.no_dedup:
                 from .utils import DeDuplicate
                 dedup = DeDuplicate(self.k, self.signal_length)
-                _, attn_mask = dedup(self.encoded_news, self.attn_mask)
-                self.attn_mask = attn_mask
+                _, attn_mask = dedup(self.encoded_news, attn_mask)
+
+            # set the attention mask of padded news to have k unpadded terms
+            # only used in selection
+            attn_mask_k = attn_mask
+            attn_mask_k[0, :self.k + 1] = 1
+            # Any article must have at least k non-padded terms
+            for i, mask in enumerate(attn_mask_k):
+                if mask.sum() < self.k + 1:
+                    attn_mask_k[i][:self.k+1] = 1
+            self.attn_mask_k = attn_mask_k
 
 
     def init_news(self, reducer=None):
@@ -133,18 +137,18 @@ class MIND(Dataset):
             self.encoded_news = encoded_dict.input_ids
             self.attn_mask = encoded_dict.attention_mask
 
-            documents_sorted, attn_mask_sorted = reducer(documents)
+            reduced_documents, attn_reduced_mask = reducer(self.encoded_news)
 
-            self.encoded_news_sorted = documents_sorted
-            self.attn_mask_sorted = attn_mask_sorted * self.attn_mask
+            self.reduced_news = reduced_documents
+            self.attn_reduced_mask = attn_reduced_mask * self.attn_mask
 
             with open(self.news_path, 'wb') as f:
                 pickle.dump(
                     {
                         'encoded_news': self.encoded_news,
-                        'encoded_news_sorted': self.encoded_news_sorted,
+                        'reduced_news': self.reduced_news,
                         'attn_mask': self.attn_mask,
-                        'attn_mask_sorted': self.attn_mask_sorted
+                        'attn_reduced_mask': self.attn_reduced_mask
                     },
                     f
                 )
@@ -351,12 +355,8 @@ class MIND(Dataset):
 
             cdd_encoded_index = self.encoded_news[cdd_ids][:, :self.signal_length]
             cdd_attn_mask = self.attn_mask[cdd_ids][:, :self.signal_length]
-            if self.reducer == 'bm25':
-                his_encoded_index = self.encoded_news_sorted[his_ids][:, :self.k + 1]
-                his_attn_mask = self.attn_mask_sorted[his_ids][:, :self.k + 1]
-            else:
-                his_encoded_index = self.encoded_news[his_ids][:, :self.signal_length]
-                his_attn_mask = self.attn_mask[his_ids][:, :self.signal_length]
+            his_encoded_index = self.encoded_news[his_ids][:, :self.signal_length]
+            his_attn_mask = self.attn_mask[his_ids][:, :self.signal_length]
 
             back_dic = {
                 "user_index": np.asarray(user_index),
@@ -370,6 +370,18 @@ class MIND(Dataset):
                 "his_mask": his_mask,
                 "label": label
             }
+
+            if self.reducer == 'bm25':
+                his_reduced_index = self.reduced_news[his_ids][:, :self.k + 1]
+                his_reduced_mask = self.attn_reduced_mask[his_ids][:, :self.k + 1]
+                back_dic['his_reduced_index'] = his_reduced_index
+                back_dic['his_reduced_mask'] = his_reduced_mask
+
+            elif self.reducer == 'matching':
+                cdd_attn_mask_k = self.attn_mask_k[cdd_ids][:, :self.signal_length]
+                his_attn_mask_k = self.attn_mask_k[his_ids][:, :self.signal_length]
+                back_dic['cdd_attn_mask_k'] = cdd_attn_mask_k
+                back_dic['his_attn_mask_k'] = his_attn_mask_k
 
             return back_dic
 
@@ -392,12 +404,8 @@ class MIND(Dataset):
 
             cdd_encoded_index = self.encoded_news[cdd_ids][:, :self.signal_length]
             cdd_attn_mask = self.attn_mask[cdd_ids][:, :self.signal_length]
-            if self.reducer == 'bm25':
-                his_encoded_index = self.encoded_news_sorted[his_ids][:, :self.k + 1]
-                his_attn_mask = self.attn_mask_sorted[his_ids][:, :self.k + 1]
-            else:
-                his_encoded_index = self.encoded_news[his_ids][:, :self.signal_length]
-                his_attn_mask = self.attn_mask[his_ids][:, :self.signal_length]
+            his_encoded_index = self.encoded_news[his_ids][:, :self.signal_length]
+            his_attn_mask = self.attn_mask[his_ids][:, :self.signal_length]
 
             back_dic = {
                 "impr_index": impr_index + 1,
@@ -411,6 +419,19 @@ class MIND(Dataset):
                 "his_mask": his_mask,
                 "label": np.asarray(label)
             }
+
+            if self.reducer == 'bm25':
+                his_reduced_index = self.reduced_news[his_ids][:, :self.k + 1]
+                his_reduced_mask = self.attn_reduced_mask[his_ids][:, :self.k + 1]
+                back_dic['his_reduced_index'] = his_reduced_index
+                back_dic['his_reduced_mask'] = his_reduced_mask
+
+            elif self.reducer == 'matching':
+                cdd_attn_mask_k = self.attn_mask_k[cdd_ids][:, :self.signal_length]
+                his_attn_mask_k = self.attn_mask_k[his_ids][:, :self.signal_length]
+                back_dic['cdd_attn_mask_k'] = cdd_attn_mask_k
+                back_dic['his_attn_mask_k'] = his_attn_mask_k
+
             return back_dic
 
         elif self.mode == 'test':
@@ -430,12 +451,8 @@ class MIND(Dataset):
 
             cdd_encoded_index = self.encoded_news[cdd_ids][:, :self.signal_length]
             cdd_attn_mask = self.attn_mask[cdd_ids][:, :self.signal_length]
-            if self.reducer == 'bm25':
-                his_encoded_index = self.encoded_news_sorted[his_ids][:, :self.k + 1]
-                his_attn_mask = self.attn_mask_sorted[his_ids][:, :self.k + 1]
-            else:
-                his_encoded_index = self.encoded_news[his_ids][:, :self.signal_length]
-                his_attn_mask = self.attn_mask[his_ids][:, :self.signal_length]
+            his_encoded_index = self.encoded_news[his_ids][:, :self.signal_length]
+            his_attn_mask = self.attn_mask[his_ids][:, :self.signal_length]
 
             back_dic = {
                 "impr_index": impr_index + 1,
@@ -446,8 +463,21 @@ class MIND(Dataset):
                 "his_encoded_index": his_encoded_index,
                 "cdd_attn_mask": cdd_attn_mask,
                 "his_attn_mask": his_attn_mask,
-                "his_mask": his_mask
+                "his_mask": his_mask,
             }
+
+            if self.reducer == 'bm25':
+                his_reduced_index = self.reduced_news[his_ids][:, :self.k + 1]
+                his_reduced_mask = self.attn_reduced_mask[his_ids][:, :self.k + 1]
+                back_dic['his_reduced_index'] = his_reduced_index
+                back_dic['his_reduced_mask'] = his_reduced_mask
+
+            elif self.reducer == 'matching':
+                cdd_attn_mask_k = self.attn_mask_k[cdd_ids][:, :self.signal_length]
+                his_attn_mask_k = self.attn_mask_k[his_ids][:, :self.signal_length]
+                back_dic['cdd_attn_mask_k'] = cdd_attn_mask_k
+                back_dic['his_attn_mask_k'] = his_attn_mask_k
+
             return back_dic
 
         else:

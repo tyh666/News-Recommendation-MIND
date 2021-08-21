@@ -13,6 +13,7 @@ class SFI_Selector(nn.Module):
         self.his_size = config.his_size
 
         self.signal_length = config.signal_length
+        self.embedding_dim = config.embedding_dim
         self.hidden_dim = config.hidden_dim
 
         self.selectionProject = nn.Sequential(
@@ -32,8 +33,7 @@ class SFI_Selector(nn.Module):
         Args:
             cdd_repr: tensor of [batch_size, cdd_size, hidden_dim]
             his_repr: tensor of [batch_size, his_size, hidden_dim]
-            his_encoded_embedding: tensor of [batch_size, his_size, signal_length, hidden_dim]
-            his_embedding: tensor of [batch_size, his_size, signal_length, hidden_dim]
+            his_embedding: tensor of [batch_size, his_size, signal_length, embedding_dim]
             his_attn_mask: tensor of [batch_size, his_size, signal_length]
 
         Returns:
@@ -64,9 +64,9 @@ class SFI_Selector(nn.Module):
             # t3 = time.time()
 
             # [bs, cs, k, sl, level, fn]
-            his_selected = his_embedding.unsqueeze(dim=1).expand(batch_size, cdd_size, self.his_size, self.signal_length, self.hidden_dim).gather(
+            his_selected = his_embedding.unsqueeze(dim=1).expand(batch_size, cdd_size, self.his_size, self.signal_length, self.embedding_dim).gather(
                 dim=2,
-                index=attn_weights_index.view(batch_size, cdd_size, self.k, 1, 1).expand(batch_size, cdd_size, self.k, self.signal_length, self.hidden_dim)
+                index=attn_weights_index.view(batch_size, cdd_size, self.k, 1, 1).expand(batch_size, cdd_size, self.k, self.signal_length, self.embedding_dim)
             )
 
             his_mask_selected = his_attn_mask.unsqueeze(dim=1).expand(batch_size, cdd_size, self.his_size, self.signal_length).gather(
@@ -102,17 +102,14 @@ class Recent_Selector(nn.Module):
         Args:
             cdd_repr: tensor of [batch_size, cdd_size, hidden_dim]
             his_repr: tensor of [batch_size, his_size, hidden_dim]
-            his_encoded_embedding: tensor of [batch_size, his_size, signal_length, hidden_dim]
-            his_embedding: tensor of [batch_size, his_size, signal_length, hidden_dim]
+            his_embedding: tensor of [batch_size, his_size, signal_length, embedding_dim]
             his_attn_mask: tensor of [batch_size, his_size, signal_length]
 
         Returns:
-            his_selected: tensor of [batch_size, cdd_size, k, signal_length, hidden_dim]
+            his_selected: tensor of [batch_size, cdd_size, k, signal_length, embedding_dim]
             his_mask_selected: tensor of [batch_size, cdd_size, k, signal_length]
         """
-        batch_size = his_embedding.size(0)
         cdd_size = cdd_repr.size(1)
-        hidden_dim = cdd_repr.size(-1)
 
         his_selected = his_embedding[:, :self.k].unsqueeze(1).repeat(1, cdd_size, 1, 1, 1)
         his_mask_selected = his_attn_mask[:, :self.k].unsqueeze(1).repeat(1, cdd_size, 1, 1)
