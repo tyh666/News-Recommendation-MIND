@@ -53,6 +53,7 @@ python -m scripts.esm -m tune -s large -bs=25 -ws=2
 python -m scripts.esm -m tune -s demo -bs=5 -d=1 -is=10 -st=10 -sl=80
 
 python -m scripts.sfi -m tune -e 5 -s demo -k=5 -encn=fim -itr=selected -sl=20 -bs=10 -is=10
+python -m scripts.ttm -m tune -s large -encn=bert -sl=30 -bs=25 -is=10 --no_dedup -ws=2
 ```
 ## Preprocess
 - [x] remove stop words
