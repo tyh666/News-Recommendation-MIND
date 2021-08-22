@@ -19,7 +19,7 @@ class BERT_Encoder(nn.Module):
             config.bert,
             cache_dir=config.path + 'bert_cache/'
         )
-        self.encoder = bert.encoder
+        self.bert = bert.encoder
 
     def forward(self, news_embedding, attn_mask):
         """ encode news with bert
@@ -39,7 +39,7 @@ class BERT_Encoder(nn.Module):
         attn_mask = (1.0 - attn_mask) * -10000.0
 
         # [bs, cs/hs, sl, ed]
-        bert_output = self.encoder(bert_input, attention_mask=attn_mask)
+        bert_output = self.bert(bert_input, attention_mask=attn_mask)
         news_repr = bert_output.last_hidden_state[:, 0].reshape(batch_size, -1, self.hidden_dim)
         news_encoded_embedding = bert_output.last_hidden_state.view(batch_size, -1, self.signal_length, self.hidden_dim)
 
