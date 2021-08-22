@@ -76,9 +76,12 @@ class SFI_Selector(nn.Module):
 
             # t4 = time.time()
 
-        if hasattr(self,'threshold'):
-            his_selected = his_selected * (attn_weights.masked_fill(attn_weights<self.threshold, 0).view(batch_size, cdd_size, self.k, 1, 1))
+        if hasattr(self, 'threshold'):
+            # bs, cs, k
+            mask_pos = attn_weights < self.threshold
+            his_selected = his_selected * (attn_weights.masked_fill(mask_pos, 0).view(batch_size, cdd_size, self.k, 1, 1))
             # his_selected = his_selected * (F.softmax(attn_weights.masked_fill(attn_weights<self.threshold, 0), dim=-1).view(batch_size, self.cdd_size, self.k, 1, 1, 1))
+            his_mask_selected = his_mask_selected * (~mask_pos.unsqueeze(-1))
 
         # t6 = time.time()
         # print("product time:{}, sort time:{}, scatter time:{}, activate time:{}, mask time:{}".format(t2-t1, t3-t2, t4-t3, t5-t4, t6-t5))

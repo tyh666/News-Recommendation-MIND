@@ -52,7 +52,7 @@ cd /data/v-pezhang/Code/Document-Reduction/Code
 python -m scripts.esm -m tune -s large -bs=25 -ws=2
 python -m scripts.esm -m tune -s demo -bs=5 -d=1 -is=10 -st=10 -sl=80
 
-python -m scripts.sfi -m tune -e 5 -s demo -k=5 -encn=fim -itr=selected -sl=20 -bs=10 -is=10
+python -m scripts.sfi -m tune -s demo -k=5 -sl=20 -bs=10 -is=10 --no_dedup
 python -m scripts.ttm -m tune -s large -encn=bert -sl=30 -bs=25 -is=10 --no_dedup -ws=2
 ```
 ## Preprocess
@@ -67,17 +67,19 @@ python -m scripts.ttm -m tune -s large -encn=bert -sl=30 -bs=25 -is=10 --no_dedu
 
 ## Embedding
 - [x] Random embedding
-- [ ] Bert embedding
+- [x] Bert embedding
   - [x] add absolute position embedding
   - [x] add cls embedding
-  - [ ] add token type embedding
+  - [x] add token type embedding
+    - add in the final ranking stage
 
 ## News Encoder
 - [x] CNN encoder
 - [x] FIM encoder
-- [ ] Bert encoder
-  - [ ] [CLS] as news repr
+- [x] Bert encoder
+  - [x] [CLS] as news repr
   - [ ] attention over the last layer as news repr
+    - not necessary, the CLS is already the attentive pooling output
 
 ## User Encoder
 - [x] RNN encoder
@@ -93,13 +95,14 @@ python -m scripts.ttm -m tune -s large -encn=bert -sl=30 -bs=25 -is=10 --no_dedu
   - [ ] diversified
     - [ ] use document vector as an extraction input
     - [ ] design methods to extract non-duplicated terms within an article
+      - [x] restrict attention mask
   - [x] extract origin embedding, not after cnn
   - [ ] dynamic allocation of top k
-    - [ ] read paper of yi xiaoyuan
+    - [x] read paper of yi xiaoyuan
   - [x] extract terms from every historical news when the history is updated
   - [ ] extract terms incrementally
   - [ ] long and short term extraction
-  - [ ] **modify his_attn_mask to excludes repetitve terms from selection**
+  - [x] **modify his_attn_mask to excludes repetitve terms from selection**
 
 - [ ] Seq2Seq based
 - [ ] RL based
@@ -148,6 +151,7 @@ python -m scripts.ttm -m tune -s large -encn=bert -sl=30 -bs=25 -is=10 --no_dedu
 - learning rate of bert
 - use selected document for final bert is terrible
 - **history in MIND, the more recent is at the front or the tail**, we now use the head as the latest news by default
+  - its ascending by time
 - [SEP] no position embedding
 - headline news recommendation (zero shot)
 - recall
@@ -163,7 +167,6 @@ python -m scripts.ttm -m tune -s large -encn=bert -sl=30 -bs=25 -is=10 --no_dedu
   - [x] + cnn encoder, rnn user encoder
   - [ ] + nrms encoder, nrms user encoder
   - [ ] + cnn encoder, cdd-aware user encoder
-
 
 ## Need to update
 - [ ] Encoders.MHA, NPA, Pipeline
@@ -184,7 +187,6 @@ python -m scripts.ttm -m tune -s large -encn=bert -sl=30 -bs=25 -is=10 --no_dedu
 ## Function
 ### Embedding
 ### Encoder
-- may have levels
 - output no levels
 
 ### DocReducer

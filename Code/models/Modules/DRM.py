@@ -15,8 +15,9 @@ class Matching_Reducer(nn.Module):
 
         config.term_num = config.k * config.his_size
 
-        threshold = torch.tensor([config.threshold])
-        self.register_buffer('threshold', threshold)
+        if config.threshold != -float('inf'):
+            threshold = torch.tensor([config.threshold])
+            self.register_buffer('threshold', threshold)
 
     def forward(self, news_selection_embedding, news_embedding, user_repr, his_attn_mask, his_attn_mask_k):
         """
@@ -43,12 +44,14 @@ class Matching_Reducer(nn.Module):
         score_k, score_kid = scores.topk(dim=-1, k=self.k, sorted=False)
 
         personalized_terms = news_embedding.gather(dim=-2,index=score_kid.unsqueeze(-1).expand(score_kid.size() + (news_embedding.size(-1),)))
+        # [bs, hs, k]
         ps_term_mask = his_attn_mask[:, :, 1:].gather(dim=-1, index=score_kid)
 
-        mask_pos = score_k < self.threshold
-        # ps_terms = personalized_terms * (nn.functional.softmax(score_k.masked_fill(score_k < self.threshold, 0), dim=-1).unsqueeze(-1))
-        ps_terms = personalized_terms * (score_k.masked_fill(mask_pos, 0).unsqueeze(-1))
-        ps_term_mask = ps_term_mask * (~mask_pos)
+        if hasattr(self, 'threshold'):
+            mask_pos = score_k < self.threshold
+            # ps_terms = personalized_terms * (nn.functional.softmax(score_k.masked_fill(score_k < self.threshold, 0), dim=-1).unsqueeze(-1))
+            ps_terms = personalized_terms * (score_k.masked_fill(mask_pos, 0).unsqueeze(-1))
+            ps_term_mask = ps_term_mask * (~mask_pos)
 
         return ps_terms, ps_term_mask
 

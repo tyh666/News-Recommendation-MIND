@@ -425,7 +425,7 @@ def load_manager():
     parser.add_argument("-rk", "--ranker", dest="ranker", help="choose ranker", choices=['onepass','original','cnn','knrm'], default="onepass")
 
     parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=5)
-    parser.add_argument("--threshold", dest="threshold", help="threshold to mask terms", default=-float("inf"), type=float)
+    parser.add_argument("-thr", "--threshold", dest="threshold", help="threshold to mask terms", default=-float("inf"), type=float)
 
     parser.add_argument("--spadam", dest="spadam", action='store_true', default=False)
     parser.add_argument("--tb", dest="tb", action='store_true', default=False)
