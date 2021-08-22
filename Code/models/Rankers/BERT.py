@@ -93,7 +93,8 @@ class BERT_Original_Ranker(nn.Module):
 
 class BERT_Onepass_Ranker(nn.Module):
     """
-    one-pass bert: cdd1 cdd2 ... cddn [SEP] pst1 pst2 ...
+    one-pass bert:
+        cdd1 cdd2 ... cddn [SEP] pst1 pst2 ...
     """
     def __init__(self, config):
         from .Modules.OnePassAttn import BertSelfAttention
@@ -154,7 +155,7 @@ class BERT_Onepass_Ranker(nn.Module):
 
         # ps_terms = ps_terms.view(batch_size, -1, self.embedding_dim)
         ps_terms = (ps_terms + self.order_embedding).view(batch_size, -1, self.embedding_dim)
-        
+
         # [bs,tn,hd]
         ps_terms = torch.cat([self.sep_embedding.expand(batch_size, 1, self.embedding_dim), ps_terms], dim=1)
         ps_terms[:,1:] += self.token_type_embedding[1]

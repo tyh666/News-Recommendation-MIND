@@ -400,7 +400,7 @@ def load_manager():
     parser.add_argument("-lr", dest="lr",
                         help="learning rate of non-bert modules", type=float, default=1e-4)
     parser.add_argument("-blr", "--bert_lr", dest="bert_lr",
-                        help="learning rate of bert based modules", type=float, default=1e-5)
+                        help="learning rate of bert based modules", type=float, default=3e-5)
     parser.add_argument("-sm", "--smoothing", dest="smoothing", help="smoothing factor of tqdm", type=float, default=0.3)
 
     parser.add_argument("--ascend_history", dest="ascend_history", help="whether to order history by time in ascending", action='store_true', default=False)

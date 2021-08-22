@@ -50,9 +50,6 @@ class Matching_Reducer(nn.Module):
         ps_terms = personalized_terms * (score_k.masked_fill(mask_pos, 0).unsqueeze(-1))
         ps_term_mask = ps_term_mask * (~mask_pos)
 
-        # weighted_ps_terms.retain_grad()
-        # print(weighted_ps_terms.grad, weighted_ps_terms.requires_grad)
-
         return ps_terms, ps_term_mask
 
 

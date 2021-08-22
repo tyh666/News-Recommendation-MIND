@@ -18,6 +18,7 @@ from torch.utils.tensorboard import SummaryWriter
 from sklearn.metrics import roc_auc_score, log_loss, mean_squared_error, accuracy_score, f1_score
 
 import torch.distributed as dist
+from transformers.models import bert
 
 logger = logging.getLogger(__name__)
 
@@ -122,36 +123,29 @@ class Manager():
         if self.world_size > 1:
             model = model.module
 
-        base_params = [v.parameters() for k,v in model.named_children() if k not in ['embedding','ranker']]
+        base_params = []
         bert_params = []
-
-
-        if self.embedding == 'bert':
-            bert_params.append(model.embedding.parameters())
-        else:
-            base_params.append(model.embedding.parameters())
-        if hasattr(model, 'ranker'):
-            if self.ranker == 'bert':
-                bert_params.append(model.ranker.parameters())
+        for name, param in model.named_parameters():
+            if re.search('bert', name):
+                bert_params.append(param)
             else:
-                base_params.append(model.ranker.parameters())
-
+                base_params.append(param)
 
         optimizer = optim.Adam([
             {
-                'params': chain(*bert_params),
-                'lr': self.bert_lr #lr_schedule(args.pretrain_lr, 1, args)
+                'params': base_params,
+                'lr': self.lr #lr_schedule(args.lr, 1, args)
             },
             {
-                'params': chain(*base_params),
-                'lr': self.lr #lr_schedule(args.lr, 1, args)
+                'params': bert_params,
+                'lr': self.bert_lr #lr_schedule(args.pretrain_lr, 1, args)
             }
         ])
 
         if self.scheduler == 'linear':
             total_steps = loader_train_length * self.epochs
             scheduler = get_linear_schedule_with_warmup(optimizer,
-                                            num_warmup_steps = self.warmup, # Default value in run_glue.py
+                                            num_warmup_steps = self.warmup,
                                             num_training_steps = total_steps)
 
         return optimizer, scheduler

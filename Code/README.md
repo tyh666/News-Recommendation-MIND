@@ -50,6 +50,7 @@ fi
 ```bash
 cd /data/v-pezhang/Code/Document-Reduction/Code
 python -m scripts.esm -m tune -s large -bs=25 -ws=2
+python -m scripts.esm -m tune -s demo -bs=5 -d=1 -is=10 -st=10 -sl=80
 
 python -m scripts.sfi -m tune -e 5 -s demo -k=5 -encn=fim -itr=selected -sl=20 -bs=10 -is=10
 ```

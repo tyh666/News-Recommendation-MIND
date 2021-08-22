@@ -43,12 +43,13 @@ class config:
     ascend_history = False
     no_dedup = False
 
-    schedule = 'linear'
+    scheduler = 'linear'
     warmup = 100
     pin_memory = False
     shuffle = False
     bert = 'bert-base-uncased'
     num_workers = 0
+    smoothing = 0.3
 
     path = "../../../Data/"
 

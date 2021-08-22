@@ -95,22 +95,20 @@ class MIND(Dataset):
                     # self.init_news(DoNothing())
                     self.init_news()
 
-            attn_mask = self.attn_mask
+            # set the attention mask of padded news to have k unpadded terms
+            # only used in selection
+            attn_mask_k = self.attn_mask.copy()
+            # Any article must have at least k non-padded terms
+            for i, mask in enumerate(attn_mask_k):
+                if mask.sum() < self.k + 1:
+                    attn_mask_k[i][:self.k+1] = 1
 
             # deduplicate
             if not config.no_dedup:
                 from .utils import DeDuplicate
                 dedup = DeDuplicate(self.k, self.signal_length)
-                _, attn_mask = dedup(self.encoded_news, attn_mask)
+                _, attn_mask = dedup(self.encoded_news, attn_mask_k)
 
-            # set the attention mask of padded news to have k unpadded terms
-            # only used in selection
-            attn_mask_k = attn_mask
-            attn_mask_k[0, :self.k + 1] = 1
-            # Any article must have at least k non-padded terms
-            for i, mask in enumerate(attn_mask_k):
-                if mask.sum() < self.k + 1:
-                    attn_mask_k[i][:self.k+1] = 1
             self.attn_mask_k = attn_mask_k
 
 
