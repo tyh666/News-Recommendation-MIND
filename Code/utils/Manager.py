@@ -1,4 +1,3 @@
-from importlib.abc import Loader
 import torch
 import re
 import os
@@ -7,18 +6,15 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import scipy.stats as ss
-from torchtext.vocab import FastText
 
 from tqdm import tqdm
 from typing import OrderedDict
-from itertools import chain
 from collections import defaultdict
 from transformers import get_linear_schedule_with_warmup
-from torch.utils.tensorboard import SummaryWriter
+# from torch.utils.tensorboard import SummaryWriter
 from sklearn.metrics import roc_auc_score, log_loss, mean_squared_error, accuracy_score, f1_score
 
 import torch.distributed as dist
-from transformers.models import bert
 
 logger = logging.getLogger(__name__)
 
