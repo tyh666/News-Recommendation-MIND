@@ -3,6 +3,7 @@ import os
 import pickle
 import logging
 import numpy as np
+import torch.distributed as dist
 from torch.utils.data import Dataset
 from utils.utils import newsample, getId2idx, tokenize, getVocab
 
@@ -27,21 +28,24 @@ class MIND(Dataset):
         self.impr_size = config.impr_size
         self.k = config.k
         self.ascend_history = config.ascend_history
+        self.reducer = config.reducer
+
         pat = re.search('MIND/(.*_(.*)/)news', news_file)
         self.mode = pat.group(2)
 
         self.cache_directory = '/'.join(['data/cache', config.embedding, pat.group(1)])
         self.behav_path = self.cache_directory + '{}/{}'.format(self.impr_size, re.search('(\w*\.)tsv', behaviors_file).group(1) + '.pkl')
 
-        if os.path.exists(self.behav_path):
-            logger.info('using cached user behavior from {}'.format(self.behav_path))
-            with open(self.behav_path, 'rb') as f:
-                behaviors = pickle.load(f)
-                for k,v in behaviors.items():
-                    setattr(self, k, v)
+        # only preprocess on the master node, the worker can directly load the cache
+        if config.rank in [-1, 0]:
+            if os.path.exists(self.behav_path):
+                logger.info('loading cached user behavior from {}'.format(self.behav_path))
+                with open(self.behav_path, 'rb') as f:
+                    behaviors = pickle.load(f)
+                    for k,v in behaviors.items():
+                        setattr(self, k, v)
 
-        else:
-            if config.rank in [-1, 0]:
+            else:
                 logger.info("encoding user behaviors of {}...".format(behaviors_file))
                 os.makedirs(self.cache_directory + str(self.impr_size), exist_ok=True)
                 self.behaviors_file = behaviors_file
@@ -50,18 +54,17 @@ class MIND(Dataset):
 
                 self.init_behaviors()
 
-        self.reducer = config.reducer
+            self.reducer = config.reducer
 
-        if config.reducer == 'bm25':
-            self.news_path = self.cache_directory + 'news_bm25.pkl'
-            if os.path.exists(self.news_path):
-                logger.info('using cached news tokenization from {}'.format(self.news_path))
-                with open(self.news_path, 'rb') as f:
-                    news = pickle.load(f)
-                    for k,v in news.items():
-                        setattr(self, k, v)
-            else:
-                if config.rank in [-1, 0]:
+            if config.reducer == 'bm25':
+                self.news_path = self.cache_directory + 'news_bm25.pkl'
+                if os.path.exists(self.news_path):
+                    logger.info('loading cached news tokenization from {}'.format(self.news_path))
+                    with open(self.news_path, 'rb') as f:
+                        news = pickle.load(f)
+                        for k,v in news.items():
+                            setattr(self, k, v)
+                else:
                     from transformers import BertTokenizerFast
                     from .utils import BM25
                     logger.info("encoding news of {}...".format(news_file))
@@ -72,17 +75,15 @@ class MIND(Dataset):
                     self.nid2index = getId2idx('data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, self.mode))
                     self.init_news(reducer=BM25())
 
-        else:
-            self.news_path = self.cache_directory + 'news.pkl'
-            if os.path.exists(self.news_path):
-                logger.info('using cached news tokenization from {}'.format(self.news_path))
-                with open(self.news_path, 'rb') as f:
-                    news = pickle.load(f)
-                    for k,v in news.items():
-                        setattr(self, k, v)
-
             else:
-                if config.rank in [-1, 0]:
+                self.news_path = self.cache_directory + 'news.pkl'
+                if os.path.exists(self.news_path):
+                    logger.info('loading cached news tokenization from {}'.format(self.news_path))
+                    with open(self.news_path, 'rb') as f:
+                        news = pickle.load(f)
+                        for k,v in news.items():
+                            setattr(self, k, v)
+                else:
                     from transformers import BertTokenizerFast
                     logger.info("encoding news of {}...".format(news_file))
                     self.news_file = news_file
@@ -90,26 +91,41 @@ class MIND(Dataset):
                     # there are only two types of vocabulary
                     self.tokenizer = BertTokenizerFast.from_pretrained(config.bert, cache=config.path + 'bert_cache/')
                     self.nid2index = getId2idx('data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, self.mode))
-
-                    # from .utils import DoNothing
-                    # self.init_news(DoNothing())
                     self.init_news()
 
-            # set the attention mask of padded news to have k unpadded terms
-            # only used in selection
-            attn_mask_k = self.attn_mask.copy()
-            # Any article must have at least k non-padded terms
-            for i, mask in enumerate(attn_mask_k):
-                if mask.sum() < self.k + 1:
-                    attn_mask_k[i][:self.k+1] = 1
 
-            # deduplicate
-            if not config.no_dedup:
-                from .utils import DeDuplicate
-                dedup = DeDuplicate(self.k, self.signal_length)
-                _, attn_mask = dedup(self.encoded_news, attn_mask_k)
+        if config.world_size > 1:
+            dist.barrier()
+            logger.info('process NO.{} loading cached user behavior from {}'.format(config.rank, self.behav_path))
+            with open(self.behav_path, 'rb') as f:
+                behaviors = pickle.load(f)
+                for k,v in behaviors.items():
+                    setattr(self, k, v)
+            if config.reducer == 'bm25':
+                self.news_path = self.cache_directory + 'news_bm25.pkl'
+            else:
+                self.news_path = self.cache_directory + 'news.pkl'
+            logger.info('process NO.{} loading cached news tokenization from {}'.format(config.rank, self.news_path))
+            with open(self.news_path, 'rb') as f:
+                news = pickle.load(f)
+                for k,v in news.items():
+                    setattr(self, k, v)
 
-            self.attn_mask_k = attn_mask_k
+        # set the attention mask of padded news to have k unpadded terms
+        # only used in selection
+        attn_mask_k = self.attn_mask.copy()
+        # Any article must have at least k non-padded terms
+        for i, mask in enumerate(attn_mask_k):
+            if mask.sum() < self.k + 1:
+                attn_mask_k[i][:self.k+1] = 1
+        # deduplicate
+        # only used in selection
+        if not config.no_dedup:
+            from .utils import DeDuplicate
+            dedup = DeDuplicate(self.k, self.signal_length)
+            _, attn_mask_k = dedup(self.encoded_news, attn_mask_k)
+
+        self.attn_mask_k = attn_mask_k
 
 
     def init_news(self, reducer=None):
@@ -130,7 +146,7 @@ class MIND(Dataset):
                 nid, vert, subvert, title, ab, url, _, _ = idx.strip("\n").split('\t')
                 documents.append(' '.join(['[CLS]', title, ab, vert, subvert]))
 
-        if self.reducer == 'bm25':
+        if reducer:
             encoded_dict = self.tokenizer(documents, add_special_tokens=False, padding=True, truncation=True, max_length=self.max_news_length, return_tensors='np')
             self.encoded_news = encoded_dict.input_ids
             self.attn_mask = encoded_dict.attention_mask
