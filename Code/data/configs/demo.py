@@ -29,10 +29,9 @@ class config:
     reducer = 'matching'
     interactor = 'onepass'
 
-    embedding_dim = 300
-    hidden_dim = 150
-    # query_dim = 200
-    # head_num = 16
+    embedding_dim = 768
+    hidden_dim = 384
+    head_num = 12
 
     rank = 0
     world_size = 0

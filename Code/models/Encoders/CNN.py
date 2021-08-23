@@ -1,18 +1,18 @@
 import torch
 import torch.nn as nn
-from ..Modules.Attention import Attention
+from ..Modules.Attention import ScaledDpAttention
 
 class CNN_Encoder(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.name = 'cnn'
+        self.name = 'cnn-n'
 
         self.hidden_dim = config.hidden_dim
         self.embedding_dim = config.embedding_dim
 
         self.wordQueryProject = nn.Linear(self.hidden_dim, self.hidden_dim)
 
-        self.CNN = nn.Conv1d(
+        self.cnn = nn.Conv1d(
             in_channels=self.embedding_dim,
             out_channels=self.hidden_dim,
             kernel_size=3,
@@ -27,7 +27,7 @@ class CNN_Encoder(nn.Module):
         self.Tanh = nn.Tanh()
 
         nn.init.xavier_normal_(self.wordQueryProject.weight)
-        nn.init.xavier_normal_(self.CNN.weight)
+        nn.init.xavier_normal_(self.cnn.weight)
         nn.init.xavier_normal_(self.query_words)
 
 
@@ -43,9 +43,9 @@ class CNN_Encoder(nn.Module):
         """
         signal_length = news_embedding.size(2)
         cnn_input = news_embedding.view(-1, signal_length, self.embedding_dim).transpose(-2, -1)
-        cnn_output = self.RELU(self.layerNorm(self.CNN(cnn_input).transpose(-2, -1))).view(*news_embedding.shape[:-1], self.hidden_dim)
+        cnn_output = self.RELU(self.layerNorm(self.cnn(cnn_input).transpose(-2, -1))).view(*news_embedding.shape[:-1], self.hidden_dim)
 
-        news_repr = Attention.ScaledDpAttention(self.query_words, self.Tanh(self.wordQueryProject(cnn_output)), cnn_output).squeeze(dim=-2)
+        news_repr = ScaledDpAttention(self.query_words, self.Tanh(self.wordQueryProject(cnn_output)), cnn_output).squeeze(dim=-2)
         return cnn_output, news_repr
 
 if __name__ == '__main__':

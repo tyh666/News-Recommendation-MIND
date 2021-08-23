@@ -7,7 +7,7 @@ import torch.optim as optim
 import numpy as np
 import scipy.stats as ss
 
-from tqdm import tqdm
+from tqdm.auto import tqdm
 from typing import OrderedDict
 from collections import defaultdict
 from transformers import get_linear_schedule_with_warmup
@@ -18,7 +18,7 @@ import torch.distributed as dist
 
 logger = logging.getLogger(__name__)
 
-hparam_list = ["name", "scale", "his_size", "k", "threshold", "lr", "bert-lr", "signal_length", "title_length", "abs_length"]
+hparam_list = ["name", "scale", "his_size", "k", "threshold", "lr", "bert-lr", "signal_length"]
 
 
 class Manager():
@@ -289,7 +289,7 @@ class Manager():
             epoch_loss = 0
             if distributed:
                 dataloader.sampler.set_epoch(epoch)
-            tqdm_ = tqdm(dataloader)
+            tqdm_ = tqdm(dataloader, position=0, leave=True)
 
             for step, x in enumerate(tqdm_):
 
@@ -385,7 +385,7 @@ class Manager():
             epoch_loss = 0
             if distributed:
                 loaders[0].sampler.set_epoch(epoch)
-            tqdm_ = tqdm(loaders[0], smoothing=self.smoothing)
+            tqdm_ = tqdm(loaders[0], smoothing=self.smoothing, position=0, leave=True)
 
             for step, x in enumerate(tqdm_):
 
@@ -480,7 +480,7 @@ class Manager():
 
         impr_indexes = []
         preds = []
-        for x in tqdm(loader_test, smoothing=self.smoothing):
+        for x in tqdm(loader_test, smoothing=self.smoothing, position=0, leave=True):
             impr_indexes.extend(x["impr_index"])
             preds.extend(model(x).tolist())
 

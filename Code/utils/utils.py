@@ -388,7 +388,7 @@ def load_manager():
                     help="length of the bert tokenized tokens", type=int, default=100)
 
     parser.add_argument("-hd", "--hidden_dim", dest="hidden_dim",
-                    help="number of hidden states", type=int, default=200)
+                    help="number of hidden states", type=int, default=384)
     parser.add_argument("-dp", "--dropout_p", dest="dropout_p",
                     help="dropout probability", type=float, default=0.2)
 
@@ -418,7 +418,7 @@ def load_manager():
 
     parser.add_argument("-emb", "--embedding", dest="embedding", help="choose embedding", choices=['bert','random'], default='bert')
     parser.add_argument("-encn", "--encoderN", dest="encoderN", help="choose news encoder", choices=['cnn','rnn','npa','fim','mha','bert'], default="cnn")
-    parser.add_argument("-encu", "--encoderU", dest="encoderU", help="choose user encoder", choices=['rnn','lstur','nrms'], default="rnn")
+    parser.add_argument("-encu", "--encoderU", dest="encoderU", help="choose user encoder", choices=['rnn','lstur','mha'], default="rnn")
     parser.add_argument("-slc", "--selector", dest="selector", help="choose history selector", choices=['recent','sfi'], default="sfi")
     parser.add_argument("-red", "--reducer", dest="reducer", help="choose document reducer", choices=['bm25','matching'], default="matching")
     parser.add_argument("-fus", "--fuser", dest="fuser", help="choose term fuser", choices=['union'], default="union")
@@ -433,12 +433,7 @@ def load_manager():
 
     parser.add_argument("--bert", dest="bert", help="choose bert model", choices=["bert-base-uncased"], default="bert-base-uncased")
 
-    parser.add_argument("-hn", "--head_num", dest="head_num",
-                        help="number of multi-heads", type=int, default=16)
-    parser.add_argument("-vd", "--value_dim", dest="value_dim",
-                        help="dimension of projected value", type=int, default=16)
-    parser.add_argument("-qd", "--query_dim", dest="query_dim",
-                        help="dimension of projected query", type=int, default=200)
+    parser.add_argument("-hn", "--head_num", dest="head_num", help="number of multi-heads", type=int, default=12)
 
     parser.add_argument("-ws", "--world_size", dest="world_size", help="total number of gpus", default=0, type=int)
 
@@ -661,11 +656,11 @@ def setup(rank, manager):
         # manager.device will be invoked in the model
         manager.device = rank
 
-        torch.cuda.set_device(rank)
-
     else:
         # one-gpu
         manager.rank = -1
+
+    torch.cuda.set_device(rank)
 
 
 def cleanup():

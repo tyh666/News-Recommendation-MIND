@@ -1,4 +1,5 @@
 import torch.multiprocessing as mp
+from torch.nn.modules.rnn import RNN
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from utils.utils import prepare, load_manager, setup, cleanup
@@ -20,10 +21,23 @@ def main(rank, manager, dist=False):
     if manager.encoderN == 'cnn':
         from models.Encoders.CNN import CNN_Encoder
         encoderN = CNN_Encoder(manager)
+    elif manager.encoderN == 'rnn':
+        from models.Encoders.RNN import RNN_Encoder
+        encoderN = RNN_Encoder(manager)
+    elif manager.encoderN == 'mha':
+        from models.Encoders.MHA import MHA_Encoder
+        encoderN = MHA_Encoder(manager)
 
     if manager.encoderU == 'rnn':
         from models.Encoders.RNN import RNN_User_Encoder
         encoderU = RNN_User_Encoder(manager)
+    elif manager.encoderU == 'avg':
+        from models.Encoders.Pooling import Average_Pooling
+        encoderU = Average_Pooling(manager)
+    elif manager.encoderU == 'mha':
+        from models.Encoders.MHA import MHA_User_Encoder
+        encoderU = MHA_User_Encoder(manager)
+
     if manager.reducer == 'matching':
         from models.Modules.DRM import Matching_Reducer
         docReducer = Matching_Reducer(manager)
