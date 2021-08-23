@@ -28,12 +28,15 @@ def main(rank, manager, dist=False):
         from models.Encoders.MHA import MHA_Encoder
         encoderN = MHA_Encoder(manager)
 
-    if manager.encoderU == 'rnn':
-        from models.Encoders.RNN import RNN_User_Encoder
-        encoderU = RNN_User_Encoder(manager)
-    elif manager.encoderU == 'avg':
+    if manager.encoderU == 'avg':
         from models.Encoders.Pooling import Average_Pooling
         encoderU = Average_Pooling(manager)
+    elif manager.encoderU == 'cnn':
+        from models.Encoders.CNN import CNN_User_Encoder
+        encoderU = CNN_User_Encoder(manager)
+    elif manager.encoderU == 'rnn':
+        from models.Encoders.RNN import RNN_User_Encoder
+        encoderU = RNN_User_Encoder(manager)
     elif manager.encoderU == 'mha':
         from models.Encoders.MHA import MHA_User_Encoder
         encoderU = MHA_User_Encoder(manager)
