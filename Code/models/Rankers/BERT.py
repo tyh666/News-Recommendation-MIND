@@ -127,7 +127,7 @@ class BERT_Onepass_Ranker(nn.Module):
         prim_bert.load_state_dict(bert.encoder.state_dict())
         self.bert = prim_bert
 
-        self.dropOut = bert.embeddings.dropout
+        # self.dropOut = bert.embeddings.dropout
 
         # [2, embedding_dim]
         self.token_type_embedding = nn.Parameter(bert.embeddings.token_type_embeddings.weight)

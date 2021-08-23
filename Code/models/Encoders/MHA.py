@@ -8,8 +8,6 @@ class MHA_Encoder(nn.Module):
         super().__init__()
         self.name = 'mha-encoder'
 
-        self.level = 1
-
         self.embedding_dim = config.embedding_dim
         self.value_dim = config.value_dim
         self.query_dim = config.query_dim
@@ -40,7 +38,6 @@ class MHA_Encoder(nn.Module):
             news_embedding: hidden vector of each token in news, of size [batch_size, *, signal_length, level, hidden_dim]
             news_repr: hidden vector of each news, of size [batch_size, *, hidden_dim]
         """
-        news_embedding_pretrained = self.DropOut(self.embedding(news_batch))
 
         query = self.queryProject(news_embedding_pretrained).view(-1,news_batch.shape[2],self.hidden_dim).transpose(0,1)
         key = news_embedding_pretrained.view(-1,news_batch.shape[2],self.embedding_dim).transpose(0,1)
@@ -99,11 +96,9 @@ class MHA_User_Encoder(nn.Module):
 
 
 class NRMS_Encoder(nn.Module):
-    def __init__(self, config, vocab):
+    def __init__(self, config):
         super().__init__()
         self.name = 'nrms-encoder'
-
-        self.level = 1
 
         self.embedding_dim = config.embedding_dim
         self.value_dim = config.value_dim
