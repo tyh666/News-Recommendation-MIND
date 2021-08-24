@@ -74,7 +74,7 @@ class BM25_Reducer(nn.Module):
         config.term_num = config.k * config.his_size
 
 
-    def forward(self, news_selection_embedding, news_embedding, user_repr, his_attn_mask, his_attn_mask_k=None):
+    def forward(self, news_selection_embedding, news_embedding, user_repr, news_repr, his_attn_mask, his_attn_mask_k=None):
         """
         Extract words from news text according to the overall user interest
 
