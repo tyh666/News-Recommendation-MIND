@@ -78,10 +78,12 @@ class BM25_Reducer(nn.Module):
             user_repr: user representation, [batch_size, 1, hidden_dim]
 
         Returns:
-            weighted_pt: weighted embedding for personalized terms, [batch_size, his_size, k, hidden_dim]
-            score_kid: index of top k terms in the text, [batch_size, his_size, k]
+            ps_terms: weighted embedding for personalized terms, [batch_size, his_size, k, hidden_dim]
+            ps_term_mask: attention mask of output terms, [batch_size, his_size, k]
         """
         # strip off [CLS]
         ps_terms = news_embedding[:, :, 1:]
+        ps_term_mask = his_attn_mask[:, :, 1:]
 
-        return ps_terms, None
+        print(ps_term_mask)
+        return ps_terms, ps_term_mask

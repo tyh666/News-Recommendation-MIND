@@ -111,21 +111,22 @@ class MIND(Dataset):
                 for k,v in news.items():
                     setattr(self, k, v)
 
-        # set the attention mask of padded news to have k unpadded terms
-        # only used in selection
-        attn_mask_k = self.attn_mask.copy()
-        # Any article must have at least k non-padded terms
-        for i, mask in enumerate(attn_mask_k):
-            if mask.sum() < self.k + 1:
-                attn_mask_k[i][:self.k+1] = 1
-        # deduplicate
-        # only used in selection
-        if not config.no_dedup:
-            from .utils import DeDuplicate
-            dedup = DeDuplicate(self.k, self.signal_length)
-            _, attn_mask_k = dedup(self.encoded_news, attn_mask_k)
+        if self.reducer != 'bm25':
+            # set the attention mask of padded news to have k unpadded terms
+            # only used in selection
+            attn_mask_k = self.attn_mask.copy()
+            # Any article must have at least k non-padded terms
+            for i, mask in enumerate(attn_mask_k):
+                if mask.sum() < self.k + 1:
+                    attn_mask_k[i][:self.k+1] = 1
+            # deduplicate
+            # only used in selection
+            if not config.no_dedup:
+                from .utils import DeDuplicate
+                dedup = DeDuplicate(self.k, self.signal_length)
+                _, attn_mask_k = dedup(self.encoded_news, attn_mask_k)
 
-        self.attn_mask_k = attn_mask_k
+            self.attn_mask_k = attn_mask_k
 
 
     def init_news(self, reducer=None):
@@ -151,10 +152,10 @@ class MIND(Dataset):
             self.encoded_news = encoded_dict.input_ids
             self.attn_mask = encoded_dict.attention_mask
 
-            reduced_documents, attn_reduced_mask = reducer(self.encoded_news)
+            reduced_documents, attn_mask_reduced = reducer(self.encoded_news)
 
             self.reduced_news = reduced_documents
-            self.attn_reduced_mask = attn_reduced_mask * self.attn_mask
+            self.attn_mask_reduced = attn_mask_reduced * self.attn_mask
 
             with open(self.news_path, 'wb') as f:
                 pickle.dump(
@@ -162,7 +163,7 @@ class MIND(Dataset):
                         'encoded_news': self.encoded_news,
                         'reduced_news': self.reduced_news,
                         'attn_mask': self.attn_mask,
-                        'attn_reduced_mask': self.attn_reduced_mask
+                        'attn_mask_reduced': self.attn_mask_reduced
                     },
                     f
                 )
@@ -386,7 +387,7 @@ class MIND(Dataset):
 
             if self.reducer == 'bm25':
                 his_reduced_index = self.reduced_news[his_ids][:, :self.k + 1]
-                his_reduced_mask = self.attn_reduced_mask[his_ids][:, :self.k + 1]
+                his_reduced_mask = self.attn_mask_reduced[his_ids][:, :self.k + 1]
                 back_dic['his_reduced_index'] = his_reduced_index
                 back_dic['his_reduced_mask'] = his_reduced_mask
 
@@ -435,7 +436,7 @@ class MIND(Dataset):
 
             if self.reducer == 'bm25':
                 his_reduced_index = self.reduced_news[his_ids][:, :self.k + 1]
-                his_reduced_mask = self.attn_reduced_mask[his_ids][:, :self.k + 1]
+                his_reduced_mask = self.attn_mask_reduced[his_ids][:, :self.k + 1]
                 back_dic['his_reduced_index'] = his_reduced_index
                 back_dic['his_reduced_mask'] = his_reduced_mask
 
@@ -481,7 +482,7 @@ class MIND(Dataset):
 
             if self.reducer == 'bm25':
                 his_reduced_index = self.reduced_news[his_ids][:, :self.k + 1]
-                his_reduced_mask = self.attn_reduced_mask[his_ids][:, :self.k + 1]
+                his_reduced_mask = self.attn_mask_reduced[his_ids][:, :self.k + 1]
                 back_dic['his_reduced_index'] = his_reduced_index
                 back_dic['his_reduced_mask'] = his_reduced_mask
 
