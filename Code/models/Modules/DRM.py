@@ -12,10 +12,13 @@ class Matching_Reducer(nn.Module):
         self.name = "matching"
 
         self.k = config.k
+        self.diversify = config.diversify
 
         config.term_num = config.k * config.his_size
 
-        self.newsUserAlign = nn.Linear(config.hidden_dim * 2, config.hidden_dim)
+        if self.diversify:
+            self.newsUserAlign = nn.Linear(config.hidden_dim * 2, config.hidden_dim)
+            nn.init.xavier_normal_(self.newsUserAlign.weight)
 
         if config.threshold != -float('inf'):
             threshold = torch.tensor([config.threshold])
@@ -38,9 +41,11 @@ class Matching_Reducer(nn.Module):
         # strip off [CLS]
         news_selection_embedding = news_selection_embedding[:, :, 1:]
         news_embedding = news_embedding[:, :, 1:]
-
-        news_user_repr = torch.cat([user_repr.expand(news_repr.size()), news_repr], dim=-1)
-        selection_query = self.newsUserAlign(news_user_repr).unsqueeze(-1)
+        if self.diversify:
+            news_user_repr = torch.cat([user_repr.expand(news_repr.size()), news_repr], dim=-1)
+            selection_query = self.newsUserAlign(news_user_repr).unsqueeze(-1)
+        else:
+            selection_query = user_repr.expand(news_repr.size()).unsqueeze(-1)
 
         # [bs, hs, sl - 1]
         scores = F.normalize(news_selection_embedding, dim=-1).matmul(F.normalize(selection_query, dim=-1)).squeeze(-1)

@@ -31,7 +31,7 @@ class CNN_Encoder(nn.Module):
         nn.init.xavier_normal_(self.query_words)
 
 
-    def forward(self, news_embedding):
+    def forward(self, news_embedding, *args):
         """ encode news through 1-d CNN
 
         Args:

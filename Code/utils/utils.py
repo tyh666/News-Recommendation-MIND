@@ -419,6 +419,7 @@ def load_manager():
     parser.add_argument("-red", "--reducer", dest="reducer", help="choose document reducer", choices=['bm25','matching'], default="matching")
     parser.add_argument("-fus", "--fuser", dest="fuser", help="choose term fuser", choices=['union'], default="union")
     parser.add_argument("-rk", "--ranker", dest="ranker", help="choose ranker", choices=['onepass','original','cnn','knrm'], default="onepass")
+    parser.add_argument("-div", "--diversify", dest="diversify", help="whether to diversify selection with news representation", action='store_true', default=False)
 
     parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=5)
     parser.add_argument("-thr", "--threshold", dest="threshold", help="threshold to mask terms", default=-float("inf"), type=float)
@@ -781,15 +782,15 @@ class DeDuplicate(object):
         """
         logger.info("deduplicating...")
         for i, document in enumerate(documents):
-            terms = {}
+            terms = set()
             duplicated = []
             # ignore [CLS]
             for j, term in enumerate(document[1:self.signal_length]):
                 if term in terms:
                     # if the term duplicates
-                    duplicated.append(j)
+                    duplicated.append(j + 1)
                 else:
-                    terms[term] = 1
+                    terms.add(term)
 
             # ignore [CLS]
             term_num = attn_masks[i][1:self.signal_length].sum()

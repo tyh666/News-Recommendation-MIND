@@ -19,7 +19,7 @@ class Attention_Pooling(nn.Module):
         Returns:
             user_repr: user representation (coarse), [batch_size, 1, hidden_dim]
         """
-        user_repr = ScaledDpAttention(self.query, news_reprs, news_reprs).transpose(-1,-2)
+        user_repr = ScaledDpAttention(self.query, news_reprs, news_reprs)
         return user_repr
 
 class Average_Pooling(nn.Module):
