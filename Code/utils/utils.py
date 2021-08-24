@@ -355,10 +355,6 @@ def my_collate(data):
     return dict(result)
 
 
-def info(config):
-    return "\n".join(["{}:{}".format(k,v) for k,v in vars(config).items() if not k.startswith('__')])
-
-
 def load_manager():
     """
         customize hyper parameters in command line
@@ -468,7 +464,7 @@ def prepare(config):
         vocab
         loaders(list of dataloaders): 0-loader_train/test/dev, 1-loader_dev, 2-loader_validate
     """
-    logger.info("Hyper Parameters are \n{}".format(info(config)))
+    logger.info("Hyper Parameters are {}".format(config))
 
     logger.info("preparing dataset...")
 

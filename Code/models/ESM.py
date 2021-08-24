@@ -68,10 +68,10 @@ class ESM(nn.Module):
 
         user_repr = self.encoderU(his_news_repr)
         if self.reducer.name == 'matching':
-            ps_terms, ps_term_mask = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, x["his_attn_mask"].to(self.device), x["his_attn_mask_k"].to(self.device).bool())
+            ps_terms, ps_term_mask = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, x["his_attn_mask"].to(self.device), x["his_attn_mask_k"].to(self.device).bool())
 
         else:
-            ps_terms, ps_term_mask = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, x["his_reduced_mask"].to(self.device))
+            ps_terms, ps_term_mask = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, x["his_reduced_mask"].to(self.device))
 
         if self.fuser:
             ps_terms, ps_term_mask = self.fuser(ps_terms, ps_term_mask)

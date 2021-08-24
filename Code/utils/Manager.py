@@ -18,7 +18,7 @@ import torch.distributed as dist
 
 logger = logging.getLogger(__name__)
 
-hparam_list = ["name", "scale", "his_size", "k", "threshold", "lr", "bert-lr", "signal_length"]
+hparam_list = ["name", "scale", "his_size", "impr_size", "world_size", "signal_length", "hidden_dim", "k", "threshold", "step", "lr", "bert-lr"]
 
 
 class Manager():
@@ -29,6 +29,9 @@ class Manager():
         for k,v in vars(args).items():
             if not k.startswith('__'):
                 setattr(self, k, v)
+
+    def __str__(self):
+        return "\n" + "\n".join(["{}:{}".format(k,v) for k,v in vars(self).items() if k in hparam_list])
 
     def save(self, model, step, optimizer=None):
         """
@@ -585,7 +588,7 @@ class Manager():
         if bm25:
             import pickle
             bm25_file = pickle.load(open('data/cache/bert/MIND{}_{}/news_bm25.pkl'.format(self.scale, loader.dataset.mode),'rb'))
-            bm25_terms = bm25_file['encoded_news_sorted']
+            bm25_terms = bm25_file['reduced_news']
 
         self.load(model, checkpoint)
         t = BertTokenizer.from_pretrained('bert-base-uncased')
@@ -604,9 +607,9 @@ class Manager():
                     else:
                         print("[personalized terms]\n\t {}".format(ps_terms))
                         if bm25:
-                            print("[bm25 terms]\n\t {}".format(t.decode(bm25_terms[x['his_id'][i][j]])))
+                            print("[bm25 terms]\n\t {}".format(t.decode(bm25_terms[x['his_id'][i][j]][:self.k])))
 
-                        print("[original news]\n\t {}".format(t.decode(x['his_encoded_index'][i][j])))
+                        print("[original news]\n\t {}".format(t.decode(x['his_encoded_index'][i][j][:x['his_attn_mask'][i][j].sum()])))
 
                         command = input()
                         if command == 'n':

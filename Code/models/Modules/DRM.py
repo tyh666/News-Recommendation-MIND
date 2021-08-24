@@ -15,17 +15,20 @@ class Matching_Reducer(nn.Module):
 
         config.term_num = config.k * config.his_size
 
+        self.newsUserAlign = nn.Linear(config.hidden_dim * 2, config.hidden_dim)
+
         if config.threshold != -float('inf'):
             threshold = torch.tensor([config.threshold])
             self.register_buffer('threshold', threshold)
 
-    def forward(self, news_selection_embedding, news_embedding, user_repr, his_attn_mask, his_attn_mask_k):
+    def forward(self, news_selection_embedding, news_embedding, user_repr, news_repr, his_attn_mask, his_attn_mask_k):
         """
         Extract words from news text according to the overall user interest
 
         Args:
             news_selection_embedding: encoded word-level embedding, [batch_size, his_size, signal_length, hidden_dim]
             news_embedding: word-level news embedding, [batch_size, his_size, signal_length, hidden_dim]
+            news_repr: news-level representation, [batch_size, his_size, hidden_dim]
             user_repr: user representation, [batch_size, 1, hidden_dim]
 
         Returns:
@@ -36,8 +39,11 @@ class Matching_Reducer(nn.Module):
         news_selection_embedding = news_selection_embedding[:, :, 1:]
         news_embedding = news_embedding[:, :, 1:]
 
+        news_user_repr = torch.cat([user_repr.expand(news_repr.size()), news_repr], dim=-1)
+        selection_query = self.newsUserAlign(news_user_repr).unsqueeze(-1)
+
         # [bs, hs, sl - 1]
-        scores = F.normalize(news_selection_embedding, dim=-1).matmul(F.normalize(user_repr, dim=-1).transpose(-2,-1).unsqueeze(1)).squeeze(-1)
+        scores = F.normalize(news_selection_embedding, dim=-1).matmul(F.normalize(selection_query, dim=-1)).squeeze(-1)
         # mask the padded term
         scores = scores.masked_fill(~his_attn_mask_k[:, :, 1:], -float('inf'))
 
