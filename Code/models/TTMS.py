@@ -24,7 +24,7 @@ class TTMS(nn.Module):
         self.bert = BERT_Encoder(config)
         self.aggregate = Attention_Pooling(config)
 
-        self.name = '__'.join(['ttm', self.encoderN.name, self.encoderU.name])
+        self.name = '__'.join(['ttms', self.encoderN.name, self.encoderU.name])
         config.name = self.name
 
     def clickPredictor(self, cdd_news_repr, user_repr):
@@ -50,7 +50,7 @@ class TTMS(nn.Module):
 
         user_repr = self.encoderU(his_news_repr)
 
-        ps_terms, ps_term_mask = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, x["his_attn_mask"].to(self.device), x["his_attn_mask_k"].to(self.device).bool())
+        # ps_terms, ps_term_mask = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, x["his_attn_mask"].to(self.device), x["his_attn_mask_k"].to(self.device).bool())
 
         # append CLS to each historical news, aggregate historical news representation to user repr
         # ps_terms = torch.cat([his_news_embedding[:, :, [0]], ps_terms], dim=-2)
@@ -59,10 +59,11 @@ class TTMS(nn.Module):
         # user_repr = self.aggregate(his_news_repr)
 
         # append CLS to the entire browsing history, directly deriving user repr
-        batch_size = ps_terms.size(0)
-        ps_terms = torch.cat([his_news_embedding[:, 0, 0].unsqueeze(1).unsqueeze(1), ps_terms.view(batch_size, 1, -1, ps_terms.size(-1))], dim=-2)
-        ps_term_mask = torch.cat([torch.ones(batch_size, 1, 1, device=ps_term_mask.device), ps_term_mask.view(batch_size, 1, -1)], dim=-1)
-        _, user_repr = self.bert(ps_terms, ps_term_mask)
+        # batch_size = ps_terms.size(0)
+        # ps_terms = torch.cat([his_news_embedding[:, 0, 0].unsqueeze(1).unsqueeze(1), ps_terms.view(batch_size, 1, -1, ps_terms.size(-1))], dim=-2)
+        # ps_term_mask = torch.cat([torch.ones(batch_size, 1, 1, device=ps_term_mask.device), ps_term_mask.view(batch_size, 1, -1)], dim=-1)
+        # _, user_repr = self.bert(ps_terms, ps_term_mask)
+
 
         cdd_news = x["cdd_encoded_index"].long().to(self.device)
         _, cdd_news_repr = self.bert(

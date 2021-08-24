@@ -64,6 +64,9 @@ class Matching_Reducer(nn.Module):
             ps_terms = ps_terms * (score_k.masked_fill(mask_pos, 0).unsqueeze(-1))
             ps_term_mask = ps_term_mask * (~mask_pos)
 
+        else:
+            ps_terms = ps_terms * (F.softmax(score_k, dim=-1).unsqueeze(-1))
+
         return ps_terms, ps_term_mask
 
 

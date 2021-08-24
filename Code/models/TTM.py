@@ -36,9 +36,6 @@ class TTM(nn.Module):
         return score
 
     def _forward(self,x):
-        if x["cdd_encoded_index"].size(0) != self.batch_size:
-            self.batch_size = x["cdd_encoded_index"].size(0)
-
         cdd_news = x["cdd_encoded_index"].long().to(self.device)
         _, cdd_news_repr = self.encoderN(
             self.embedding(cdd_news), x['cdd_attn_mask'].to(self.device)

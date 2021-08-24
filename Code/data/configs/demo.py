@@ -41,6 +41,7 @@ class config:
 
     ascend_history = False
     no_dedup = False
+    diversify = False
 
     scheduler = 'linear'
     warmup = 100

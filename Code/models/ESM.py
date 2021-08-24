@@ -49,9 +49,6 @@ class ESM(nn.Module):
         return self.learningToRank(score).squeeze(dim=-1)
 
     def _forward(self,x):
-        if x["cdd_encoded_index"].size(0) != self.batch_size:
-            self.batch_size = x["cdd_encoded_index"].size(0)
-
         cdd_news = x["cdd_encoded_index"].long().to(self.device)
         cdd_news_embedding = self.embedding(cdd_news)
         _, cdd_news_repr = self.encoderN(
