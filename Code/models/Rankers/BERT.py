@@ -169,7 +169,7 @@ class BERT_Onepass_Ranker(nn.Module):
 
         # [bs, cs*sl]
         attn_mask = cdd_attn_mask.view(batch_size, -1)
-        attn_mask = torch.cat([attn_mask, torch.ones(batch_size, 1, device=cdd_attn_mask.device), his_attn_mask.view(batch_size, -1)], dim=-1).view(batch_size, 1, 1, -1)
+        attn_mask = torch.cat([attn_mask, torch.ones(batch_size, 1, device=cdd_attn_mask.device), his_attn_mask.reshape(batch_size, -1)], dim=-1).reshape(batch_size, 1, 1, -1)
 
         bert_output = self.bert(bert_input, attention_mask=attn_mask).last_hidden_state[:, 0 : cdd_size * (self.signal_length) : self.signal_length].view(batch_size, cdd_size, self.embedding_dim)
 
