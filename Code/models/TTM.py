@@ -31,6 +31,7 @@ class TTM(nn.Module):
         Returns:
             score of each candidate news, [batch_size, cdd_size]
         """
+        print(user_repr.mean(), cdd_news_repr.mean(), user_repr.max(), cdd_news_repr.max(), user_repr.sum(), cdd_news_repr.sum())
         score = cdd_news_repr.matmul(user_repr.transpose(-2,-1)).squeeze(-1)
 
         return score
@@ -68,4 +69,4 @@ class TTM(nn.Module):
         else:
             prob = torch.sigmoid(score)
 
-        return prob
+        return (prob,)

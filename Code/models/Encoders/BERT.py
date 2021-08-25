@@ -11,12 +11,18 @@ class BERT_Encoder(nn.Module):
 
         # dimension for the final output embedding/representation
         self.hidden_dim = 768
+        config.hidden_dim = self.hidden_dim
 
         bert = BertModel.from_pretrained(
             config.bert,
             cache_dir=config.path + 'bert_cache/'
         )
         self.bert = bert.encoder
+        # self.pooler = nn.Sequential(
+        #     nn.Linear(self.hidden_dim, self.hidden_dim),
+        #     nn.Tanh()
+        # )
+        # nn.init.xavier_normal_(self.pooler[0].weight)
 
     def forward(self, news_embedding, attn_mask):
         """ encode news with bert
@@ -37,8 +43,10 @@ class BERT_Encoder(nn.Module):
         attn_mask = (1.0 - attn_mask) * -10000.0
 
         # [bs, cs/hs, sl, ed]
-        bert_output = self.bert(bert_input, attention_mask=attn_mask)
-        news_repr = bert_output.last_hidden_state[:, 0].reshape(batch_size, -1, self.hidden_dim)
-        news_encoded_embedding = bert_output.last_hidden_state.view(batch_size, -1, signal_length, self.hidden_dim)
+        bert_output = self.bert(bert_input, attention_mask=attn_mask).last_hidden_state
+        news_repr = bert_output[:, 0].reshape(batch_size, -1, self.hidden_dim)
+        # news_repr = self.pooler(bert_output[:, 0].reshape(batch_size, -1, self.hidden_dim))
+
+        news_encoded_embedding = bert_output.view(batch_size, -1, signal_length, self.hidden_dim)
 
         return news_encoded_embedding, news_repr

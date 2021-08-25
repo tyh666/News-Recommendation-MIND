@@ -7,7 +7,8 @@ class Attention_Pooling(nn.Module):
         super().__init__()
 
         self.name = 'attention-pooling'
-        self.query = nn.Parameter(torch.randn(1, config.hidden_dim))
+        self.query_news = nn.Parameter(torch.randn(1, config.hidden_dim))
+        nn.init.xavier_normal_(self.query_news)
 
     def forward(self, news_reprs):
         """
@@ -19,7 +20,7 @@ class Attention_Pooling(nn.Module):
         Returns:
             user_repr: user representation (coarse), [batch_size, 1, hidden_dim]
         """
-        user_repr = ScaledDpAttention(self.query, news_reprs, news_reprs)
+        user_repr = ScaledDpAttention(self.query_news, news_reprs, news_reprs)
         return user_repr
 
 class Average_Pooling(nn.Module):

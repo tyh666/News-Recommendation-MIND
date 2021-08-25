@@ -84,4 +84,4 @@ class SFI(nn.Module):
             score = nn.functional.log_softmax(score, dim=1)
         else:
             score = torch.sigmoid(score)
-        return score
+        return (score,)

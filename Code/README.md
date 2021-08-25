@@ -52,8 +52,8 @@ cd /data/v-pezhang/Code/Document-Reduction/Code
 python -m scripts.esm -m tune -s large -bs=25 -ws=2
 python -m scripts.ttm -m tune -s large -encn=bert -sl=30 -bs=25 -is=10 --no_dedup -ws=2
 
-python -m scripts.esm -m tune -s demo -bs=5 -d=1 -is=10
-python -m scripts.ttm -m tune -s demo -bs=5 -is=10
+python -m scripts.esm -m tune -s demo -bs=5 -is=10 -d=1
+python -m scripts.ttm -m tune -s demo -bs=5 -is=10 -d=1 -encn=bert -sl=30
 python -m scripts.ttms -m tune -s demo -bs=5 -is=10
 python -m scripts.sfi -m tune -s demo -k=5 -sl=20 -bs=10 -is=10 --no_dedup
 ```
@@ -159,19 +159,22 @@ python -m scripts.sfi -m tune -s demo -k=5 -sl=20 -bs=10 -is=10 --no_dedup
 - recall
 
 ## Ablation
-- [ ] BM25
-  - [x] + original
-  - [ ] + original + order embedding
-  - [x] + onepass
-  - [ ] + onepass + order embedding
+- Two Tower
+  - [x] signal_length=30
+  - [ ] signal_length=80
+    - [ ] speedyfeed
+  - [ ] bm25 top 30
+  - [ ] selected top 30
 
-- [ ] reducer
-  - [x] + cnn encoder, rnn user encoder
-  - [ ] + nrms encoder, nrms user encoder
-  - [ ] + cnn encoder, cdd-aware user encoder
+- One Tower
+  - [ ] signal_length=5
+  - [ ] bm25 top 5
+  - [x] selected top 5
 
 ## Need to update
-- [ ] Encoders.MHA, NPA, Pipeline
+- [x] Encoders.MHA,
+- [ ] NPA
+- [ ] Pipeline
 
 ## Phylosiphy
 ### manager

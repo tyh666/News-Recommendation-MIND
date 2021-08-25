@@ -32,8 +32,19 @@ def main(rank, manager, dist=False):
     elif manager.encoderU == 'attn':
         from models.Encoders.Pooling import Attention_Pooling
         encoderU = Attention_Pooling(manager)
+    if manager.aggregator == 'rnn':
+        from models.Encoders.RNN import RNN_User_Encoder
+        aggregator = RNN_User_Encoder(manager)
+    elif manager.aggregator == 'avg':
+        from models.Encoders.Pooling import Average_Pooling
+        aggregator = Average_Pooling(manager)
+    elif manager.aggregator == 'attn':
+        from models.Encoders.Pooling import Attention_Pooling
+        aggregator = Attention_Pooling(manager)
+    else:
+        aggregator = None
 
-    ttms = TTMS(manager, embedding, encoderN, encoderU).to(rank)
+    ttms = TTMS(manager, embedding, encoderN, encoderU, aggregator).to(rank)
 
     if dist:
         ttms = DDP(ttms, device_ids=[rank], output_device=rank, find_unused_parameters=True)
@@ -50,11 +61,15 @@ def main(rank, manager, dist=False):
     elif manager.mode == 'test':
         manager.test(ttms, loaders[0])
 
+    elif manager.mode == 'inspect':
+        manager.inspect(ttms, loaders[0])
+
     if dist:
         cleanup()
 
 if __name__ == "__main__":
     manager = load_manager()
+    manager.hidden_dim = 768
     if manager.world_size > 1:
         mp.spawn(
             main,

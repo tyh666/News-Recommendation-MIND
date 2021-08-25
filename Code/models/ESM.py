@@ -43,6 +43,8 @@ class ESM(nn.Module):
         Returns:
             score of each candidate news, [batch_size, cdd_size]
         """
+
+        # print(user_repr.mean(), cdd_news_repr.mean(), user_repr.max(), cdd_news_repr.max(), user_repr.sum(), cdd_news_repr.sum())
         score_coarse = cdd_news_repr.matmul(user_repr.transpose(-2,-1))
         score = torch.cat([reduced_tensor, score_coarse], dim=-1)
 
@@ -64,9 +66,10 @@ class ESM(nn.Module):
         )
 
         user_repr = self.encoderU(his_news_repr)
-        if self.reducer.name == 'matching':
-            ps_terms, ps_term_mask = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, x["his_attn_mask"].to(self.device), x["his_attn_mask_k"].to(self.device).bool())
 
+        kid = None
+        if self.reducer.name == 'matching':
+            ps_terms, ps_term_mask, kid = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, x["his_attn_mask"].to(self.device), x["his_attn_mask_k"].to(self.device).bool())
         else:
             ps_terms, ps_term_mask = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, x["his_reduced_mask"].to(self.device))
 
@@ -77,17 +80,17 @@ class ESM(nn.Module):
 
         reduced_tensor = self.ranker(cdd_news_embedding, ps_terms, x["cdd_attn_mask"].to(self.device), ps_term_mask)
 
-        return self.clickPredictor(reduced_tensor, cdd_news_repr, user_repr)
+        return self.clickPredictor(reduced_tensor, cdd_news_repr, user_repr), kid
 
     def forward(self,x):
         """
         Decoupled function, score is unormalized click score
         """
-        score = self._forward(x)
+        score, kid = self._forward(x)
 
         if self.training:
             prob = nn.functional.log_softmax(score, dim=1)
         else:
             prob = torch.sigmoid(score)
 
-        return prob
+        return (prob, kid)

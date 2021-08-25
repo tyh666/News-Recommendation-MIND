@@ -194,7 +194,7 @@ class Manager():
 
         for x in tqdm(dataloader, smoothing=self.smoothing):
             impr_indexes.extend(x["impr_index"].tolist())
-            preds.extend(model(x).tolist())
+            preds.extend(model(x)[0].tolist())
             labels.extend(x["label"].tolist())
 
         return impr_indexes, labels, preds
@@ -298,7 +298,7 @@ class Manager():
 
                 optimizer.zero_grad(set_to_none=True)
 
-                pred = model(x)
+                pred = model(x)[0]
                 label = x['label'].to(model.device)
 
                 loss = loss_func(pred, label)
@@ -394,7 +394,7 @@ class Manager():
 
                 optimizer.zero_grad(set_to_none=True)
 
-                pred = model(x)
+                pred = model(x)[0]
                 label = x['label'].to(model.device)
 
                 loss = loss_func(pred, label)
@@ -577,26 +577,39 @@ class Manager():
 
 
     @torch.no_grad()
-    def inspect_ps_terms(self, model, checkpoint, loader, bm25=False):
+    def inspect(self, model, loader):
         """
         inspect personalized terms
         """
         from transformers import BertTokenizer
 
         model.eval()
+        logger.info("inspecting {}...".format(self.name))
 
-        if bm25:
+        if self.bm25:
             import pickle
-            bm25_file = pickle.load(open('data/cache/bert/MIND{}_{}/news_bm25.pkl'.format(self.scale, loader.dataset.mode),'rb'))
+            try:
+                bm25_file = pickle.load(open('data/cache/bert/MIND{}_{}/news_bm25.pkl'.format(self.scale, loader.dataset.mode),'rb'))
+            except:
+                logger.error("encode news with -red=bm25 first!")
+
             bm25_terms = bm25_file['reduced_news']
 
-        self.load(model, checkpoint)
+        self.load(model, self.checkpoint)
         t = BertTokenizer.from_pretrained('bert-base-uncased')
+
+        logger.info("press <ENTER> to continue, input q to quit")
 
         jumpout = False
         for x in loader:
             _, term_indexes = model(x)
-            term_ids = x['his_encoded_index'][:,:,1:].gather(index=term_indexes, dim=-1)
+
+            his_encoded_index = x['his_encoded_index'].to(self.device)
+            his_attn_mask = x['his_attn_mask'].to(self.device)
+            if self.bm25:
+                his_id = x['his_id'].to(self.device)
+
+            term_ids = his_encoded_index[:,:,1:].gather(index=term_indexes, dim=-1)
             for i,batch in enumerate(term_ids):
                 for j,doc in enumerate(batch):
                     print('*******************************************************')
@@ -606,10 +619,10 @@ class Manager():
                         break
                     else:
                         print("[personalized terms]\n\t {}".format(ps_terms))
-                        if bm25:
-                            print("[bm25 terms]\n\t {}".format(t.decode(bm25_terms[x['his_id'][i][j]][:self.k])))
+                        if self.bm25:
+                            print("[bm25 terms]\n\t {}".format(t.decode(bm25_terms[his_id[i][j]][:self.k])))
 
-                        print("[original news]\n\t {}".format(t.decode(x['his_encoded_index'][i][j][:x['his_attn_mask'][i][j].sum()])))
+                        print("[original news]\n\t {}".format(t.decode(his_encoded_index[i][j][:his_attn_mask[i][j].sum()])))
 
                         command = input()
                         if command == 'n':

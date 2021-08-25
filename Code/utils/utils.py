@@ -363,7 +363,7 @@ def load_manager():
     parser.add_argument("-s", "--scale", dest="scale", help="data scale",
                         choices=["demo", "small", "large", "whole"], required=True)
     parser.add_argument("-m", "--mode", dest="mode", help="train or test",
-                        choices=["train", "dev", "test", "tune", "encode"], default="train")
+                        choices=["train", "dev", "test", "tune", "encode", "inspect"], default="tune")
     parser.add_argument("-e", "--epochs", dest="epochs",
                         help="epochs to train the model", type=int, default=10)
     parser.add_argument("-d","--device", dest="device",
@@ -419,6 +419,7 @@ def load_manager():
     parser.add_argument("-red", "--reducer", dest="reducer", help="choose document reducer", choices=['bm25','matching'], default="matching")
     parser.add_argument("-fus", "--fuser", dest="fuser", help="choose term fuser", choices=['union'], default="union")
     parser.add_argument("-rk", "--ranker", dest="ranker", help="choose ranker", choices=['onepass','original','cnn','knrm'], default="onepass")
+    parser.add_argument("-agg", "--aggregator", dest="aggregator", help="choose history aggregator, only used in TTMS", choices=['avg','attn','cnn','rnn','lstur','mha'], default=None)
     parser.add_argument("-div", "--diversify", dest="diversify", help="whether to diversify selection with news representation", action='store_true', default=False)
 
     parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=5)
@@ -429,6 +430,7 @@ def load_manager():
     parser.add_argument("--seeds", dest="seeds", default=None, type=int)
 
     parser.add_argument("--bert", dest="bert", help="choose bert model", choices=["bert-base-uncased"], default="bert-base-uncased")
+    parser.add_argument("--bm25", dest="bm25", help="check bm25 terms", action='store_true', default=False)
 
     parser.add_argument("-hn", "--head_num", dest="head_num", help="number of multi-heads", type=int, default=12)
 
@@ -549,7 +551,7 @@ def prepare(config):
 
         return (loader_train, loader_dev)
 
-    elif config.mode == "dev":
+    elif config.mode in ["dev", "inspect"]:
         news_file_dev = mind_path+"/MIND"+config.scale+"_dev/news.tsv"
         behavior_file_dev = mind_path+"/MIND"+config.scale+"_dev/behaviors.tsv"
 

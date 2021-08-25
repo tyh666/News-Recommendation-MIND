@@ -79,6 +79,9 @@ def main(rank, manager, dist=False):
     elif manager.mode == 'test':
         manager.test(esm, loaders[0])
 
+    elif manager.mode == 'inspect':
+        manager.inspect(esm, loaders[0])
+
     if dist:
         cleanup()
 

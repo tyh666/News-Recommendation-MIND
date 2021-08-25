@@ -2,8 +2,7 @@ class config:
     scale = 'demo'
     mode = 'tune'
     epochs = 8
-
-    batch_size = 10
+    batch_size = 5
 
     k = 5
     threshold = -float('inf')
