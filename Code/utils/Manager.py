@@ -18,7 +18,7 @@ import torch.distributed as dist
 
 logger = logging.getLogger(__name__)
 
-hparam_list = ["name", "scale", "his_size", "impr_size", "world_size", "signal_length", "hidden_dim", "k", "threshold", "step", "lr", "bert-lr"]
+hparam_list = ["name", "scale", "batch_size", "his_size", "impr_size", "world_size", "signal_length", "hidden_dim", "k", "threshold", "step", "lr", "bert_lr"]
 
 
 class Manager():
