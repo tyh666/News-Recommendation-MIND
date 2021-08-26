@@ -700,7 +700,8 @@ class BM25(object):
     """
     compute bm25 score
     """
-    def __init__(self, k=2, epsilon=0.5):
+    def __init__(self, signal_length, k=2, epsilon=0.5):
+        self.signal_length = signal_length
         self.k = k
         self.epsilon = epsilon
 
@@ -716,7 +717,7 @@ class BM25(object):
         for document in documents:
             tf = defaultdict(int)
             # ignore [CLS]
-            for term in document[1:]:
+            for term in document[1:self.signal_length]:
                 # ignore [PAD]
                 if term != 0:
                     tf[term] += 1
@@ -734,7 +735,7 @@ class BM25(object):
         self.idf = idf
 
 
-    def __call__(self, documents):
+    def __call__(self, documents, attn_mask):
         """
         compute bm25 score of each term (index) in each document and sort the terms by it
         with b=0, totally ignoring the effect of document length
@@ -745,7 +746,6 @@ class BM25(object):
         logger.info("computing BM25 scores...")
         self._build_tf_idf(documents)
 
-        document_length = len(documents[0])
         bm25_scores = []
         for tf in self.tfs:
             score = defaultdict(float)
@@ -758,10 +758,10 @@ class BM25(object):
         sorted_attn_mask = []
         for i, bm25 in enumerate(bm25_scores):
             bm25_length = len(bm25) + 1
-            pad_length = document_length - bm25_length
+            pad_length = self.signal_length - bm25_length
             if not i:
-                sorted_documents.append([0] * document_length)
-                sorted_attn_mask.append([0] * document_length)
+                sorted_documents.append([0] * self.signal_length)
+                sorted_attn_mask.append([0] * self.signal_length)
             else:
                 sorted_documents.append([101] + list(bm25.keys()) + [0]*pad_length)
                 sorted_attn_mask.append([1] * bm25_length + [0] * pad_length)
@@ -769,40 +769,86 @@ class BM25(object):
         return np.asarray(sorted_documents), np.asarray(sorted_attn_mask)
 
 
+class BagOfWords(object):
+    """
+    reduce the text into bag of words
+    """
+    def __init__(self, signal_length, position=False) -> None:
+        super().__init__()
+        self.signal_length = signal_length
+        self.position = position
+
+    def __call__(self, documents, attn_masks):
+        """
+        Args:
+            documents: list of tokens
+
+        Returns:
+            bows: list of list of tuples, [[(word1 : freq1), ...] ...]
+        """
+        logger.info("reducing to Bag-of-Words...")
+        bows = []
+        attn_masks = []
+        for i, document in enumerate(documents):
+            terms = defaultdict(int)
+            for j, term in enumerate(document[:self.signal_length]):
+                if term == 0:
+                    break
+                terms[term] += 1
+
+            pad_length = self.signal_length - len(terms)
+            bow = list(terms.items())[:self.signal_length] + [(0, 0)]*pad_length
+            attn_mask = [1]*min(len(terms), self.signal_length) + [0]*pad_length
+
+            bows.append(bow)
+            attn_masks.append(attn_mask)
+
+        return np.asarray(bows, dtype=object), np.asarray(attn_masks)
+
+
 class DeDuplicate(object):
     """
     mask duplicated terms in one document by attention masks
     """
-    def __init__(self, k, signal_length) -> None:
+    def __init__(self, signal_length, k, deduplicate=False) -> None:
         super().__init__()
         self.k = k
         self.signal_length = signal_length
+        self.deduplicate = deduplicate
 
     def __call__(self, documents, attn_masks):
         """
+        set the attention mask of padded news to have k unpadded terms
         return modified attention masks, where duplicated terms are masked
         """
-        logger.info("deduplicating...")
-        for i, document in enumerate(documents):
-            terms = set()
-            duplicated = []
-            # ignore [CLS]
-            for j, term in enumerate(document[1:self.signal_length]):
-                if term in terms:
-                    # if the term duplicates
-                    duplicated.append(j + 1)
-                else:
-                    terms.add(term)
+        logger.info("unmasking at least k...")
+        attn_masks = attn_masks.copy()
+        for i, mask in enumerate(attn_masks):
+            if mask.sum() < self.k + 1:
+                attn_masks[i][:self.k+1] = 1
 
-            # ignore [CLS]
-            term_num = attn_masks[i][1:self.signal_length].sum()
-            if term_num - len(duplicated) > self.k:
-                # in case the non-duplicate terms are more than k, then mask duplicated terms
-                attn_masks[i, duplicated] = 0
-            else:
-                # otherwise, only maks part of them
-                maskable_term_num = term_num - self.k
-                attn_masks[i, duplicated[:maskable_term_num]] = 0
+        if self.deduplicate:
+            logger.info("deduplicating...")
+            for i, document in enumerate(documents):
+                terms = set()
+                duplicated = []
+                # ignore [CLS]
+                for j, term in enumerate(document[1:self.signal_length]):
+                    if term in terms:
+                        # if the term duplicates
+                        duplicated.append(j + 1)
+                    else:
+                        terms.add(term)
+
+                # ignore [CLS]
+                term_num = attn_masks[i][1:self.signal_length].sum()
+                if term_num - len(duplicated) > self.k:
+                    # in case the non-duplicate terms are more than k, then mask duplicated terms
+                    attn_masks[i, duplicated] = 0
+                else:
+                    # otherwise, only maks part of them
+                    maskable_term_num = term_num - self.k
+                    attn_masks[i, duplicated[:maskable_term_num]] = 0
 
         return documents, attn_masks
 

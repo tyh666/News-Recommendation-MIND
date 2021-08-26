@@ -34,6 +34,7 @@ class MIND(Dataset):
         self.mode = pat.group(2)
 
         self.cache_directory = '/'.join(['data/cache', config.embedding, pat.group(1)])
+        self.news_path = self.cache_directory + 'news.pkl'
         self.behav_path = self.cache_directory + '{}/{}'.format(self.impr_size, re.search('(\w*\.)tsv', behaviors_file).group(1) + '.pkl')
 
         # only preprocess on the master node, the worker can directly load the cache
@@ -54,45 +55,21 @@ class MIND(Dataset):
 
                 self.init_behaviors()
 
-            self.reducer = config.reducer
-
-            if config.reducer == 'bm25':
-                self.news_path = self.cache_directory + 'news_bm25.pkl'
-                if os.path.exists(self.news_path):
-                    logger.info('loading cached news tokenization from {}'.format(self.news_path))
-                    with open(self.news_path, 'rb') as f:
-                        news = pickle.load(f)
-                        for k,v in news.items():
-                            setattr(self, k, v)
-                else:
-                    from transformers import BertTokenizerFast
-                    from .utils import BM25
-                    logger.info("encoding news of {}...".format(news_file))
-                    self.news_file = news_file
-                    self.max_news_length = 512
-                    # there are only two types of vocabulary
-                    self.tokenizer = BertTokenizerFast.from_pretrained(config.bert, cache=config.path + 'bert_cache/')
-                    self.nid2index = getId2idx('data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, self.mode))
-                    self.init_news(reducer=BM25())
-
+            if os.path.exists(self.news_path):
+                logger.info('loading cached news tokenization from {}'.format(self.news_path))
+                with open(self.news_path, 'rb') as f:
+                    news = pickle.load(f)
+                    for k,v in news.items():
+                        setattr(self, k, v)
             else:
-                self.news_path = self.cache_directory + 'news.pkl'
-                if os.path.exists(self.news_path):
-                    logger.info('loading cached news tokenization from {}'.format(self.news_path))
-                    with open(self.news_path, 'rb') as f:
-                        news = pickle.load(f)
-                        for k,v in news.items():
-                            setattr(self, k, v)
-                else:
-                    from transformers import BertTokenizerFast
-                    logger.info("encoding news of {}...".format(news_file))
-                    self.news_file = news_file
-                    self.max_news_length = 512
-                    # there are only two types of vocabulary
-                    self.tokenizer = BertTokenizerFast.from_pretrained(config.bert, cache=config.path + 'bert_cache/')
-                    self.nid2index = getId2idx('data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, self.mode))
-                    self.init_news()
-
+                from transformers import BertTokenizerFast
+                logger.info("encoding news of {}...".format(news_file))
+                self.news_file = news_file
+                self.max_news_length = 512
+                # there are only two types of vocabulary
+                self.tokenizer = BertTokenizerFast.from_pretrained(config.bert, cache=config.path + 'bert_cache/')
+                self.nid2index = getId2idx('data/dictionaries/nid2idx_{}_{}.json'.format(config.scale, self.mode))
+                self.init_news()
 
         if config.world_size > 1:
             dist.barrier()
@@ -111,25 +88,23 @@ class MIND(Dataset):
                 for k,v in news.items():
                     setattr(self, k, v)
 
-        if self.reducer != 'bm25':
-            # set the attention mask of padded news to have k unpadded terms
-            # only used in selection
-            attn_mask_k = self.attn_mask.copy()
-            # Any article must have at least k non-padded terms
-            for i, mask in enumerate(attn_mask_k):
-                if mask.sum() < self.k + 1:
-                    attn_mask_k[i][:self.k+1] = 1
-            # deduplicate
-            # only used in selection
-            if not config.no_dedup:
-                from .utils import DeDuplicate
-                dedup = DeDuplicate(self.k, self.signal_length)
-                _, attn_mask_k = dedup(self.encoded_news, attn_mask_k)
-
-            self.attn_mask_k = attn_mask_k
+        self.reduction_path = self.cache_directory + self.reducer + '.pkl'
+        if config.reducer == 'bm25':
+            from .utils import BM25
+            reducer = BM25(self.signal_length)
+        elif config.reducer == 'bow':
+            from .utils import BagOfWords
+            reducer = BagOfWords(self.signal_length)
+        elif config.reducer == 'matching':
+            from .utils import DeDuplicate
+            reducer = DeDuplicate(self.signal_length, self.k, ~config.no_dedup)
+        else:
+            reducer=None
+        logger.info("reducing news of {}...".format(news_file))
+        self.init_reduction(reducer)
 
 
-    def init_news(self, reducer=None):
+    def init_news(self):
         """
             init news information given news file, such as news_title_array.
 
@@ -137,7 +112,7 @@ class MIND(Dataset):
             bm25: whether to sort the terms by bm25 score
         """
 
-        # VERY IMPORTANT!!! FIXME
+        # VERY IMPORTANT!!!
         # The nid2idx dictionary must follow the original order of news in news.tsv
 
         documents = ['']
@@ -147,40 +122,30 @@ class MIND(Dataset):
                 nid, vert, subvert, title, ab, url, _, _ = idx.strip("\n").split('\t')
                 documents.append(' '.join(['[CLS]', title, ab, vert, subvert]))
 
-        if reducer:
-            encoded_dict = self.tokenizer(documents, add_special_tokens=False, padding=True, truncation=True, max_length=self.max_news_length, return_tensors='np')
-            self.encoded_news = encoded_dict.input_ids
-            self.attn_mask = encoded_dict.attention_mask
+        encoded_dict = self.tokenizer(documents, add_special_tokens=False, padding=True, truncation=True, max_length=self.max_news_length, return_tensors='np')
+        self.encoded_news = encoded_dict.input_ids
+        self.attn_mask = encoded_dict.attention_mask
 
-            reduced_documents, attn_mask_reduced = reducer(self.encoded_news)
+        with open(self.news_path, 'wb') as f:
+            pickle.dump(
+                {
+                    'encoded_news': self.encoded_news,
+                    'attn_mask': self.attn_mask
+                },
+                f
+            )
 
-            self.reduced_news = reduced_documents
-            self.attn_mask_reduced = attn_mask_reduced * self.attn_mask
 
-            with open(self.news_path, 'wb') as f:
-                pickle.dump(
-                    {
-                        'encoded_news': self.encoded_news,
-                        'reduced_news': self.reduced_news,
-                        'attn_mask': self.attn_mask,
-                        'attn_mask_reduced': self.attn_mask_reduced
-                    },
-                    f
-                )
-        else:
-            encoded_dict = self.tokenizer(documents, add_special_tokens=False, padding=True, truncation=True, max_length=self.max_news_length, return_tensors='np')
-            self.encoded_news = encoded_dict.input_ids
-            self.attn_mask = encoded_dict.attention_mask
+    def init_reduction(self, reducer):
+        """
+            init reduced news
+        """
+        if not reducer:
+            return
 
-            with open(self.news_path, 'wb') as f:
-                pickle.dump(
-                    {
-                        'encoded_news': self.encoded_news,
-                        'attn_mask': self.attn_mask
-                    },
-                    f
-                )
-
+        reduced_news, attn_mask_reduced = reducer(self.encoded_news, self.attn_mask)
+        self.reduced_news = reduced_news
+        self.attn_mask_reduced = attn_mask_reduced
 
     def init_behaviors(self):
         """
@@ -385,17 +350,17 @@ class MIND(Dataset):
                 "label": label
             }
 
-            if self.reducer == 'bm25':
+            if self.reducer in ['bm25','bow']:
                 his_reduced_index = self.reduced_news[his_ids][:, :self.k + 1]
                 his_reduced_mask = self.attn_mask_reduced[his_ids][:, :self.k + 1]
                 back_dic['his_reduced_index'] = his_reduced_index
                 back_dic['his_reduced_mask'] = his_reduced_mask
 
             elif self.reducer == 'matching':
-                cdd_attn_mask_k = self.attn_mask_k[cdd_ids][:, :self.signal_length]
-                his_attn_mask_k = self.attn_mask_k[his_ids][:, :self.signal_length]
-                back_dic['cdd_attn_mask_k'] = cdd_attn_mask_k
-                back_dic['his_attn_mask_k'] = his_attn_mask_k
+                cdd_reduced_mask = self.attn_mask_reduced[cdd_ids][:, :self.signal_length]
+                his_reduced_mask = self.attn_mask_reduced[his_ids][:, :self.signal_length]
+                back_dic['cdd_reduced_mask'] = cdd_reduced_mask
+                back_dic['his_reduced_mask'] = his_reduced_mask
 
             return back_dic
 
@@ -434,17 +399,17 @@ class MIND(Dataset):
                 "label": np.asarray(label)
             }
 
-            if self.reducer == 'bm25':
+            if self.reducer in ['bm25','bow']:
                 his_reduced_index = self.reduced_news[his_ids][:, :self.k + 1]
                 his_reduced_mask = self.attn_mask_reduced[his_ids][:, :self.k + 1]
                 back_dic['his_reduced_index'] = his_reduced_index
                 back_dic['his_reduced_mask'] = his_reduced_mask
 
             elif self.reducer == 'matching':
-                cdd_attn_mask_k = self.attn_mask_k[cdd_ids][:, :self.signal_length]
-                his_attn_mask_k = self.attn_mask_k[his_ids][:, :self.signal_length]
-                back_dic['cdd_attn_mask_k'] = cdd_attn_mask_k
-                back_dic['his_attn_mask_k'] = his_attn_mask_k
+                cdd_reduced_mask = self.attn_mask_reduced[cdd_ids][:, :self.signal_length]
+                his_reduced_mask = self.attn_mask_reduced[his_ids][:, :self.signal_length]
+                back_dic['cdd_reduced_mask'] = cdd_reduced_mask
+                back_dic['his_reduced_mask'] = his_reduced_mask
 
             return back_dic
 
@@ -480,17 +445,17 @@ class MIND(Dataset):
                 "his_mask": his_mask,
             }
 
-            if self.reducer == 'bm25':
+            if self.reducer in ['bm25','bow']:
                 his_reduced_index = self.reduced_news[his_ids][:, :self.k + 1]
                 his_reduced_mask = self.attn_mask_reduced[his_ids][:, :self.k + 1]
                 back_dic['his_reduced_index'] = his_reduced_index
                 back_dic['his_reduced_mask'] = his_reduced_mask
 
             elif self.reducer == 'matching':
-                cdd_attn_mask_k = self.attn_mask_k[cdd_ids][:, :self.signal_length]
-                his_attn_mask_k = self.attn_mask_k[his_ids][:, :self.signal_length]
-                back_dic['cdd_attn_mask_k'] = cdd_attn_mask_k
-                back_dic['his_attn_mask_k'] = his_attn_mask_k
+                cdd_reduced_mask = self.attn_mask_reduced[cdd_ids][:, :self.signal_length]
+                his_reduced_mask = self.attn_mask_reduced[his_ids][:, :self.signal_length]
+                back_dic['cdd_reduced_mask'] = cdd_reduced_mask
+                back_dic['his_reduced_mask'] = his_reduced_mask
 
             return back_dic
 
