@@ -91,7 +91,7 @@ class MIND(Dataset):
             reducer = BM25(self.signal_length)
         elif config.reducer == 'bow':
             from .utils import BagOfWords
-            reducer = BagOfWords(self.signal_length)
+            reducer = BagOfWords(self.signal_length, self.k)
         elif config.reducer == 'matching':
             from .utils import DeDuplicate
             reducer = DeDuplicate(self.signal_length, self.k, ~config.no_dedup)
@@ -347,16 +347,22 @@ class MIND(Dataset):
                 "label": label
             }
 
-            if self.reducer in ['bm25','bow']:
+            if self.reducer == 'bm25':
                 his_reduced_index = self.reduced_news[his_ids][:, :self.k + 1]
                 his_reduced_mask = self.attn_mask_reduced[his_ids][:, :self.k + 1]
-                back_dic['his_encoded_index'] = his_reduced_index
-                back_dic['his_attn_mask'] = his_reduced_mask
+                back_dic['his_reduced_index'] = his_reduced_index
+                back_dic['his_reduced_mask'] = his_reduced_mask
 
             elif self.reducer == 'matching':
                 cdd_reduced_mask = self.attn_mask_reduced[cdd_ids][:, :self.signal_length]
                 his_reduced_mask = self.attn_mask_reduced[his_ids][:, :self.signal_length]
                 back_dic['cdd_reduced_mask'] = cdd_reduced_mask
+                back_dic['his_reduced_mask'] = his_reduced_mask
+
+            elif self.reducer == 'bow':
+                his_reduced_index = self.reduced_news[his_ids][:, :self.signal_length]
+                his_reduced_mask = self.attn_mask_reduced[his_ids][:, :self.signal_length]
+                back_dic['his_reduced_index'] = his_reduced_index
                 back_dic['his_reduced_mask'] = his_reduced_mask
 
             return back_dic
@@ -396,16 +402,22 @@ class MIND(Dataset):
                 "label": np.asarray(label)
             }
 
-            if self.reducer in ['bm25','bow']:
+            if self.reducer == 'bm25':
                 his_reduced_index = self.reduced_news[his_ids][:, :self.k + 1]
                 his_reduced_mask = self.attn_mask_reduced[his_ids][:, :self.k + 1]
-                back_dic['his_encoded_index'] = his_reduced_index
-                back_dic['his_attn_mask'] = his_reduced_mask
+                back_dic['his_reduced_index'] = his_reduced_index
+                back_dic['his_reduced_mask'] = his_reduced_mask
 
             elif self.reducer == 'matching':
                 cdd_reduced_mask = self.attn_mask_reduced[cdd_ids][:, :self.signal_length]
                 his_reduced_mask = self.attn_mask_reduced[his_ids][:, :self.signal_length]
                 back_dic['cdd_reduced_mask'] = cdd_reduced_mask
+                back_dic['his_reduced_mask'] = his_reduced_mask
+
+            elif self.reducer == 'bow':
+                his_reduced_index = self.reduced_news[his_ids][:, :self.signal_length]
+                his_reduced_mask = self.attn_mask_reduced[his_ids][:, :self.signal_length]
+                back_dic['his_reduced_index'] = his_reduced_index
                 back_dic['his_reduced_mask'] = his_reduced_mask
 
             return back_dic
@@ -442,16 +454,22 @@ class MIND(Dataset):
                 "his_mask": his_mask,
             }
 
-            if self.reducer in ['bm25','bow']:
+            if self.reducer == 'bm25':
                 his_reduced_index = self.reduced_news[his_ids][:, :self.k + 1]
                 his_reduced_mask = self.attn_mask_reduced[his_ids][:, :self.k + 1]
-                back_dic['his_encoded_index'] = his_reduced_index
-                back_dic['his_attn_mask'] = his_reduced_mask
+                back_dic['his_reduced_index'] = his_reduced_index
+                back_dic['his_reduced_mask'] = his_reduced_mask
 
             elif self.reducer == 'matching':
                 cdd_reduced_mask = self.attn_mask_reduced[cdd_ids][:, :self.signal_length]
                 his_reduced_mask = self.attn_mask_reduced[his_ids][:, :self.signal_length]
                 back_dic['cdd_reduced_mask'] = cdd_reduced_mask
+                back_dic['his_reduced_mask'] = his_reduced_mask
+
+            elif self.reducer == 'bow':
+                his_reduced_index = self.reduced_news[his_ids][:, :self.signal_length]
+                his_reduced_mask = self.attn_mask_reduced[his_ids][:, :self.signal_length]
+                back_dic['his_reduced_index'] = his_reduced_index
                 back_dic['his_reduced_mask'] = his_reduced_mask
 
             return back_dic

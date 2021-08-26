@@ -47,6 +47,9 @@ def main(rank, manager, dist=False):
     elif manager.reducer == 'bm25':
         from models.Modules.DRM import BM25_Reducer
         docReducer = BM25_Reducer(manager)
+    elif manager.reducer == 'bow':
+        from models.Modules.DRM import BOW_Reducer
+        docReducer = BOW_Reducer(manager)
 
     # if manager.fuser == 'union':
     #     from models.Modules.TFM import Union_Fuser

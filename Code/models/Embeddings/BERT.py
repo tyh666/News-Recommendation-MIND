@@ -25,19 +25,25 @@ class BERT_Embedding(nn.Module):
         self.layerNorm = bert.embeddings.LayerNorm
         self.dropOut = nn.Dropout(config.dropout_p)
 
+        if config.reducer == 'bow':
+            self.freq_embedding = nn.Embedding(config.signal_length // 2, self.embedding_dim)
+            nn.init.xavier_normal_(self.freq_embedding.weight)
 
-    def forward(self, news_batch):
+    def forward(self, news_batch, bow=False):
         """ encode news with bert
 
         Args:
             news_batch: batch of news tokens, of size [batch_size, *, signal_length]
+            bow: whether the input is bow
 
         Returns:
             news_embedding: hidden vector of each token in news, of size [batch_size, *, signal_length, emedding_dim]
         """
-
-        # [bs, cs/hs, sl, ed]
-        word_embeds = self.embedding(news_batch)
+        if bow:
+            word_embeds = self.embedding(news_batch[:,:,:,0]) + self.freq_embedding(news_batch[:,:,:,1])
+        else:
+            # [bs, cs/hs, sl, ed]
+            word_embeds = self.embedding(news_batch)
 
         # embedding = self.dropOut(self.layerNorm(word_embeds + self.pos_embedding[:word_embeds.size(2)] + self.token_type_embedding))
         embedding = self.dropOut(self.layerNorm(word_embeds + self.pos_embedding[:word_embeds.size(2)]))

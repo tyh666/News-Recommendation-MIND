@@ -57,7 +57,16 @@ class TTMS(nn.Module):
         if self.reducer.name == 'matching':
             user_repr = self.encoderU(his_news_repr)
             ps_terms, ps_term_mask, kid = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, x["his_attn_mask"].to(self.device), x["his_reduced_mask"].to(self.device).bool())
-        else:
+
+        elif self.reducer.name == 'bow':
+            user_repr = self.encoderU(his_news_repr)
+
+            his_reduced_news = x["his_reduced_index"].long().to(self.device)
+            his_reduced_embedding = self.embedding(his_reduced_news, bow=True)
+            his_reduced_encoded_embedding, his_reduced_repr = self.encoderN(his_reduced_embedding)
+            ps_terms, ps_term_mask, kid = self.reducer(his_reduced_encoded_embedding, his_reduced_embedding, user_repr, his_news_repr, x["his_reduced_mask"].to(self.device))
+
+        elif self.reducer.name == 'bm25':
             kid = None
             user_repr = None
             ps_terms, ps_term_mask = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, x["his_attn_mask"].to(self.device))

@@ -411,7 +411,7 @@ def load_manager():
     parser.add_argument("-encn", "--encoderN", dest="encoderN", help="choose news encoder", choices=['cnn','rnn','npa','fim','mha','bert'], default="cnn")
     parser.add_argument("-encu", "--encoderU", dest="encoderU", help="choose user encoder", choices=['avg','attn','cnn','rnn','lstur','mha'], default="rnn")
     parser.add_argument("-slc", "--selector", dest="selector", help="choose history selector", choices=['recent','sfi'], default="sfi")
-    parser.add_argument("-red", "--reducer", dest="reducer", help="choose document reducer", choices=['bm25','matching'], default="matching")
+    parser.add_argument("-red", "--reducer", dest="reducer", help="choose document reducer", choices=['bm25','matching','bow'], default="matching")
     parser.add_argument("-fus", "--fuser", dest="fuser", help="choose term fuser", choices=['union'], default="union")
     parser.add_argument("-rk", "--ranker", dest="ranker", help="choose ranker", choices=['onepass','original','cnn','knrm'], default="onepass")
     parser.add_argument("-agg", "--aggregator", dest="aggregator", help="choose history aggregator, only used in TTMS", choices=['avg','attn','cnn','rnn','lstur','mha'], default=None)
@@ -654,7 +654,8 @@ def setup(rank, manager):
         # one-gpu
         manager.rank = -1
 
-    torch.cuda.set_device(rank)
+    if rank != 'cpu':
+        torch.cuda.set_device(rank)
 
 
 def cleanup():
@@ -704,7 +705,6 @@ class BM25(object):
         """
         build term frequencies (how many times a term occurs in one news) and document frequencies (how many documents contains a term)
         """
-        word_count = 0
         doc_count = len(documents)
 
         tfs = []
@@ -712,12 +712,13 @@ class BM25(object):
         for document in documents:
             tf = defaultdict(int)
             # ignore [CLS]
-            for term in document[1:self.signal_length]:
+            for term in document[1:]:
                 # ignore [PAD]
-                if term != 0:
+                if term == 0:
+                    break
+                else:
                     tf[term] += 1
                     df[term] += 1
-                    word_count + 1
 
             tfs.append(tf)
 
@@ -737,6 +738,9 @@ class BM25(object):
 
         Args:
             documents: list of lists
+
+        Returns:
+            sorted tokens
         """
         logger.info("computing BM25 scores...")
         self._build_tf_idf(documents)
@@ -758,8 +762,8 @@ class BM25(object):
                 sorted_documents.append([0] * self.signal_length)
                 sorted_attn_mask.append([0] * self.signal_length)
             else:
-                sorted_documents.append([101] + list(bm25.keys()) + [0]*pad_length)
-                sorted_attn_mask.append([1] * bm25_length + [0] * pad_length)
+                sorted_documents.append([101] + list(bm25.keys())[:self.signal_length - 1] + [0]*pad_length)
+                sorted_attn_mask.append([1] * min(bm25_length, self.signal_length) + [0] * pad_length)
 
         return np.asarray(sorted_documents), np.asarray(sorted_attn_mask)
 
@@ -768,22 +772,27 @@ class BagOfWords(object):
     """
     reduce the text into bag of words
     """
-    def __init__(self, signal_length, position=False) -> None:
+    def __init__(self, signal_length, k, position=False) -> None:
         super().__init__()
         self.signal_length = signal_length
         self.position = position
+        self.k = k
 
     def __call__(self, documents, attn_masks):
         """
+        count unique tokens in signal_length
+
         Args:
             documents: list of tokens
 
         Returns:
             bows: list of list of tuples, [[(word1 : freq1), ...] ...]
+            positions: [[]]
         """
         logger.info("reducing to Bag-of-Words...")
         bows = []
         attn_masks = []
+
         for i, document in enumerate(documents):
             terms = defaultdict(int)
             for j, term in enumerate(document[:self.signal_length]):
@@ -798,7 +807,13 @@ class BagOfWords(object):
             bows.append(bow)
             attn_masks.append(attn_mask)
 
-        return np.asarray(bows), np.asarray(attn_masks)
+        attn_masks = np.asarray(attn_masks)
+        # logger.info("unmasking at least k...")
+        # for i, mask in enumerate(attn_masks):
+        #     if mask.sum() < self.k + 1:
+        #         attn_masks[i][:self.k+1] = 1
+
+        return np.asarray(bows), attn_masks
 
 
 class DeDuplicate(object):

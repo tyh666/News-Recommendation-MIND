@@ -148,6 +148,9 @@ python -m scripts.sfi -m tune -s demo -k=5 -sl=20 -bs=10 -is=10 --no_dedup
 - [x] distributed evaluate
 - [x] reverse history when learning user profile
 
+## Questions
+- use bag-of-words to encode user history?
+
 ## Issue
 - the gradient after docReducer is sharp
 - if we concat title with abstract, then there must be many duplicated words, how about removing them when preprocessing?
@@ -160,16 +163,34 @@ python -m scripts.sfi -m tune -s demo -k=5 -sl=20 -bs=10 -is=10 --no_dedup
 
 ## Ablation
 - Two Tower
-  - [x] signal_length=30
-  - [ ] signal_length=80
-    - [ ] speedyfeed
-  - [ ] bm25 top 30
-  - [ ] selected top 30
+  - [ ] encode user representation from news/bag-of-words
+  - user representation as aggregation of historical news
+    - [69.93] signal_length=30
+    - [ ] bm25 top 30
+    - selected top 5
+      - [ ] non-mask, non-deduplicate, non-BoW
+      - [ ] +mask
+      - [ ] +deduplicate
+      - [ ] +BoW
+    - [ ] signal_length=80
+      - [ ] speedyfeed
+    - user encoder
+      - [ ] RNN
+      - [ ] CNN
+      - [ ] MHA
+  - user representation as [CLS] of historical news sequence
+    - [ ] signal_length=5
+    - [ ] bm25 top 5
+    - selected top 5
+      - [ ] non-mask, non-deduplicate, non-BoW
+      - [ ] +mask
+      - [ ] +deduplicate
+      - [ ] +BoW
 
 - One Tower
   - [ ] signal_length=5
   - [ ] bm25 top 5
-  - [x] selected top 5
+  - [69.91] selected top 5
 
 ## Need to update
 - [x] Encoders.MHA,
@@ -186,9 +207,13 @@ python -m scripts.sfi -m tune -s demo -k=5 -sl=20 -bs=10 -is=10 --no_dedup
 - posses all necessary (used in inference) hyper parameters as attributes
 - posses some unique attributes per model (name, term_num)
 ### MIND
-- map dataset for MIND
-- cache enabled
-
+map dataset for MIND
+- `input`
+- `output`:
+  - *_encoded_index: tokenized news
+  - *_reduced_index: reduced tokenized news
+  - *_attn_mask: attention mask
+  - *_reduced_mask: reduced attention mask
 ## Function
 ### Embedding
 ### Encoder

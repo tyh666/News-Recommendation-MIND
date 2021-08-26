@@ -587,14 +587,9 @@ class Manager():
         model.eval()
         logger.info("inspecting {}...".format(self.name))
 
-        if self.bm25:
-            import pickle
-            try:
-                bm25_file = pickle.load(open('data/cache/bert/MIND{}_{}/news_bm25.pkl'.format(self.scale, loader.dataset.mode),'rb'))
-            except:
-                logger.error("encode news with -red=bm25 first!")
-
-            bm25_terms = bm25_file['reduced_news']
+        reducer = model.reducer.name
+        if reducer == 'bm25':
+            bm25_terms = loader.dataset.reduced_news
 
         self.load(model, self.checkpoint)
         t = BertTokenizer.from_pretrained('bert-base-uncased')
@@ -604,10 +599,13 @@ class Manager():
         jumpout = False
         for x in loader:
             _, term_indexes = model(x)
-
-            his_encoded_index = x['his_encoded_index'].to(self.device)
-            his_attn_mask = x['his_attn_mask'].to(self.device)
-            if self.bm25:
+            if reducer == 'bow':
+                his_encoded_index = x['his_reduced_index'].to(self.device)
+                his_attn_mask = x['his_reduced_mask'].to(self.device)
+            else:
+                his_encoded_index = x['his_encoded_index'].to(self.device)
+                his_attn_mask = x['his_attn_mask'].to(self.device)
+            if reducer == 'bm25':
                 his_id = x['his_id'].to(self.device)
 
             term_ids = his_encoded_index[:,:,1:].gather(index=term_indexes, dim=-1)

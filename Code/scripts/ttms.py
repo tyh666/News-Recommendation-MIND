@@ -41,6 +41,9 @@ def main(rank, manager, dist=False):
     elif manager.reducer == 'bm25':
         from models.Modules.DRM import BM25_Reducer
         reducer = BM25_Reducer(manager)
+    elif manager.reducer == 'bow':
+        from models.Modules.DRM import BOW_Reducer
+        reducer = BOW_Reducer(manager)
 
     if manager.aggregator == 'rnn':
         from models.Encoders.RNN import RNN_User_Encoder
