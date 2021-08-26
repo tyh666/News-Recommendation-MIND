@@ -17,12 +17,14 @@ def main(rank, manager, dist=False):
 
     from models.Embeddings.BERT import BERT_Embedding
     embedding = BERT_Embedding(manager)
+
     if manager.encoderN == 'cnn':
         from models.Encoders.CNN import CNN_Encoder
         encoderN = CNN_Encoder(manager)
     elif manager.encoderN == 'bert':
         from models.Encoders.BERT import BERT_Encoder
         encoderN = BERT_Encoder(manager)
+
     if manager.encoderU == 'rnn':
         from models.Encoders.RNN import RNN_User_Encoder
         encoderU = RNN_User_Encoder(manager)
@@ -32,6 +34,14 @@ def main(rank, manager, dist=False):
     elif manager.encoderU == 'attn':
         from models.Encoders.Pooling import Attention_Pooling
         encoderU = Attention_Pooling(manager)
+
+    if manager.reducer == 'matching':
+        from models.Modules.DRM import Matching_Reducer
+        docReducer = Matching_Reducer(manager)
+    elif manager.reducer == 'bm25':
+        from models.Modules.DRM import BM25_Reducer
+        docReducer = BM25_Reducer(manager)
+
     if manager.aggregator == 'rnn':
         from models.Encoders.RNN import RNN_User_Encoder
         aggregator = RNN_User_Encoder(manager)

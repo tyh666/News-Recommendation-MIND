@@ -6,7 +6,7 @@ from .Encoders.BERT import BERT_Encoder
 from .Modules.DRM import Matching_Reducer
 
 class TTMS(nn.Module):
-    def __init__(self, config, embedding, encoderN, encoderU, aggregator=None):
+    def __init__(self, config, embedding, encoderN, encoderU, reducer, aggregator=None):
         super().__init__()
 
         self.scale = config.scale
@@ -19,7 +19,7 @@ class TTMS(nn.Module):
         self.encoderN = encoderN
         self.encoderU = encoderU
 
-        self.reducer = Matching_Reducer(config)
+        self.reducer = reducer
         self.bert = BERT_Encoder(config)
 
         self.aggregator = aggregator
