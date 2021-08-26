@@ -78,10 +78,6 @@ class MIND(Dataset):
                 behaviors = pickle.load(f)
                 for k,v in behaviors.items():
                     setattr(self, k, v)
-            if config.reducer == 'bm25':
-                self.news_path = self.cache_directory + 'news_bm25.pkl'
-            else:
-                self.news_path = self.cache_directory + 'news.pkl'
             logger.info('process NO.{} loading cached news tokenization from {}'.format(config.rank, self.news_path))
             with open(self.news_path, 'rb') as f:
                 news = pickle.load(f)
