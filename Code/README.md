@@ -65,7 +65,7 @@ python -m scripts.sfi -m tune -s demo -k=5 -sl=20 -bs=10 -is=10 --no_dedup
   - [ ] propotion > 200
   - [ ] propotion > 300
   - [ ] propotion > 400
-- [ ] **bag of words input**
+- [x] **bag of words input**
 
 ## Embedding
 - [x] Random embedding
@@ -80,14 +80,14 @@ python -m scripts.sfi -m tune -s demo -k=5 -sl=20 -bs=10 -is=10 --no_dedup
 - [x] FIM encoder
 - [x] Bert encoder
   - [x] [CLS] as news repr
-  - [ ] attention over the last layer as news repr
+  - [x] attention over the last layer as news repr
     - not necessary, the CLS is already the attentive pooling output
 
 ## User Encoder
 - [x] RNN encoder
+- [x] NRMS
 - [ ] LSTUR
 - [ ] Adaptive and time-aware LSTUR, see [29]
-- [ ] NRMS
 
 ## Document Reducer
 - [ ] matching based
@@ -95,9 +95,10 @@ python -m scripts.sfi -m tune -s demo -k=5 -sl=20 -bs=10 -is=10 --no_dedup
   - [x] topk with threshold
   - [x] extract after masking
   - [ ] diversified
-    - [ ] use document vector as an extraction input
+    - [x] use document vector as an extraction input
     - [ ] design methods to extract non-duplicated terms within an article
-      - [x] restrict attention mask
+      - [x] attention mask
+      - [x] input bag-of-words
   - [x] extract origin embedding, not after cnn
   - [ ] dynamic allocation of top k
     - [x] read paper of yi xiaoyuan
