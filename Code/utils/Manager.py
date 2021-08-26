@@ -303,7 +303,7 @@ class Manager():
 
                 loss = loss_func(pred, label)
 
-                epoch_loss += loss
+                epoch_loss += float(loss)
 
                 loss.backward()
 
@@ -581,7 +581,7 @@ class Manager():
         """
         inspect personalized terms
         """
-        assert model.reducer.name == 'matching', "only available when using matching reducer"
+        assert model.reducer.name in ['matching', 'bow'], "only available when using matching/bow reducer"
         from transformers import BertTokenizer
 
         model.eval()
@@ -600,7 +600,7 @@ class Manager():
         for x in loader:
             _, term_indexes = model(x)
             if reducer == 'bow':
-                his_encoded_index = x['his_reduced_index'].to(self.device)
+                his_encoded_index = x['his_reduced_index'][:, :, :, 0].to(self.device)
                 his_attn_mask = x['his_reduced_mask'].to(self.device)
             else:
                 his_encoded_index = x['his_encoded_index'].to(self.device)

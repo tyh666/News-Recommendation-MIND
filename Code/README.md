@@ -56,6 +56,8 @@ python -m scripts.esm -m tune -s demo -bs=5 -is=10 -d=1
 python -m scripts.ttm -m tune -s demo -bs=5 -is=10 -d=1 -encn=bert -sl=30
 python -m scripts.ttms -m tune -s demo -bs=5 -is=10
 python -m scripts.sfi -m tune -s demo -k=5 -sl=20 -bs=10 -is=10 --no_dedup
+
+python -m scripts.ttms -m inspect -s demo -ck=4123
 ```
 ## Preprocess
 - [x] remove stop words
@@ -150,6 +152,8 @@ python -m scripts.sfi -m tune -s demo -k=5 -sl=20 -bs=10 -is=10 --no_dedup
 
 ## Questions
 - use bag-of-words to encode user history?
+  - currently yes
+- remove stop words like "-"?
 
 ## Issue
 - the gradient after docReducer is sharp

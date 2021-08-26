@@ -41,15 +41,13 @@ def main(rank, manager, dist=False):
         from models.Encoders.MHA import MHA_User_Encoder
         encoderU = MHA_User_Encoder(manager)
 
-    if manager.reducer == 'matching':
+    if manager.reducer in ['matching', 'bow']:
         from models.Modules.DRM import Matching_Reducer
-        docReducer = Matching_Reducer(manager)
+        reducer = Matching_Reducer(manager)
     elif manager.reducer == 'bm25':
         from models.Modules.DRM import BM25_Reducer
-        docReducer = BM25_Reducer(manager)
-    elif manager.reducer == 'bow':
-        from models.Modules.DRM import BOW_Reducer
-        docReducer = BOW_Reducer(manager)
+        reducer = BM25_Reducer(manager)
+
 
     # if manager.fuser == 'union':
     #     from models.Modules.TFM import Union_Fuser
@@ -65,7 +63,7 @@ def main(rank, manager, dist=False):
         from models.Rankers.CNN import CNN_Ranker
         ranker = CNN_Ranker(manager)
 
-    esm = ESM(manager, embedding, encoderN, encoderU, docReducer, None, ranker).to(rank)
+    esm = ESM(manager, embedding, encoderN, encoderU, reducer, None, ranker).to(rank)
 
     if dist:
         esm = DDP(esm, device_ids=[rank], output_device=rank, find_unused_parameters=True)

@@ -41,10 +41,10 @@ class BERT_Embedding(nn.Module):
         """
         if bow:
             word_embeds = self.embedding(news_batch[:,:,:,0]) + self.freq_embedding(news_batch[:,:,:,1])
+            # word_embeds = self.embedding(news_batch[:,:,:,0])
         else:
             # [bs, cs/hs, sl, ed]
             word_embeds = self.embedding(news_batch)
-
         # embedding = self.dropOut(self.layerNorm(word_embeds + self.pos_embedding[:word_embeds.size(2)] + self.token_type_embedding))
         embedding = self.dropOut(self.layerNorm(word_embeds + self.pos_embedding[:word_embeds.size(2)]))
 

@@ -56,26 +56,39 @@ class ESM(nn.Module):
         _, cdd_news_repr = self.encoderN(
             cdd_news_embedding
         )
-        his_news = x["his_encoded_index"].long().to(self.device)
-        his_news_embedding = self.embedding(his_news)
-        his_news_encoded_embedding, his_news_repr = self.encoderN(
-            his_news_embedding
-        )
-
-        user_repr = self.encoderU(his_news_repr)
 
         if self.reducer.name == 'matching':
+            his_news = x["his_encoded_index"].long().to(self.device)
+            his_news_embedding = self.embedding(his_news)
+            his_news_encoded_embedding, his_news_repr = self.encoderN(
+                his_news_embedding
+            )
+
+            user_repr = self.encoderU(his_news_repr)
+
             ps_terms, ps_term_mask, kid = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, x["his_attn_mask"].to(self.device), x["his_reduced_mask"].to(self.device).bool())
 
         elif self.reducer.name == 'bow':
-            his_reduced_news = x["his_reduced_index"].long().to(self.device)
-            his_reduced_embedding = self.embedding(his_reduced_news, bow=True)
-            his_reduced_encoded_embedding, his_reduced_repr = self.encoderN(his_reduced_embedding)
-            ps_terms, ps_term_mask, kid = self.reducer(his_reduced_encoded_embedding, his_reduced_embedding, user_repr, his_news_repr, x["his_reduced_mask"].to(self.device))
+            his_news = x["his_reduced_index"].long().to(self.device)
+            his_news_embedding = self.embedding(his_news, bow=True)
+            his_news_encoded_embedding, his_news_repr = self.encoderN(
+                his_news_embedding
+            )
+            user_repr = self.encoderU(his_news_repr)
+
+            ps_terms, ps_term_mask, kid = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, x["his_attn_mask"].to(self.device), x["his_reduced_mask"].to(self.device).bool())
 
         elif self.reducer.name == 'bm25':
             kid = None
-            ps_terms, ps_term_mask = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, x["his_attn_mask"].to(self.device))
+            his_news = x["his_reduced_index"].long().to(self.device)
+            his_news_embedding = self.embedding(his_news)
+            his_news_encoded_embedding, his_news_repr = self.encoderN(
+                his_news_embedding
+            )
+
+            user_repr = None
+
+            ps_terms, ps_term_mask = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, x["his_reduced_mask"].to(self.device))
 
 
         if self.fuser:

@@ -808,12 +808,14 @@ class BagOfWords(object):
             attn_masks.append(attn_mask)
 
         attn_masks = np.asarray(attn_masks)
-        # logger.info("unmasking at least k...")
-        # for i, mask in enumerate(attn_masks):
-        #     if mask.sum() < self.k + 1:
-        #         attn_masks[i][:self.k+1] = 1
+        attn_masks_dedup = attn_masks.copy()
 
-        return np.asarray(bows), attn_masks
+        logger.info("unmasking at least k...")
+        for i, mask in enumerate(attn_masks_dedup):
+            if mask.sum() < self.k + 1:
+                attn_masks_dedup[i][:self.k+1] = 1
+
+        return np.asarray(bows), attn_masks, attn_masks_dedup
 
 
 class DeDuplicate(object):

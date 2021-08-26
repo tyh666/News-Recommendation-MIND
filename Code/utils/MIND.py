@@ -140,9 +140,15 @@ class MIND(Dataset):
         if not reducer:
             return
 
-        reduced_news, attn_mask_reduced = reducer(self.encoded_news, self.attn_mask)
-        self.reduced_news = reduced_news
-        self.attn_mask_reduced = attn_mask_reduced
+        reduced_news_mask = reducer(self.encoded_news, self.attn_mask)
+        self.reduced_news = reduced_news_mask[0]
+
+        if self.reducer == 'bow':
+            self.attn_mask = reduced_news_mask[1]
+            self.attn_mask_reduced = reduced_news_mask[2]
+
+        else:
+            self.attn_mask_reduced = reduced_news_mask[1]
 
     def init_behaviors(self):
         """
