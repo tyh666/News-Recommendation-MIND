@@ -31,7 +31,7 @@ class TTM(nn.Module):
         Returns:
             score of each candidate news, [batch_size, cdd_size]
         """
-        print(user_repr.mean(), cdd_news_repr.mean(), user_repr.max(), cdd_news_repr.max(), user_repr.sum(), cdd_news_repr.sum())
+        # print(user_repr.mean(), cdd_news_repr.mean(), user_repr.max(), cdd_news_repr.max(), user_repr.sum(), cdd_news_repr.sum())
         score = cdd_news_repr.matmul(user_repr.transpose(-2,-1)).squeeze(-1)
 
         return score
@@ -42,17 +42,10 @@ class TTM(nn.Module):
             self.embedding(cdd_news), x['cdd_attn_mask'].to(self.device)
         )
 
-        if self.reducer == 'bm25':
-            his_news = x["his_reduced_index"].long().to(self.device)
-            _, his_news_repr = self.encoderN(
-                self.embedding(his_news), x['his_reduced_mask'].to(self.device)
-            )
-
-        else:
-            his_news = x["his_encoded_index"].long().to(self.device)
-            _, his_news_repr = self.encoderN(
-                self.embedding(his_news), x['his_attn_mask'].to(self.device)
-            )
+        his_news = x["his_encoded_index"].long().to(self.device)
+        _, his_news_repr = self.encoderN(
+            self.embedding(his_news), x['his_attn_mask'].to(self.device)
+        )
 
         user_repr = self.encoderU(his_news_repr)
 

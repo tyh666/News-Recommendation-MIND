@@ -56,7 +56,7 @@ class TTMS(nn.Module):
 
         user_repr = self.encoderU(his_news_repr)
 
-        ps_terms, ps_term_mask, kid = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, x["his_attn_mask"].to(self.device), x["his_attn_mask_k"].to(self.device).bool())
+        ps_terms, ps_term_mask, kid = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, x["his_attn_mask"].to(self.device), x["his_reduced_mask"].to(self.device).bool())
 
         # append CLS to each historical news, aggregator historical news representation to user repr
         if self.aggregator:

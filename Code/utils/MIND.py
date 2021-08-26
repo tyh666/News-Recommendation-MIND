@@ -353,8 +353,8 @@ class MIND(Dataset):
             if self.reducer in ['bm25','bow']:
                 his_reduced_index = self.reduced_news[his_ids][:, :self.k + 1]
                 his_reduced_mask = self.attn_mask_reduced[his_ids][:, :self.k + 1]
-                back_dic['his_reduced_index'] = his_reduced_index
-                back_dic['his_reduced_mask'] = his_reduced_mask
+                back_dic['his_encoded_index'] = his_reduced_index
+                back_dic['his_attn_mask'] = his_reduced_mask
 
             elif self.reducer == 'matching':
                 cdd_reduced_mask = self.attn_mask_reduced[cdd_ids][:, :self.signal_length]
@@ -402,8 +402,8 @@ class MIND(Dataset):
             if self.reducer in ['bm25','bow']:
                 his_reduced_index = self.reduced_news[his_ids][:, :self.k + 1]
                 his_reduced_mask = self.attn_mask_reduced[his_ids][:, :self.k + 1]
-                back_dic['his_reduced_index'] = his_reduced_index
-                back_dic['his_reduced_mask'] = his_reduced_mask
+                back_dic['his_encoded_index'] = his_reduced_index
+                back_dic['his_attn_mask'] = his_reduced_mask
 
             elif self.reducer == 'matching':
                 cdd_reduced_mask = self.attn_mask_reduced[cdd_ids][:, :self.signal_length]
@@ -448,8 +448,8 @@ class MIND(Dataset):
             if self.reducer in ['bm25','bow']:
                 his_reduced_index = self.reduced_news[his_ids][:, :self.k + 1]
                 his_reduced_mask = self.attn_mask_reduced[his_ids][:, :self.k + 1]
-                back_dic['his_reduced_index'] = his_reduced_index
-                back_dic['his_reduced_mask'] = his_reduced_mask
+                back_dic['his_encoded_index'] = his_reduced_index
+                back_dic['his_attn_mask'] = his_reduced_mask
 
             elif self.reducer == 'matching':
                 cdd_reduced_mask = self.attn_mask_reduced[cdd_ids][:, :self.signal_length]
