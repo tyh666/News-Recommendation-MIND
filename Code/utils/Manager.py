@@ -581,6 +581,7 @@ class Manager():
         """
         inspect personalized terms
         """
+        assert model.reducer.name == 'matching', "only available when using matching reducer"
         from transformers import BertTokenizer
 
         model.eval()

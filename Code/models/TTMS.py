@@ -56,7 +56,11 @@ class TTMS(nn.Module):
 
         user_repr = self.encoderU(his_news_repr)
 
-        ps_terms, ps_term_mask, kid = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, x["his_attn_mask"].to(self.device), x["his_reduced_mask"].to(self.device).bool())
+        kid = None
+        if self.reducer.name == 'matching':
+            ps_terms, ps_term_mask, kid = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, x["his_attn_mask"].to(self.device), x["his_reduced_mask"].to(self.device).bool())
+        else:
+            ps_terms, ps_term_mask = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, x["his_attn_mask"].to(self.device))
 
         # append CLS to each historical news, aggregator historical news representation to user repr
         if self.aggregator:
@@ -68,8 +72,8 @@ class TTMS(nn.Module):
         # append CLS to the entire browsing history, directly deriving user repr
         else:
             batch_size = ps_terms.size(0)
-            ps_terms = torch.cat([his_news_embedding[:, 0, 0].unsqueeze(1).unsqueeze(1), ps_terms.view(batch_size, 1, -1, ps_terms.size(-1))], dim=-2)
-            ps_term_mask = torch.cat([torch.ones(batch_size, 1, 1, device=ps_term_mask.device), ps_term_mask.view(batch_size, 1, -1)], dim=-1)
+            ps_terms = torch.cat([his_news_embedding[:, 0, 0].unsqueeze(1).unsqueeze(1), ps_terms.reshape(batch_size, 1, -1, ps_terms.size(-1))], dim=-2)
+            ps_term_mask = torch.cat([torch.ones(batch_size, 1, 1, device=ps_term_mask.device), ps_term_mask.reshape(batch_size, 1, -1)], dim=-1)
             _, user_cls = self.bert(ps_terms, ps_term_mask)
             user_repr = self.userProject(user_cls)
 
