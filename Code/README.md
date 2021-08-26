@@ -155,8 +155,7 @@ python -m scripts.sfi -m tune -s demo -k=5 -sl=20 -bs=10 -is=10 --no_dedup
 - **history in MIND, the more recent is at the front or the tail**, we now use the head as the latest news by default
   - its ascending by time
 - [SEP] no position embedding
-- headline news recommendation (zero shot)
-- recall
+- directly using [CLS] as user profile in TTMS results in high loss, and the model can learn nothing
 
 ## Ablation
 - Two Tower

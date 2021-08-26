@@ -37,10 +37,10 @@ def main(rank, manager, dist=False):
 
     if manager.reducer == 'matching':
         from models.Modules.DRM import Matching_Reducer
-        docReducer = Matching_Reducer(manager)
+        reducer = Matching_Reducer(manager)
     elif manager.reducer == 'bm25':
         from models.Modules.DRM import BM25_Reducer
-        docReducer = BM25_Reducer(manager)
+        reducer = BM25_Reducer(manager)
 
     if manager.aggregator == 'rnn':
         from models.Encoders.RNN import RNN_User_Encoder
@@ -54,7 +54,7 @@ def main(rank, manager, dist=False):
     else:
         aggregator = None
 
-    ttms = TTMS(manager, embedding, encoderN, encoderU, aggregator).to(rank)
+    ttms = TTMS(manager, embedding, encoderN, encoderU, reducer, aggregator).to(rank)
 
     if dist:
         ttms = DDP(ttms, device_ids=[rank], output_device=rank, find_unused_parameters=True)

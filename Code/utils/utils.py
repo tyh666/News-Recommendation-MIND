@@ -341,17 +341,12 @@ def getVocab(file):
 
 
 def my_collate(data):
-    excluded = ["impression_index"]
     result = defaultdict(list)
     for d in data:
         for k, v in d.items():
             result[k].append(v)
     for k, v in result.items():
-        if k not in excluded:
-            result[k] = torch.from_numpy(np.asarray(v))
-
-        else:
-            continue
+        result[k] = torch.from_numpy(np.asarray(v))
     return dict(result)
 
 
@@ -797,13 +792,13 @@ class BagOfWords(object):
                 terms[term] += 1
 
             pad_length = self.signal_length - len(terms)
-            bow = list(terms.items())[:self.signal_length] + [(0, 0)]*pad_length
+            bow = list(terms.items())[:self.signal_length] + [[0, 0]]*pad_length
             attn_mask = [1]*min(len(terms), self.signal_length) + [0]*pad_length
 
             bows.append(bow)
             attn_masks.append(attn_mask)
 
-        return np.asarray(bows, dtype=object), np.asarray(attn_masks)
+        return np.asarray(bows), np.asarray(attn_masks)
 
 
 class DeDuplicate(object):
