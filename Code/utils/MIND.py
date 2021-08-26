@@ -73,16 +73,17 @@ class MIND(Dataset):
 
         if config.world_size > 1:
             dist.barrier()
-            logger.info('process NO.{} loading cached user behavior from {}'.format(config.rank, self.behav_path))
-            with open(self.behav_path, 'rb') as f:
-                behaviors = pickle.load(f)
-                for k,v in behaviors.items():
-                    setattr(self, k, v)
-            logger.info('process NO.{} loading cached news tokenization from {}'.format(config.rank, self.news_path))
-            with open(self.news_path, 'rb') as f:
-                news = pickle.load(f)
-                for k,v in news.items():
-                    setattr(self, k, v)
+            if config.rank != 0:
+                logger.info('child process NO.{} loading cached user behavior from {}'.format(config.rank, self.behav_path))
+                with open(self.behav_path, 'rb') as f:
+                    behaviors = pickle.load(f)
+                    for k,v in behaviors.items():
+                        setattr(self, k, v)
+                logger.info('child process NO.{} loading cached news tokenization from {}'.format(config.rank, self.news_path))
+                with open(self.news_path, 'rb') as f:
+                    news = pickle.load(f)
+                    for k,v in news.items():
+                        setattr(self, k, v)
 
         self.reduction_path = self.cache_directory + self.reducer + '.pkl'
         if config.reducer == 'bm25':

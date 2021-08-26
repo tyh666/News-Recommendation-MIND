@@ -30,7 +30,7 @@ class TTMS(nn.Module):
                 nn.Tanh()
             )
 
-        self.name = '__'.join(['ttms', self.encoderN.name, self.encoderU.name])
+        self.name = '__'.join(['ttms', self.encoderN.name, self.encoderU.name, self.reducer.name])
         config.name = self.name
 
     def clickPredictor(self, cdd_news_repr, user_repr):
