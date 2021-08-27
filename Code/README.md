@@ -153,10 +153,11 @@ python -m scripts.ttms -m inspect -s demo -ck=4123
 ## Questions
 - use bag-of-words to encode user history?
   - currently yes
-- remove stop words like "-"?
+- remove stop words like "-" in bow?
 - focus on which task?
   - two tower with bow?
   - two tower with sequence input?
+- can only select tokens, rather than words
 
 ## Issue
 - the gradient after docReducer is sharp
@@ -172,8 +173,18 @@ python -m scripts.ttms -m inspect -s demo -ck=4123
 ## Ablation
 - Two Tower
   - [ ] encode user representation from news/bag-of-words
+  - [69.93] signal_length=30
+
+  - user representation as [CLS] of historical news sequence
+    - [ ] signal_length=5
+    - [69.59] bm25 top 5
+    - selected top 5
+      - [ ] non-mask, non-deduplicate, non-BoW
+      - [ ] +mask
+      - [70.4] +deduplicate
+      - [ ] +BoW
+
   - user representation as aggregation of historical news
-    - [69.93] signal_length=30
     - [ ] bm25 top 30
     - selected top 5
       - [ ] non-mask, non-deduplicate, non-BoW
@@ -186,14 +197,6 @@ python -m scripts.ttms -m inspect -s demo -ck=4123
       - [ ] RNN
       - [ ] CNN
       - [ ] MHA
-  - user representation as [CLS] of historical news sequence
-    - [ ] signal_length=5
-    - [ ] bm25 top 5
-    - selected top 5
-      - [ ] non-mask, non-deduplicate, non-BoW
-      - [ ] +mask
-      - [ ] +deduplicate
-      - [ ] +BoW
 
 - One Tower
   - [ ] signal_length=5
