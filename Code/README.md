@@ -154,6 +154,9 @@ python -m scripts.ttms -m inspect -s demo -ck=4123
 - use bag-of-words to encode user history?
   - currently yes
 - remove stop words like "-"?
+- focus on which task?
+  - two tower with bow?
+  - two tower with sequence input?
 
 ## Issue
 - the gradient after docReducer is sharp
@@ -164,6 +167,7 @@ python -m scripts.ttms -m inspect -s demo -ck=4123
   - its ascending by time
 - [SEP] no position embedding
 - directly using [CLS] as user profile in TTMS results in high loss, and the model can learn nothing
+- **one tower is not better than two tower, why?**
 
 ## Ablation
 - Two Tower
