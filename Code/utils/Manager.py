@@ -192,6 +192,22 @@ class Manager():
         labels = []
         preds = []
 
+        max_input = {
+            'cdd_id': torch.empty(1, self.impr_size).random_(0,10),
+            'his_id': torch.empty(1, self.his_size).random_(0,10),
+            "cdd_encoded_index": torch.rand(1, self.impr_size, self.signal_length).random_(0,10),
+            "his_encoded_index": torch.rand(1, self.his_size, self.signal_length).random_(0,10),
+            "his_reduced_index": torch.rand(1, self.his_size, self.signal_length).random_(0,10),
+            "cdd_attn_mask": torch.ones(1, self.impr_size, self.signal_length),
+            "his_attn_mask": torch.ones(1, self.impr_size, self.signal_length),
+            "his_reduced_mask": torch.ones(1, self.impr_size, self.signal_length),
+            "his_mask": torch.ones((1, self.his_size)),
+        }
+        if self.reducer == 'bow':
+            max_input["his_reduced_index"] = torch.rand(1, self.his_size, self.signal_length).random_(0,10)
+
+        model(max_input)
+
         for x in tqdm(dataloader, smoothing=self.smoothing):
             impr_indexes.extend(x["impr_index"].tolist())
             preds.extend(model(x)[0].tolist())
@@ -481,11 +497,27 @@ class Manager():
         if self.rank in [0,-1]:
             logger.info("testing...")
 
+        # input the biggest to fill the model's buffer
+        max_input = {
+            'cdd_id': torch.empty(1, self.impr_size).random_(0,10),
+            'his_id': torch.empty(1, self.his_size).random_(0,10),
+            "cdd_encoded_index": torch.rand(1, self.impr_size, self.signal_length).random_(0,10),
+            "his_encoded_index": torch.rand(1, self.his_size, self.signal_length).random_(0,10),
+            "his_reduced_index": torch.rand(1, self.his_size, self.signal_length).random_(0,10),
+            "cdd_attn_mask": torch.ones(1, self.impr_size, self.signal_length),
+            "his_attn_mask": torch.ones(1, self.impr_size, self.signal_length),
+            "his_reduced_mask": torch.ones(1, self.impr_size, self.signal_length),
+            "his_mask": torch.ones((1, self.his_size)),
+        }
+        if self.reducer == 'bow':
+            max_input["his_reduced_index"] = torch.rand(1, self.his_size, self.signal_length).random_(0,10)
+        model(max_input)
+
         impr_indexes = []
         preds = []
         for x in tqdm(loader_test, smoothing=self.smoothing, position=0, leave=True):
-            impr_indexes.extend(x["impr_index"])
-            preds.extend(model(x).tolist())
+            impr_indexes.extend(x["impr_index"].tolist())
+            preds.extend(model(x)[0].tolist())
 
         if self.world_size > 1:
             outputs = [None for i in range(self.world_size)]
@@ -508,7 +540,7 @@ class Manager():
             os.makedirs(save_directory, exist_ok=True)
 
             save_path = save_directory + "/{}_step{}_[k={}].txt".format(
-                self.scale, self.step, self.k)
+                self.scale, self.checkpoint, self.k)
 
             index = 1
             with open(save_path, 'w') as f:
