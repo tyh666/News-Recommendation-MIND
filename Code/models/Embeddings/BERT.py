@@ -29,7 +29,7 @@ class BERT_Embedding(nn.Module):
             self.freq_embedding = nn.Embedding(config.signal_length // 2, self.embedding_dim)
             nn.init.xavier_normal_(self.freq_embedding.weight)
 
-    def forward(self, news_batch, bow=False):
+    def forward(self, news_batch, subword_prefix=None, bow=False):
         """ encode news with bert
 
         Args:
@@ -43,6 +43,8 @@ class BERT_Embedding(nn.Module):
             word_embeds = self.embedding(news_batch[:,:,:,0]) + self.freq_embedding(news_batch[:,:,:,1])
             # word_embeds = self.embedding(news_batch[:,:,:,0])
         else:
+            if subword_prefix is not None:
+                word_embeds = subword_prefix.matmul(self.embedding(news_batch))
             # [bs, cs/hs, sl, ed]
             word_embeds = self.embedding(news_batch)
         # embedding = self.dropOut(self.layerNorm(word_embeds + self.pos_embedding[:word_embeds.size(2)] + self.token_type_embedding))

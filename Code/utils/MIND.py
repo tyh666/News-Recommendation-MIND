@@ -2,6 +2,7 @@ import re
 import os
 import pickle
 import logging
+import torch
 import numpy as np
 import torch.distributed as dist
 from torch.utils.data import Dataset
@@ -113,20 +114,45 @@ class MIND(Dataset):
         # The nid2idx dictionary must follow the original order of news in news.tsv
 
         documents = [""]
-
+        subwords = [[]]
         with open(self.news_file, "r", encoding="utf-8") as rd:
             for idx in rd:
                 nid, vert, subvert, title, ab, url, _, _ = idx.strip("\n").split("\t")
-                documents.append(" ".join(["[CLS]", title, ab, vert, subvert]))
+                document = " ".join(["[CLS]", title, vert, subvert, ab])
+                tokens = self.tokenizer.tokenize(document)[:512]
+
+                # index for 1 entry
+                subword = []
+
+                i = -1
+                j = -1
+                for token in tokens:
+                    if token.startswith('##'):
+                        j += 1
+                        subword.append([i,j])
+
+                    else:
+                        i += 1
+                        j += 1
+                        subword.append([i,j])
+
+                documents.append(document)
+                subwords.append(subword)
 
         encoded_dict = self.tokenizer(documents, add_special_tokens=False, padding=True, truncation=True, max_length=self.max_news_length, return_tensors="np")
         self.encoded_news = encoded_dict.input_ids
         self.attn_mask = encoded_dict.attention_mask
 
+        max_token_length = self.encoded_news.shape[1]
+        for i,subword in enumerate(subwords):
+            subwords[i].extend([[0,0]] * (max_token_length - len(subword)))
+        self.subwords = torch.as_tensor(subwords)
+
         with open(self.news_path, "wb") as f:
             pickle.dump(
                 {
                     "encoded_news": self.encoded_news,
+                    "subwords": self.subwords,
                     "attn_mask": self.attn_mask
                 },
                 f
@@ -311,6 +337,8 @@ class MIND(Dataset):
             neg_list, neg_pad = newsample(negs, self.npratio)
 
             cdd_ids = [impr_news] + neg_list
+            cdd_size = self.npratio + 1
+
             label = np.asarray([1] + [0] * self.npratio)
 
             if self.shuffle_pos:
@@ -322,8 +350,12 @@ class MIND(Dataset):
             label = np.arange(0, len(cdd_ids), 1)[label == 1][0]
 
             his_ids = self.histories[impr_index][:self.his_size]
+
+            cdd_mask = torch.ones((cdd_size, 1))
+            cdd_mask[-neg_pad:] = 0
+
             # true means the corresponding history news is padded
-            his_mask = np.zeros((self.his_size), dtype=bool)
+            his_mask = torch.zeros((self.his_size, 1), dtype=bool)
             his_mask[:len(his_ids)] = 1
 
             if self.ascend_history:
@@ -331,13 +363,25 @@ class MIND(Dataset):
             else:
                 his_ids = his_ids[::-1] + [0] * (self.his_size - len(his_ids))
 
-            # pad in cdd
-            # cdd_mask = [1] * neg_pad + [0] * (self.npratio + 1 - neg_pad)
-
             cdd_encoded_index = self.encoded_news[cdd_ids][:, :self.signal_length]
             cdd_attn_mask = self.attn_mask[cdd_ids][:, :self.signal_length]
             his_encoded_index = self.encoded_news[his_ids][:, :self.signal_length]
             his_attn_mask = self.attn_mask[his_ids][:, :self.signal_length]
+
+            cdd_subword_index_all = self.subwords[cdd_ids][:, :self.signal_length]
+            cdd_subword_index = cdd_subword_index_all[:, :, 0] * self.signal_length + cdd_subword_index_all[:, :, 1]
+            his_subword_index_all = self.subwords[his_ids][:, :self.signal_length]
+            his_subword_index = his_subword_index_all[:, :, 0] * self.signal_length + his_subword_index_all[:, :, 1]
+
+            cdd_dest = torch.zeros((cdd_size, self.signal_length * self.signal_length))
+            cdd_src = torch.ones((cdd_size, self.signal_length * self.signal_length))
+            cdd_subword_prefix = cdd_dest.scatter(dim=-1, index=cdd_subword_index, src=cdd_src) * cdd_mask
+            cdd_subword_prefix = cdd_subword_prefix.view(cdd_size, self.signal_length, self.signal_length)
+
+            his_dest = torch.zeros((self.his_size, self.signal_length * self.signal_length))
+            his_src = torch.ones((self.his_size, self.signal_length * self.signal_length))
+            his_subword_prefix = his_dest.scatter(dim=-1, index=his_subword_index, src=his_src) * his_mask
+            his_subword_prefix = his_subword_prefix.view(self.his_size, self.signal_length, self.signal_length)
 
             back_dic = {
                 "user_index": np.asarray(user_index),
@@ -348,6 +392,8 @@ class MIND(Dataset):
                 "his_encoded_index": his_encoded_index,
                 "cdd_attn_mask": cdd_attn_mask,
                 "his_attn_mask": his_attn_mask,
+                "cdd_subword_prefix": cdd_subword_prefix,
+                "his_subword_prefix": his_subword_prefix,
                 "his_mask": his_mask,
                 "label": label
             }
@@ -375,10 +421,11 @@ class MIND(Dataset):
         # each time called return one sample, and no labels
         elif self.mode == "dev":
             cdd_ids = impr_news
+            cdd_size = len(cdd_ids)
 
             his_ids = self.histories[impr_index][:self.his_size]
             # true means the corresponding history news is padded
-            his_mask = np.zeros((self.his_size), dtype=bool)
+            his_mask = torch.zeros((self.his_size, 1), dtype=bool)
             his_mask[:len(his_ids)] = 1
 
             if self.ascend_history:
@@ -394,6 +441,21 @@ class MIND(Dataset):
             his_encoded_index = self.encoded_news[his_ids][:, :self.signal_length]
             his_attn_mask = self.attn_mask[his_ids][:, :self.signal_length]
 
+            cdd_subword_index_all = self.subwords[cdd_ids][:, :self.signal_length]
+            cdd_subword_index = cdd_subword_index_all[:, :, 0] * self.signal_length + cdd_subword_index_all[:, :, 1]
+            his_subword_index_all = self.subwords[his_ids][:, :self.signal_length]
+            his_subword_index = his_subword_index_all[:, :, 0] * self.signal_length + his_subword_index_all[:, :, 1]
+
+            cdd_dest = torch.zeros((cdd_size, self.signal_length * self.signal_length))
+            cdd_src = torch.ones((cdd_size, self.signal_length * self.signal_length))
+            cdd_subword_prefix = cdd_dest.scatter(dim=-1, index=cdd_subword_index, src=cdd_src)
+            cdd_subword_prefix = cdd_subword_prefix.view(cdd_size, self.signal_length, self.signal_length)
+
+            his_dest = torch.zeros((self.his_size, self.signal_length * self.signal_length))
+            his_src = torch.ones((self.his_size, self.signal_length * self.signal_length))
+            his_subword_prefix = his_dest.scatter(dim=-1, index=his_subword_index, src=his_src) * his_mask
+            his_subword_prefix = his_subword_prefix.view(self.his_size, self.signal_length, self.signal_length)
+
             back_dic = {
                 "impr_index": impr_index + 1,
                 "user_index": np.asarray(user_index),
@@ -403,6 +465,8 @@ class MIND(Dataset):
                 "his_encoded_index": his_encoded_index,
                 "cdd_attn_mask": cdd_attn_mask,
                 "his_attn_mask": his_attn_mask,
+                "cdd_subword_prefix": cdd_subword_prefix,
+                "his_subword_prefix": his_subword_prefix,
                 "his_mask": his_mask,
                 "label": np.asarray(label)
             }
@@ -429,10 +493,11 @@ class MIND(Dataset):
 
         elif self.mode == "test":
             cdd_ids = impr_news
+            cdd_size = len(cdd_ids)
 
             his_ids = self.histories[impr_index][:self.his_size]
             # true means the corresponding history news is padded
-            his_mask = np.zeros((self.his_size), dtype=bool)
+            his_mask = torch.zeros((self.his_size, 1), dtype=bool)
             his_mask[:len(his_ids)] = 1
 
             if self.ascend_history:
@@ -447,6 +512,21 @@ class MIND(Dataset):
             his_encoded_index = self.encoded_news[his_ids][:, :self.signal_length]
             his_attn_mask = self.attn_mask[his_ids][:, :self.signal_length]
 
+            cdd_subword_index_all = self.subwords[cdd_ids][:, :self.signal_length]
+            cdd_subword_index = cdd_subword_index_all[:, :, 0] * self.signal_length + cdd_subword_index_all[:, :, 1]
+            his_subword_index_all = self.subwords[his_ids][:, :self.signal_length]
+            his_subword_index = his_subword_index_all[:, :, 0] * self.signal_length + his_subword_index_all[:, :, 1]
+
+            cdd_dest = torch.zeros((cdd_size, self.signal_length * self.signal_length))
+            cdd_src = torch.ones((cdd_size, self.signal_length * self.signal_length))
+            cdd_subword_prefix = cdd_dest.scatter(dim=-1, index=cdd_subword_index, src=cdd_src)
+            cdd_subword_prefix = cdd_subword_prefix.view(cdd_size, self.signal_length, self.signal_length)
+
+            his_dest = torch.zeros((self.his_size, self.signal_length * self.signal_length))
+            his_src = torch.ones((self.his_size, self.signal_length * self.signal_length))
+            his_subword_prefix = his_dest.scatter(dim=-1, index=his_subword_index, src=his_src) * his_mask
+            his_subword_prefix = his_subword_prefix.view(self.his_size, self.signal_length, self.signal_length)
+
             back_dic = {
                 "impr_index": impr_index + 1,
                 "user_index": np.asarray(user_index),
@@ -456,6 +536,8 @@ class MIND(Dataset):
                 "his_encoded_index": his_encoded_index,
                 "cdd_attn_mask": cdd_attn_mask,
                 "his_attn_mask": his_attn_mask,
+                "cdd_subword_prefix": cdd_subword_prefix,
+                "his_subword_prefix": his_subword_prefix,
                 "his_mask": his_mask,
             }
 
@@ -481,7 +563,6 @@ class MIND(Dataset):
 
         else:
             raise ValueError("Mode {} not defined".format(self.mode))
-
 
 # FIXME: refactor with bm25
 class MIND_news(Dataset):

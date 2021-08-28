@@ -1,7 +1,7 @@
 # Two tower baseline
 import torch
 import torch.nn as nn
-
+import torch.nn.functional as F
 from .Encoders.BERT import BERT_Encoder
 
 class TTMS(nn.Module):
@@ -47,14 +47,20 @@ class TTMS(nn.Module):
         return score
 
     def _forward(self,x):
+        cdd_subword_prefix = F.normalize(x["cdd_subword_prefix"].to(self.device), p=1, dim=-1)
+        his_subword_prefix = F.normalize(x["his_subword_prefix"].to(self.device), p=1, dim=-1)
+
         if self.reducer.name == 'matching':
             his_news = x["his_encoded_index"].long().to(self.device)
-            his_news_embedding = self.embedding(his_news)
+            his_news_embedding = self.embedding(his_news, his_subword_prefix)
             his_news_encoded_embedding, his_news_repr = self.encoderN(
                 his_news_embedding
             )
             user_repr = self.encoderU(his_news_repr)
-            ps_terms, ps_term_mask, kid = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, x["his_attn_mask"].to(self.device), x["his_reduced_mask"].to(self.device).bool())
+
+            his_attn_mask = his_subword_prefix.matmul(x["his_attn_mask"].to(self.device))
+            his_reduced_mask = his_subword_prefix.matmul(x["his_reduced_mask"].to(self.device))
+            ps_terms, ps_term_mask, kid = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, his_attn_mask, his_reduced_mask.bool())
 
         elif self.reducer.name == 'bow':
             his_reduced_news = x["his_reduced_index"].long().to(self.device)
@@ -92,7 +98,7 @@ class TTMS(nn.Module):
 
         cdd_news = x["cdd_encoded_index"].long().to(self.device)
         _, cdd_news_repr = self.bert(
-            self.embedding(cdd_news), x['cdd_attn_mask'].to(self.device)
+            self.embedding(cdd_news, cdd_subword_prefix), cdd_subword_prefix.matmul(x['cdd_attn_mask'].to(self.device))
         )
 
         return self.clickPredictor(cdd_news_repr, user_repr), kid
