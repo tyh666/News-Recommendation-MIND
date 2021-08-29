@@ -167,7 +167,6 @@ python -m scripts.ttms -m inspect -s demo -ck=4123
 - **history in MIND, the more recent is at the front or the tail**, we now use the head as the latest news by default
   - its ascending by time
 - [SEP] no position embedding
-- directly using [CLS] as user profile in TTMS results in high loss, and the model can learn nothing
 - **one tower is not better than two tower, why?**
 
 ## Ablation

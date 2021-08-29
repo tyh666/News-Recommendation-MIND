@@ -16,6 +16,10 @@ class Matching_Reducer(nn.Module):
 
         config.term_num = config.k * config.his_size
 
+        keep_k_modifier = torch.zeros(1, config.signal_length)
+        keep_k_modifier[:, :self.k+1] = 1
+        self.register_buffer('keep_k_modifier', keep_k_modifier, persistent=False)
+
         if self.diversify:
             self.newsUserAlign = nn.Linear(config.hidden_dim * 2, config.hidden_dim)
             nn.init.xavier_normal_(self.newsUserAlign.weight)
@@ -24,7 +28,7 @@ class Matching_Reducer(nn.Module):
             threshold = torch.tensor([config.threshold])
             self.register_buffer('threshold', threshold)
 
-    def forward(self, news_selection_embedding, news_embedding, user_repr, news_repr, his_attn_mask, his_attn_mask_k):
+    def forward(self, news_selection_embedding, news_embedding, user_repr, news_repr, his_attn_mask, his_reduced_mask):
         """
         Extract words from news text according to the overall user interest
 
@@ -49,8 +53,10 @@ class Matching_Reducer(nn.Module):
 
         # [bs, hs, sl - 1]
         scores = F.normalize(news_selection_embedding, dim=-1).matmul(F.normalize(selection_query, dim=-1)).squeeze(-1)
+
+        pad_pos = ~(((his_reduced_mask + self.keep_k_modifier)[:, :, 1:]).bool())
         # mask the padded term
-        scores = scores.masked_fill(~his_attn_mask_k[:, :, 1:], -float('inf'))
+        scores = scores.masked_fill(pad_pos, -float('inf'))
 
         score_k, score_kid = scores.topk(dim=-1, k=self.k, sorted=False)
 
@@ -83,7 +89,7 @@ class BM25_Reducer(nn.Module):
         config.term_num = config.k * config.his_size
 
 
-    def forward(self, news_selection_embedding, news_embedding, user_repr, news_repr, his_attn_mask, his_attn_mask_k=None):
+    def forward(self, news_selection_embedding, news_embedding, user_repr, news_repr, his_attn_mask, his_reduced_mask=None):
         """
         Extract words from news text according to the overall user interest
 

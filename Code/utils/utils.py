@@ -43,6 +43,25 @@ def tokenize(sent):
     return [x for x in pat.findall(sent.lower()) if x not in stopwords]
 
 
+def convert_tokens_to_words(tokens):
+    """
+    transform the tokens output by tokenizer to words (connecting subwords)
+
+    Args:
+        tokens: list of tokens
+
+    Returns:
+        words: list of words
+    """
+    words = []
+    for tok in tokens:
+        if tok.startswith('##'):
+            words[-1] += tok[2:]
+        else:
+            words.append(tok)
+    return np.array(words, dtype=object)
+
+
 def newsample(news, ratio):
     """ Sample ratio samples from news list.
     If length of news is less than ratio, pad zeros.

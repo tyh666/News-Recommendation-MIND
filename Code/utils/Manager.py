@@ -201,6 +201,8 @@ class Manager():
             "cdd_attn_mask": torch.ones(1, self.impr_size, self.signal_length),
             "his_attn_mask": torch.ones(1, self.his_size, self.signal_length),
             "his_reduced_mask": torch.ones(1, self.his_size, self.signal_length),
+            "cdd_subword_prefix": torch.ones(1, self.impr_size, self.signal_length, self.signal_length),
+            "his_subword_prefix": torch.ones(1, self.his_size, self.signal_length, self.signal_length),
             "his_mask": torch.ones((1, self.his_size)),
         }
         if self.reducer == 'bow':
@@ -510,6 +512,8 @@ class Manager():
             "cdd_attn_mask": torch.ones(1, self.impr_size, self.signal_length),
             "his_attn_mask": torch.ones(1, self.his_size, self.signal_length),
             "his_reduced_mask": torch.ones(1, self.his_size, self.signal_length),
+            "cdd_subword_prefix": torch.ones(1, self.impr_size, self.signal_length, self.signal_length),
+            "his_subword_prefix": torch.ones(1, self.his_size, self.signal_length, self.signal_length),
             "his_mask": torch.ones((1, self.his_size)),
         }
         if self.reducer == 'bow':
@@ -622,6 +626,7 @@ class Manager():
         """
         assert model.reducer.name in ['matching', 'bow'], "only available when using matching/bow reducer"
         from transformers import BertTokenizer
+        from .utils import convert_tokens_to_words
 
         model.eval()
         logger.info("inspecting {}...".format(self.name))
@@ -639,24 +644,30 @@ class Manager():
         for x in loader:
             _, term_indexes = model(x)
             if reducer == 'bow':
-                his_encoded_index = x['his_reduced_index'][:, :, :, 0].to(self.device)
-                his_attn_mask = x['his_reduced_mask'].to(self.device)
+                his_encoded_index = x['his_reduced_index'][:, :, :, 0].to(model.device)
+                his_attn_mask = x['his_reduced_mask'].to(model.device)
             else:
-                his_encoded_index = x['his_encoded_index'].to(self.device)
-                his_attn_mask = x['his_attn_mask'].to(self.device)
+                his_encoded_index = x['his_encoded_index'].to(model.device)
+                his_attn_mask = x['his_attn_mask'].to(model.device)
             if reducer == 'bm25':
-                his_id = x['his_id'].to(self.device)
+                his_id = x['his_id'].to(model.device)
 
-            term_ids = his_encoded_index[:,:,1:].gather(index=term_indexes, dim=-1)
-            for i,batch in enumerate(term_ids):
-                for j,doc in enumerate(batch):
+            # term_ids = his_encoded_index[:,:,1:].gather(index=term_indexes, dim=-1)
+            encoded_ids = his_encoded_index[:, :, 1:]
+            # words = )
+
+            for i,batch in enumerate(encoded_ids):
+                for j,his_token_ids in enumerate(batch):
                     print('*******************************************************')
-                    ps_terms = t.decode(doc)
-                    if ps_terms[0:5] == '[PAD]':
+                    words = convert_tokens_to_words(t.convert_ids_to_tokens(his_token_ids))
+                    ps_term_ids = term_indexes[i,j].cpu().numpy()
+                    ps_terms = words[ps_term_ids]
+
+                    if ps_terms[0] == '[PAD]':
                         jumpout = True
                         break
                     else:
-                        print("[personalized terms]\n\t {}".format(ps_terms))
+                        print("[personalized terms]\n\t {}".format(' '.join(ps_terms)))
                         if self.bm25:
                             print("[bm25 terms]\n\t {}".format(t.decode(bm25_terms[his_id[i][j]][:self.k])))
 
