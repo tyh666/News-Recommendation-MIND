@@ -146,7 +146,7 @@ class MIND(Dataset):
         max_token_length = self.encoded_news.shape[1]
         for i,subword in enumerate(subwords):
             subwords[i].extend([[0,0]] * (max_token_length - len(subword)))
-        self.subwords = torch.as_tensor(subwords)
+        self.subwords = np.asarray(subwords)
 
         with open(self.news_path, "wb") as f:
             pickle.dump(
@@ -368,32 +368,32 @@ class MIND(Dataset):
             his_encoded_index = self.encoded_news[his_ids][:, :self.signal_length]
             his_attn_mask = self.attn_mask[his_ids][:, :self.signal_length]
 
-            cdd_subword_index_all = self.subwords[cdd_ids][:, :self.signal_length]
-            cdd_subword_index = cdd_subword_index_all[:, :, 0] * self.signal_length + cdd_subword_index_all[:, :, 1]
-            his_subword_index_all = self.subwords[his_ids][:, :self.signal_length]
-            his_subword_index = his_subword_index_all[:, :, 0] * self.signal_length + his_subword_index_all[:, :, 1]
+            cdd_subword_index = self.subwords[cdd_ids][:, :self.signal_length]
+            # cdd_subword_index = cdd_subword_index_all[:, :, 0] * self.signal_length + cdd_subword_index_all[:, :, 1]
+            his_subword_index = self.subwords[his_ids][:, :self.signal_length]
+            # his_subword_index = his_subword_index_all[:, :, 0] * self.signal_length + his_subword_index_all[:, :, 1]
 
-            cdd_dest = torch.zeros((cdd_size, self.signal_length * self.signal_length))
-            cdd_src = torch.ones((cdd_size, self.signal_length * self.signal_length))
-            cdd_subword_prefix = cdd_dest.scatter(dim=-1, index=cdd_subword_index, src=cdd_src) * cdd_mask
-            cdd_subword_prefix = cdd_subword_prefix.view(cdd_size, self.signal_length, self.signal_length)
+            # cdd_dest = torch.zeros((cdd_size, self.signal_length * self.signal_length))
+            # cdd_src = torch.ones((cdd_size, self.signal_length * self.signal_length))
+            # cdd_subword_prefix = cdd_dest.scatter(dim=-1, index=cdd_subword_index, src=cdd_src) * cdd_mask
+            # cdd_subword_prefix = cdd_subword_prefix.view(cdd_size, self.signal_length, self.signal_length)
 
-            his_dest = torch.zeros((self.his_size, self.signal_length * self.signal_length))
-            his_src = torch.ones((self.his_size, self.signal_length * self.signal_length))
-            his_subword_prefix = his_dest.scatter(dim=-1, index=his_subword_index, src=his_src) * his_mask
-            his_subword_prefix = his_subword_prefix.view(self.his_size, self.signal_length, self.signal_length)
+            # his_dest = torch.zeros((self.his_size, self.signal_length * self.signal_length))
+            # his_src = torch.ones((self.his_size, self.signal_length * self.signal_length))
+            # his_subword_prefix = his_dest.scatter(dim=-1, index=his_subword_index, src=his_src) * his_mask
+            # his_subword_prefix = his_subword_prefix.view(self.his_size, self.signal_length, self.signal_length)
 
             back_dic = {
                 "user_index": np.asarray(user_index),
-                # "cdd_mask": np.asarray(neg_pad),
                 "cdd_id": np.asarray(cdd_ids),
                 "his_id": np.asarray(his_ids),
                 "cdd_encoded_index": cdd_encoded_index,
                 "his_encoded_index": his_encoded_index,
                 "cdd_attn_mask": cdd_attn_mask,
                 "his_attn_mask": his_attn_mask,
-                "cdd_subword_prefix": cdd_subword_prefix,
-                "his_subword_prefix": his_subword_prefix,
+                "cdd_subword_index": cdd_subword_index,
+                "his_subword_index": his_subword_index,
+                "cdd_mask": cdd_mask,
                 "his_mask": his_mask,
                 "label": label
             }
@@ -441,20 +441,20 @@ class MIND(Dataset):
             his_encoded_index = self.encoded_news[his_ids][:, :self.signal_length]
             his_attn_mask = self.attn_mask[his_ids][:, :self.signal_length]
 
-            cdd_subword_index_all = self.subwords[cdd_ids][:, :self.signal_length]
-            cdd_subword_index = cdd_subword_index_all[:, :, 0] * self.signal_length + cdd_subword_index_all[:, :, 1]
-            his_subword_index_all = self.subwords[his_ids][:, :self.signal_length]
-            his_subword_index = his_subword_index_all[:, :, 0] * self.signal_length + his_subword_index_all[:, :, 1]
+            cdd_subword_index = self.subwords[cdd_ids][:, :self.signal_length]
+            # cdd_subword_index = cdd_subword_index_all[:, :, 0] * self.signal_length + cdd_subword_index_all[:, :, 1]
+            his_subword_index = self.subwords[his_ids][:, :self.signal_length]
+            # his_subword_index = his_subword_index_all[:, :, 0] * self.signal_length + his_subword_index_all[:, :, 1]
 
-            cdd_dest = torch.zeros((cdd_size, self.signal_length * self.signal_length))
-            cdd_src = torch.ones((cdd_size, self.signal_length * self.signal_length))
-            cdd_subword_prefix = cdd_dest.scatter(dim=-1, index=cdd_subword_index, src=cdd_src)
-            cdd_subword_prefix = cdd_subword_prefix.view(cdd_size, self.signal_length, self.signal_length)
+            # cdd_dest = torch.zeros((cdd_size, self.signal_length * self.signal_length))
+            # cdd_src = torch.ones((cdd_size, self.signal_length * self.signal_length))
+            # cdd_subword_prefix = cdd_dest.scatter(dim=-1, index=cdd_subword_index, src=cdd_src) * cdd_mask
+            # cdd_subword_prefix = cdd_subword_prefix.view(cdd_size, self.signal_length, self.signal_length)
 
-            his_dest = torch.zeros((self.his_size, self.signal_length * self.signal_length))
-            his_src = torch.ones((self.his_size, self.signal_length * self.signal_length))
-            his_subword_prefix = his_dest.scatter(dim=-1, index=his_subword_index, src=his_src) * his_mask
-            his_subword_prefix = his_subword_prefix.view(self.his_size, self.signal_length, self.signal_length)
+            # his_dest = torch.zeros((self.his_size, self.signal_length * self.signal_length))
+            # his_src = torch.ones((self.his_size, self.signal_length * self.signal_length))
+            # his_subword_prefix = his_dest.scatter(dim=-1, index=his_subword_index, src=his_src) * his_mask
+            # his_subword_prefix = his_subword_prefix.view(self.his_size, self.signal_length, self.signal_length)
 
             back_dic = {
                 "impr_index": impr_index + 1,
@@ -465,8 +465,8 @@ class MIND(Dataset):
                 "his_encoded_index": his_encoded_index,
                 "cdd_attn_mask": cdd_attn_mask,
                 "his_attn_mask": his_attn_mask,
-                "cdd_subword_prefix": cdd_subword_prefix,
-                "his_subword_prefix": his_subword_prefix,
+                "cdd_subword_index": cdd_subword_index,
+                "his_subword_index": his_subword_index,
                 "his_mask": his_mask,
                 "label": np.asarray(label)
             }
@@ -512,20 +512,20 @@ class MIND(Dataset):
             his_encoded_index = self.encoded_news[his_ids][:, :self.signal_length]
             his_attn_mask = self.attn_mask[his_ids][:, :self.signal_length]
 
-            cdd_subword_index_all = self.subwords[cdd_ids][:, :self.signal_length]
-            cdd_subword_index = cdd_subword_index_all[:, :, 0] * self.signal_length + cdd_subword_index_all[:, :, 1]
-            his_subword_index_all = self.subwords[his_ids][:, :self.signal_length]
-            his_subword_index = his_subword_index_all[:, :, 0] * self.signal_length + his_subword_index_all[:, :, 1]
+            cdd_subword_index = self.subwords[cdd_ids][:, :self.signal_length]
+            # cdd_subword_index = cdd_subword_index_all[:, :, 0] * self.signal_length + cdd_subword_index_all[:, :, 1]
+            his_subword_index = self.subwords[his_ids][:, :self.signal_length]
+            # his_subword_index = his_subword_index_all[:, :, 0] * self.signal_length + his_subword_index_all[:, :, 1]
 
-            cdd_dest = torch.zeros((cdd_size, self.signal_length * self.signal_length))
-            cdd_src = torch.ones((cdd_size, self.signal_length * self.signal_length))
-            cdd_subword_prefix = cdd_dest.scatter(dim=-1, index=cdd_subword_index, src=cdd_src)
-            cdd_subword_prefix = cdd_subword_prefix.view(cdd_size, self.signal_length, self.signal_length)
+            # cdd_dest = torch.zeros((cdd_size, self.signal_length * self.signal_length))
+            # cdd_src = torch.ones((cdd_size, self.signal_length * self.signal_length))
+            # cdd_subword_prefix = cdd_dest.scatter(dim=-1, index=cdd_subword_index, src=cdd_src) * cdd_mask
+            # cdd_subword_prefix = cdd_subword_prefix.view(cdd_size, self.signal_length, self.signal_length)
 
-            his_dest = torch.zeros((self.his_size, self.signal_length * self.signal_length))
-            his_src = torch.ones((self.his_size, self.signal_length * self.signal_length))
-            his_subword_prefix = his_dest.scatter(dim=-1, index=his_subword_index, src=his_src) * his_mask
-            his_subword_prefix = his_subword_prefix.view(self.his_size, self.signal_length, self.signal_length)
+            # his_dest = torch.zeros((self.his_size, self.signal_length * self.signal_length))
+            # his_src = torch.ones((self.his_size, self.signal_length * self.signal_length))
+            # his_subword_prefix = his_dest.scatter(dim=-1, index=his_subword_index, src=his_src) * his_mask
+            # his_subword_prefix = his_subword_prefix.view(self.his_size, self.signal_length, self.signal_length)
 
             back_dic = {
                 "impr_index": impr_index + 1,
@@ -536,8 +536,8 @@ class MIND(Dataset):
                 "his_encoded_index": his_encoded_index,
                 "cdd_attn_mask": cdd_attn_mask,
                 "his_attn_mask": his_attn_mask,
-                "cdd_subword_prefix": cdd_subword_prefix,
-                "his_subword_prefix": his_subword_prefix,
+                "cdd_subword_index": cdd_subword_index,
+                "his_subword_index": his_subword_index,
                 "his_mask": his_mask,
             }
 

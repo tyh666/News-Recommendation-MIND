@@ -12,6 +12,7 @@ class TTMS(nn.Module):
         self.cdd_size = config.cdd_size
         self.batch_size = config.batch_size
         self.his_size = config.his_size
+        self.signal_length = config.signal_length
         self.device = config.device
 
         self.embedding = embedding
@@ -22,6 +23,9 @@ class TTMS(nn.Module):
         self.bert = BERT_Encoder(config)
 
         self.aggregator = aggregator
+
+        self.register_buffer('cdd_dest', torch.zeros((self.batch_size, config.impr_size, self.signal_length * self.signal_length)), persistent=False)
+        self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, self.signal_length * self.signal_length)), persistent=False)
 
         if not aggregator:
             self.userProject = nn.Sequential(
@@ -47,8 +51,35 @@ class TTMS(nn.Module):
         return score
 
     def _forward(self,x):
-        cdd_subword_prefix = F.normalize(x["cdd_subword_prefix"].to(self.device), p=1, dim=-1)
-        his_subword_prefix = F.normalize(x["his_subword_prefix"].to(self.device), p=1, dim=-1)
+        batch_size = x['cdd_subword_index'].size(0)
+        cdd_size = x['cdd_subword_index'].size(1)
+
+        if self.training:
+            if batch_size != self.batch_size:
+                cdd_dest = self.cdd_dest[:batch_size, :cdd_size]
+                his_dest = self.his_dest[:batch_size]
+            else:
+                cdd_dest = self.cdd_dest[:, :cdd_size]
+                his_dest = self.his_dest
+
+        # batch_size always equals 1 when evaluating
+        else:
+            cdd_dest = self.cdd_dest[[0], :cdd_size]
+            his_dest = self.his_dest[[0]]
+
+        cdd_subword_index = x['cdd_subword_index'].to(self.device)
+        cdd_subword_index = cdd_subword_index[:, :, :, 0] * self.signal_length + cdd_subword_index[:, :, :, 1]
+        his_subword_index = x['his_subword_index'].to(self.device)
+        his_subword_index = his_subword_index[:, :, :, 0] * self.signal_length + his_subword_index[:, :, :, 1]
+
+        cdd_subword_prefix = cdd_dest.scatter(dim=-1, index=cdd_subword_index, value=1) * x["cdd_mask"].to(self.device)
+        cdd_subword_prefix = cdd_subword_prefix.view(batch_size, cdd_size, self.signal_length, self.signal_length)
+
+        his_subword_prefix = his_dest.scatter(dim=-1, index=his_subword_index, value=1) * x["his_mask"].to(self.device)
+        his_subword_prefix = his_subword_prefix.view(batch_size, self.his_size, self.signal_length, self.signal_length)
+
+        cdd_subword_prefix = F.normalize(cdd_subword_prefix, p=1, dim=-1)
+        his_subword_prefix = F.normalize(his_subword_prefix, p=1, dim=-1)
         if self.reducer.name == 'matching':
             his_news = x["his_encoded_index"].long().to(self.device)
             his_news_embedding = self.embedding(his_news, his_subword_prefix)

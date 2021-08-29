@@ -201,8 +201,8 @@ class Manager():
             "cdd_attn_mask": torch.ones(1, self.impr_size, self.signal_length),
             "his_attn_mask": torch.ones(1, self.his_size, self.signal_length),
             "his_reduced_mask": torch.ones(1, self.his_size, self.signal_length),
-            "cdd_subword_prefix": torch.ones(1, self.impr_size, self.signal_length, self.signal_length),
-            "his_subword_prefix": torch.ones(1, self.his_size, self.signal_length, self.signal_length),
+            "cdd_subword_index": torch.ones(1, self.impr_size, self.signal_length, 2),
+            "his_subword_index": torch.ones(1, self.his_size, self.signal_length, 2),
             "his_mask": torch.ones((1, self.his_size)),
         }
         if self.reducer == 'bow':
