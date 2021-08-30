@@ -137,6 +137,7 @@ class MIND(Dataset):
                 for token in tokens:
                     if token.startswith('##'):
                         j += 1
+                        # subword.append([0,0])
                         subword.append([i,j])
 
                     else:
@@ -342,7 +343,7 @@ class MIND(Dataset):
         if self.mode == "train":
             # user"s unhis news in the same impression
             negs = self.negatives[impr_index]
-            neg_list, neg_pad = newsample(negs, self.npratio)
+            neg_list, neg_num = newsample(negs, self.npratio)
 
             cdd_ids = [impr_news] + neg_list
             cdd_size = self.npratio + 1
@@ -359,8 +360,8 @@ class MIND(Dataset):
 
             his_ids = self.histories[impr_index][:self.his_size]
 
-            cdd_mask = torch.ones((cdd_size, 1))
-            cdd_mask[-neg_pad:] = 0
+            cdd_mask = torch.zeros((cdd_size, 1))
+            cdd_mask[:neg_num + 1] = 1
 
             # true means the corresponding history news is padded
             his_mask = torch.zeros((self.his_size, 1), dtype=bool)
