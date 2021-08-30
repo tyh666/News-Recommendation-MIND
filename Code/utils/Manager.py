@@ -75,6 +75,9 @@ class Manager():
                     model_dict = state_dict['model']
         else:
             model_dict = state_dict['model']
+            if not re.search("module", list(model_dict.keys())[0]):
+                logger.warning("Loading a non-distributed model to a distributed one!")
+                model = model.module
 
         if re.search("pipeline",self.name):
             logger.info("loading in pipeline")
@@ -533,6 +536,7 @@ class Manager():
             preds.extend(model(x)[0].tolist())
 
         if self.world_size > 1:
+            dist.barrier()
             outputs = [None for i in range(self.world_size)]
             dist.all_gather_object(outputs, (impr_indexes, preds))
 

@@ -646,22 +646,12 @@ class Partition_Sampler():
     def __init__(self, dataset, num_replicas, rank) -> None:
         super().__init__()
         len_per_worker, extra_len = divmod(len(dataset), num_replicas)
-        self.dataset = dataset
         self.start = len_per_worker * rank
-        self.end = self.start + len_per_worker + extra_len * (rank + 1== num_replicas)
+        self.end = self.start + len_per_worker + extra_len * (rank + 1 == num_replicas)
 
     def __iter__(self):
         start = self.start
-        end = self.end - 1
-
-        # strip off the impression without 1 label, such impression only occurs at the start or the end
-        # while 1:
-        #     if not (self.dataset[end]['label'] == 1).any():
-        #         end -= 1
-
-        # while 1:
-        #     if not (self.dataset[start]['label'] == 1).any():
-        #         start += 1
+        end = self.end
 
         return iter(range(start, end, 1))
 
