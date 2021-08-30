@@ -637,13 +637,14 @@ class Manager():
         logger.info("inspecting {}...".format(self.name))
 
         reducer = model.reducer.name
-        if reducer == 'bm25':
+        bm25 = (reducer == 'bm25')
+        if bm25:
             bm25_terms = loader.dataset.reduced_news
 
         self.load(model, self.checkpoint)
         t = BertTokenizer.from_pretrained('bert-base-uncased')
 
-        logger.info("press <ENTER> to continue, input q to quit")
+        logger.info("press <ENTER> to continue, <q> to quit")
 
         jumpout = False
         for x in loader:
@@ -657,26 +658,28 @@ class Manager():
             if reducer == 'bm25':
                 his_id = x['his_id'].to(model.device)
 
-            # term_ids = his_encoded_index[:,:,1:].gather(index=term_indexes, dim=-1)
             encoded_ids = his_encoded_index[:, :, 1:]
-            # words = )
 
             for i,batch in enumerate(encoded_ids):
                 for j,his_token_ids in enumerate(batch):
                     print('*******************************************************')
-                    words = convert_tokens_to_words(t.convert_ids_to_tokens(his_token_ids))
-                    ps_term_ids = term_indexes[i,j].cpu().numpy()
-                    ps_terms = words[ps_term_ids]
+                    tokens = t.convert_ids_to_tokens(his_token_ids)
+                    if self.word_level:
+                        terms = convert_tokens_to_words(tokens)
+                    else:
+                        terms = np.asarray(tokens)
+                    ps_term_ids = term_indexes[i, j].cpu().numpy()
+                    ps_terms = terms[ps_term_ids]
 
                     if ps_terms[0] == '[PAD]':
                         jumpout = True
                         break
                     else:
                         print("[personalized terms]\n\t {}".format(' '.join(ps_terms)))
-                        if self.bm25:
-                            print("[bm25 terms]\n\t {}".format(t.decode(bm25_terms[his_id[i][j]][:self.k])))
+                        if bm25:
+                            print("[bm25 terms]\n\t {}".format(t.decode(x['his_reduced_index'][i, j, :self.k+1])))
 
-                        print("[original news]\n\t {}".format(t.decode(his_encoded_index[i][j][:his_attn_mask[i][j].sum()])))
+                        print("[original news]\n\t {}".format(t.decode(his_encoded_index[i, j, :his_attn_mask[i, j].sum()])))
 
                         command = input()
                         if command == 'n':

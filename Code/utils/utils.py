@@ -59,6 +59,9 @@ def convert_tokens_to_words(tokens):
             words[-1] += tok[2:]
         else:
             words.append(tok)
+
+    if len(words) < len(tokens):
+        words.extend(['[PAD]'] * (len(tokens) - len(words)))
     return np.array(words, dtype=object)
 
 
@@ -402,7 +405,7 @@ def load_manager():
     parser.add_argument("--seeds", dest="seeds", default=None, type=int)
 
     parser.add_argument("--bert", dest="bert", help="choose bert model", choices=["bert-base-uncased"], default="bert-base-uncased")
-    parser.add_argument("--bm25", dest="bm25", help="check bm25 terms", action='store_true', default=False)
+    parser.add_argument("-wl", "--word_level", dest="word_level", help="select words instead of tokens", action='store_true', default=False)
 
     parser.add_argument("-hn", "--head_num", dest="head_num", help="number of multi-heads", type=int, default=12)
 
@@ -439,9 +442,9 @@ def prepare(config):
         vocab
         loaders(list of dataloaders): 0-loader_train/test/dev, 1-loader_dev, 2-loader_validate
     """
-    logger.info("Hyper Parameters are {}".format(config))
-
-    logger.info("preparing dataset...")
+    if config.rank in [-1, 0]:
+        logger.info("Hyper Parameters are {}".format(config))
+        logger.info("preparing dataset...")
 
     if config.seeds:
         manual_seed(config.seeds)

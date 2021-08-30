@@ -126,7 +126,7 @@ class MIND(Dataset):
         with open(self.news_file, "r", encoding="utf-8") as rd:
             for idx in rd:
                 nid, vert, subvert, title, ab, url, _, _ = idx.strip("\n").split("\t")
-                document = " ".join(["[CLS]", title, vert, subvert, ab])
+                document = " ".join(["[CLS]", title, ab, vert, subvert])
                 tokens = self.tokenizer.tokenize(document)[:512]
 
                 # index for 1 entry
