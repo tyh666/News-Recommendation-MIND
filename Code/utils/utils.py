@@ -127,124 +127,82 @@ def construct_vocab(news_file_list, attrs):
     output.close()
 
 
-def construct_nid2idx(news_file, scale, mode):
-    """
-        Construct news to newsID dictionary, index starting from 1
-    """
-    nid2index = {}
+# def construct_basic_dict(attrs=['title','abstract','category','subcategory'], path="../../../Data/MIND"):
+#     """
+#         construct basic dictionary
+#     """
+#     news_file_list = [path + "/MINDlarge_train/news.tsv", path +
+#                        "/MINDlarge_dev/news.tsv", path + "/MINDlarge_test/news.tsv"]
+#     construct_vocab(news_file_list, attrs)
 
-    news_df = pd.read_table(news_file, index_col=None, names=[
-                            "newsID", "category", "subcategory", "title", "abstract", "url", "entity_title", "entity_abstract"], quoting=3)
+#     for scale in ["demo", "small", "large"]:
+#         news_file_list = [path + "/MIND{}_train/news.tsv".format(
+#             scale), path + "/MIND{}_dev/news.tsv".format(scale), path + "/MIND{}_test/news.tsv".format(scale)]
+#         behavior_file_list = [path + "/MIND{}_train/behaviors.tsv".format(
+#             scale), path + "/MIND{}_dev/behaviors.tsv".format(scale), path + "/MIND{}_test/behaviors.tsv".format(scale)]
 
-    for v in news_df["newsID"]:
-        if v in nid2index:
-            continue
-        nid2index[v] = len(nid2index) + 1
+#         if scale == "large":
+#             news_file_train = news_file_list[0]
+#             news_file_dev = news_file_list[1]
+#             news_file_test = news_file_list[2]
 
-    h = open("data/dictionaries/nid2idx_{}_{}.json".format(scale, mode), "w")
-    json.dump(nid2index, h, ensure_ascii=False)
-    h.close()
+#             construct_nid2idx(news_file_train, scale, "train")
+#             construct_nid2idx(news_file_dev, scale, "dev")
+#             construct_nid2idx(news_file_test, scale, "test")
 
+#             construct_uid2idx(behavior_file_list, scale)
 
-def construct_uid2idx(behavior_file_list, scale):
-    """
-        Construct user to userID dictionary, index starting from 1
-    """
-    uid2index = {}
+#         else:
+#             news_file_list = news_file_list[0:2]
 
-    user_df_list = []
-    for f in behavior_file_list:
-        user_df_list.append(pd.read_table(f, index_col=None, names=[
-                            "imprID", "uid", "time", "hisstory", "abstract", "impression"], quoting=3))
+#             news_file_train = news_file_list[0]
+#             news_file_dev = news_file_list[1]
 
-    user_df = pd.concat(user_df_list).drop_duplicates()
+#             construct_nid2idx(news_file_train, scale, "train")
+#             construct_nid2idx(news_file_dev, scale, "dev")
 
-    for v in user_df["uid"]:
-        if v in uid2index:
-            continue
-        uid2index[v] = len(uid2index) + 1
-
-    h = open("data/dictionaries/uid2idx_{}.json".format(scale), "w")
-    json.dump(uid2index, h, ensure_ascii=False)
-    h.close()
+#             behavior_file_list = behavior_file_list[0:2]
+#             construct_uid2idx(behavior_file_list, scale)
 
 
-def construct_basic_dict(attrs=['title','abstract','category','subcategory'], path="../../../Data/MIND"):
-    """
-        construct basic dictionary
-    """
-    news_file_list = [path + "/MINDlarge_train/news.tsv", path +
-                       "/MINDlarge_dev/news.tsv", path + "/MINDlarge_test/news.tsv"]
-    construct_vocab(news_file_list, attrs)
+# def construct_vert_onehot():
+#     import pandas as pd
+#     path = "/home/peitian_zhang/Data/MIND"
+#     news_file_list = [path + "/MINDlarge_train/news.tsv", path +
+#                         "/MINDlarge_dev/news.tsv", path + "/MINDlarge_test/news.tsv"]
+#     news_df_list = []
+#     for f in news_file_list:
+#         news_df_list.append(pd.read_table(f, index_col=None, names=["newsID", "category", "subcategory", "title", "abstract", "url", "entity_title", "entity_abstract"], quoting=3))
 
-    for scale in ["demo", "small", "large"]:
-        news_file_list = [path + "/MIND{}_train/news.tsv".format(
-            scale), path + "/MIND{}_dev/news.tsv".format(scale), path + "/MIND{}_test/news.tsv".format(scale)]
-        behavior_file_list = [path + "/MIND{}_train/behaviors.tsv".format(
-            scale), path + "/MIND{}_dev/behaviors.tsv".format(scale), path + "/MIND{}_test/behaviors.tsv".format(scale)]
+#     news_df = pd.concat(news_df_list).drop_duplicates()
 
-        if scale == "large":
-            news_file_train = news_file_list[0]
-            news_file_dev = news_file_list[1]
-            news_file_test = news_file_list[2]
+#     vert = news_df["category"].unique()
+#     subvert = news_df["subcategory"].unique()
+#     vocab = getVocab("data/dictionaries/vocab_whole.pkl")
+#     vert2idx = {
+#         vocab[v]:i for i,v in enumerate(vert)
+#     }
+#     subvert2idx = {
+#         vocab[v]:i for i,v in enumerate(subvert)
+#     }
+#     vert2onehot = {}
+#     for k,v in vert2idx.items():
+#         a = np.zeros((len(vert2idx)))
+#         index = np.asarray([v])
+#         a[index] = 1
+#         vert2onehot[int(k)] = a.tolist()
+#     vert2onehot[1] = [0]*len(next(iter(vert2onehot.values())))
 
-            construct_nid2idx(news_file_train, scale, "train")
-            construct_nid2idx(news_file_dev, scale, "dev")
-            construct_nid2idx(news_file_test, scale, "test")
+#     subvert2onehot = {}
+#     for k,v in subvert2idx.items():
+#         a = np.zeros((len(subvert2idx)))
+#         index = np.asarray([v])
+#         a[index] = 1
+#         subvert2onehot[int(k)] = a.tolist()
+#     subvert2onehot[1] = [0]*len(next(iter(subvert2onehot.values())))
 
-            construct_uid2idx(behavior_file_list, scale)
-
-        else:
-            news_file_list = news_file_list[0:2]
-
-            news_file_train = news_file_list[0]
-            news_file_dev = news_file_list[1]
-
-            construct_nid2idx(news_file_train, scale, "train")
-            construct_nid2idx(news_file_dev, scale, "dev")
-
-            behavior_file_list = behavior_file_list[0:2]
-            construct_uid2idx(behavior_file_list, scale)
-
-
-def construct_vert_onehot():
-    import pandas as pd
-    path = "/home/peitian_zhang/Data/MIND"
-    news_file_list = [path + "/MINDlarge_train/news.tsv", path +
-                        "/MINDlarge_dev/news.tsv", path + "/MINDlarge_test/news.tsv"]
-    news_df_list = []
-    for f in news_file_list:
-        news_df_list.append(pd.read_table(f, index_col=None, names=["newsID", "category", "subcategory", "title", "abstract", "url", "entity_title", "entity_abstract"], quoting=3))
-
-    news_df = pd.concat(news_df_list).drop_duplicates()
-
-    vert = news_df["category"].unique()
-    subvert = news_df["subcategory"].unique()
-    vocab = getVocab("data/dictionaries/vocab_whole.pkl")
-    vert2idx = {
-        vocab[v]:i for i,v in enumerate(vert)
-    }
-    subvert2idx = {
-        vocab[v]:i for i,v in enumerate(subvert)
-    }
-    vert2onehot = {}
-    for k,v in vert2idx.items():
-        a = np.zeros((len(vert2idx)))
-        index = np.asarray([v])
-        a[index] = 1
-        vert2onehot[int(k)] = a.tolist()
-    vert2onehot[1] = [0]*len(next(iter(vert2onehot.values())))
-
-    subvert2onehot = {}
-    for k,v in subvert2idx.items():
-        a = np.zeros((len(subvert2idx)))
-        index = np.asarray([v])
-        a[index] = 1
-        subvert2onehot[int(k)] = a.tolist()
-    subvert2onehot[1] = [0]*len(next(iter(subvert2onehot.values())))
-
-    json.dump(vert2onehot, open("data/dictionaries/vert2onehot.json","w"),ensure_ascii=False)
-    json.dump(subvert2onehot, open("data/dictionaries/subvert2onehot.json","w"),ensure_ascii=False)
+#     json.dump(vert2onehot, open("data/dictionaries/vert2onehot.json","w"),ensure_ascii=False)
+#     json.dump(subvert2onehot, open("data/dictionaries/subvert2onehot.json","w"),ensure_ascii=False)
 
 
 def tailor_data(tsvFile, num):

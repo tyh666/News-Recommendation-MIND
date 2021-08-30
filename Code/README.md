@@ -58,6 +58,7 @@ python -m scripts.ttms -m tune -s demo -bs=5 -is=10
 python -m scripts.sfi -m tune -s demo -k=5 -sl=20 -bs=10 -is=10 --no_dedup
 
 python -m scripts.ttms -m inspect -s demo -ck=4123
+python -m scripts.ttms -m test -s demo -ck=589
 ```
 ## Preprocess
 - [x] remove stop words

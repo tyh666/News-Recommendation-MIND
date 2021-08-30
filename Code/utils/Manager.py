@@ -543,10 +543,9 @@ class Manager():
                     impr_indexes.extend(output[0])
                     preds.extend(output[1])
 
-                preds = self._group_lists(impr_indexes, preds)
+                preds = self._group_lists(impr_indexes, preds)[0]
         else:
-            preds = self._group_lists(impr_indexes, preds)
-
+            preds = self._group_lists(impr_indexes, preds)[0]
 
         if self.rank in [0, -1]:
             save_directory = "data/results/{}".format(self.name)
@@ -684,6 +683,68 @@ class Manager():
                 if jumpout:
                     jumpout = False
                     break
+
+
+    def construct_nid2idx(self, scale=None, mode=None):
+        """
+            Construct news to newsID dictionary, index starting from 1
+        """
+        import pandas as pd
+        import json
+        logger.info("mapping news id to news index...")
+        nid2index = {}
+        mind_path = self.path + "MIND"
+
+        if scale is None:
+            scale = self.scale
+        if mode is None:
+            mode = self.mode
+        news_file = mind_path+"/MIND"+ scale+ "_" + mode + "/news.tsv"
+
+        news_df = pd.read_table(news_file, index_col=None, names=[
+                                "newsID", "category", "subcategory", "title", "abstract", "url", "entity_title", "entity_abstract"], quoting=3)
+
+        for v in news_df["newsID"]:
+            if v in nid2index:
+                continue
+            nid2index[v] = len(nid2index) + 1
+
+        h = open("data/dictionaries/nid2idx_{}_{}.json".format(self.scale, self.mode), "w")
+        json.dump(nid2index, h, ensure_ascii=False)
+        h.close()
+
+
+    def construct_uid2idx(self, scale=None):
+        """
+            Construct user to userID dictionary, index starting from 1
+        """
+        import pandas as pd
+        import json
+        logger.info("mapping user id to user index...")
+        uid2index = {}
+        user_df_list = []
+        mind_path = self.path + "MIND"
+        if scale is None:
+            scale = self.scale
+        behavior_file_list = [mind_path+"/MIND" + scale + "_" + mode + "/behaviors.tsv" for mode in ['train','dev','test']]
+
+        if scale == 'small':
+            behavior_file_list = behavior_file_list[:2]
+
+        for f in behavior_file_list:
+            user_df_list.append(pd.read_table(f, index_col=None, names=[
+                                "imprID", "uid", "time", "hisstory", "abstract", "impression"], quoting=3))
+
+        user_df = pd.concat(user_df_list).drop_duplicates()
+
+        for v in user_df["uid"]:
+            if v in uid2index:
+                continue
+            uid2index[v] = len(uid2index) + 1
+
+        h = open("data/dictionaries/uid2idx_{}.json".format(scale), "w")
+        json.dump(uid2index, h, ensure_ascii=False)
+        h.close()
 
 
 def mrr_score(y_true, y_score):
