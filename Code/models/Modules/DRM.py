@@ -28,7 +28,7 @@ class Matching_Reducer(nn.Module):
             threshold = torch.tensor([config.threshold])
             self.register_buffer('threshold', threshold)
 
-    def forward(self, news_selection_embedding, news_embedding, user_repr, news_repr, his_attn_mask, his_reduced_mask):
+    def forward(self, news_selection_embedding, news_embedding, user_repr, news_repr, his_attn_mask, his_refined_mask):
         """
         Extract words from news text according to the overall user interest
 
@@ -54,7 +54,7 @@ class Matching_Reducer(nn.Module):
         # [bs, hs, sl - 1]
         scores = F.normalize(news_selection_embedding, dim=-1).matmul(F.normalize(selection_query, dim=-1)).squeeze(-1)
 
-        pad_pos = ~(((his_reduced_mask + self.keep_k_modifier)[:, :, 1:]).bool())
+        pad_pos = ~(((his_refined_mask + self.keep_k_modifier)[:, :, 1:]).bool())
         # mask the padded term
         scores = scores.masked_fill(pad_pos, -float('inf'))
 
@@ -89,7 +89,7 @@ class BM25_Reducer(nn.Module):
         config.term_num = config.k * config.his_size
 
 
-    def forward(self, news_selection_embedding, news_embedding, user_repr, news_repr, his_attn_mask, his_reduced_mask=None):
+    def forward(self, news_selection_embedding, news_embedding, user_repr, news_repr, his_attn_mask, his_refined_mask=None):
         """
         Extract words from news text according to the overall user interest
 

@@ -53,7 +53,7 @@ class TTMS(nn.Module):
         return score
 
     def _forward(self,x):
-        if self.word_level:
+        if self.granularity != 'token':
             batch_size = x['cdd_subword_index'].size(0)
             cdd_size = x['cdd_subword_index'].size(1)
 
@@ -89,53 +89,35 @@ class TTMS(nn.Module):
                 cdd_subword_prefix = F.normalize(cdd_subword_prefix, p=1, dim=-1)
                 his_subword_prefix = F.normalize(his_subword_prefix, p=1, dim=-1)
 
+            cdd_attn_mask = cdd_subword_prefix.matmul(x['cdd_attn_mask'].to(self.device).float().unsqueeze(-1)).squeeze(-1)
             his_attn_mask = his_subword_prefix.matmul(x["his_attn_mask"].to(self.device).float().unsqueeze(-1)).squeeze(-1)
-            his_reduced_mask = his_subword_prefix.matmul(x["his_reduced_mask"].to(self.device).float().unsqueeze(-1)).squeeze(-1)
-
-            cdd_news = x["cdd_encoded_index"].long().to(self.device)
-            _, cdd_news_repr = self.bert(
-                self.embedding(cdd_news, cdd_subword_prefix), cdd_subword_prefix.matmul(x['cdd_attn_mask'].to(self.device).float().unsqueeze(-1)).squeeze(-1)
-            )
+            his_refined_mask = x["his_refined_mask"]
+            if his_refined_mask is not None:
+                his_refined_mask = his_subword_prefix.matmul(his_refined_mask.to(self.device).float().unsqueeze(-1)).squeeze(-1)
 
         else:
             cdd_subword_prefix = None
             his_subword_prefix = None
+            cdd_attn_mask = x['cdd_attn_mask'].to(self.device)
             his_attn_mask = x["his_attn_mask"].to(self.device)
-            his_reduced_mask = x["his_reduced_mask"].to(self.device)
+            his_refined_mask = x["his_refined_mask"]
+            if his_refined_mask:
+                his_refined_mask = his_refined_mask.to(self.device)
 
-            cdd_news = x["cdd_encoded_index"].long().to(self.device)
-            _, cdd_news_repr = self.bert(
-                self.embedding(cdd_news), x['cdd_attn_mask'].to(self.device)
-            )
+    
+        cdd_news = x["cdd_encoded_index"].long().to(self.device)
+        _, cdd_news_repr = self.bert(
+            self.embedding(cdd_news, cdd_subword_prefix),
+        )
 
-        if self.reducer.name == 'matching':
-            his_news = x["his_encoded_index"].long().to(self.device)
-            his_news_embedding = self.embedding(his_news, his_subword_prefix)
-            his_news_encoded_embedding, his_news_repr = self.encoderN(
-                his_news_embedding
-            )
-            user_repr = self.encoderU(his_news_repr)
+        his_news = x["his_encoded_index"].long().to(self.device)
+        his_news_embedding = self.embedding(his_news, his_subword_prefix)
+        his_news_encoded_embedding, his_news_repr = self.encoderN(
+            his_news_embedding
+        )
+        user_repr = self.encoderU(his_news_repr)
 
-            ps_terms, ps_term_mask, kid = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, his_attn_mask, his_reduced_mask)
-
-        elif self.reducer.name == 'bow':
-            his_reduced_news = x["his_reduced_index"].long().to(self.device)
-            his_news_embedding = self.embedding(his_reduced_news, bow=True)
-            his_reduced_encoded_embedding, his_reduced_repr = self.encoderN(his_news_embedding)
-            user_repr = self.encoderU(his_reduced_repr)
-            ps_terms, ps_term_mask, kid = self.reducer(his_reduced_encoded_embedding, his_news_embedding, user_repr, his_reduced_repr, x["his_attn_mask"].to(self.device))
-            del user_repr, his_reduced_encoded_embedding, his_reduced_repr
-
-        elif self.reducer.name == 'bm25':
-            his_news = x["his_reduced_index"].long().to(self.device)
-            his_news_embedding = self.embedding(his_news)
-            his_news_encoded_embedding, his_news_repr = self.encoderN(
-                his_news_embedding
-            )
-
-            kid = None
-            user_repr = None
-            ps_terms, ps_term_mask = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, x["his_reduced_mask"].to(self.device))
+        ps_terms, ps_term_mask, kid = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, his_attn_mask, his_refined_mask)
 
         # append CLS to each historical news, aggregator historical news representation to user repr
         if self.aggregator:

@@ -51,18 +51,20 @@ def convert_tokens_to_words(tokens):
         tokens: list of tokens
 
     Returns:
-        words: list of words
+        words: list of words, without [PAD]
     """
     words = []
     for tok in tokens:
         if tok.startswith('##'):
             words[-1] += tok[2:]
+        elif tok == '[PAD]':
+            break
         else:
             words.append(tok)
 
-    if len(words) < len(tokens):
-        words.extend(['[PAD]'] * (len(tokens) - len(words)))
-    return np.array(words, dtype=object)
+    # if len(words) < len(tokens):
+    #     words.extend(['[PAD]'] * (len(tokens) - len(words)))
+    return words
 
 
 def newsample(news, ratio):
@@ -636,6 +638,7 @@ def setup(rank, manager):
 
     if rank != 'cpu':
         torch.cuda.set_device(rank)
+        os.environ['CUDA_VISIBLE_DEVICES'] = str(rank)
 
 
 def cleanup():
@@ -666,8 +669,7 @@ class BM25(object):
     """
     compute bm25 score
     """
-    def __init__(self, signal_length, k=2, epsilon=0.5):
-        self.signal_length = signal_length
+    def __init__(self, k=2, epsilon=0.5):
         self.k = k
         self.epsilon = epsilon
 
@@ -681,30 +683,28 @@ class BM25(object):
         df = defaultdict(int)
         for document in documents:
             tf = defaultdict(int)
+            words = document.split()
             # ignore [CLS]
-            for term in document[1:]:
-                # ignore [PAD]
-                if term == 0:
-                    break
-                else:
-                    tf[term] += 1
-                    df[term] += 1
-
+            for word in words[1:]:
+                tf[word] += 1
+                df[word] += 1
             tfs.append(tf)
 
         self.tfs = tfs
 
         idf = defaultdict(float)
-        for term,freq in df.items():
-            idf[term] = math.log((doc_count - freq + 0.5 ) / (freq + 0.5) + 1)
+        for word,freq in df.items():
+            idf[word] = math.log((doc_count - freq + 0.5 ) / (freq + 0.5) + 1)
 
         self.idf = idf
 
 
-    def __call__(self, documents, attn_mask):
+    def __call__(self, documents):
         """
-        compute bm25 score of each term (index) in each document and sort the terms by it
+        compute bm25 score of each word in each document and sort the words by accordingly
         with b=0, totally ignoring the effect of document length
+
+        note that [CLS] always stays at the head of the output
 
         Args:
             documents: list of lists
@@ -718,126 +718,115 @@ class BM25(object):
         bm25_scores = []
         for tf in self.tfs:
             score = defaultdict(float)
-            for term, freq in tf.items():
-                score[term] = (self.idf[term] * freq * (self.k + 1)) / (freq + self.k)
+            for word, freq in tf.items():
+                score[word] = (self.idf[word] * freq * (self.k + 1)) / (freq + self.k)
 
             bm25_scores.append(dict(sorted(score.items(), key=lambda item: item[1], reverse=True)))
 
         sorted_documents = []
-        sorted_attn_mask = []
         for i, bm25 in enumerate(bm25_scores):
-            bm25_length = len(bm25) + 1
-            pad_length = self.signal_length - bm25_length
+            # [CLS] token in the front
             if not i:
-                sorted_documents.append([0] * self.signal_length)
-                sorted_attn_mask.append([0] * self.signal_length)
+                sorted_documents.append('')
             else:
-                sorted_documents.append([101] + list(bm25.keys())[:self.signal_length - 1] + [0]*pad_length)
-                sorted_attn_mask.append([1] * min(bm25_length, self.signal_length) + [0] * pad_length)
+                sorted_documents.append(' '.join(["[CLS]"] + list(bm25.keys())))
 
-        return np.asarray(sorted_documents), np.asarray(sorted_attn_mask)
-
-
-class BagOfWords(object):
-    """
-    reduce the text into bag of words
-    """
-    def __init__(self, signal_length, k, position=False) -> None:
-        super().__init__()
-        self.signal_length = signal_length
-        self.position = position
-        self.k = k
-
-    def __call__(self, documents, attn_masks):
-        """
-        count unique tokens in signal_length
-
-        Args:
-            documents: list of tokens
-
-        Returns:
-            bows: list of list of tuples, [[(word1 : freq1), ...] ...]
-            positions: [[]]
-        """
-        logger.info("reducing to Bag-of-Words...")
-        bows = []
-        attn_masks = []
-
-        for i, document in enumerate(documents):
-            terms = defaultdict(int)
-            for j, term in enumerate(document[:self.signal_length]):
-                if term == 0:
-                    break
-                terms[term] += 1
-
-            pad_length = self.signal_length - len(terms)
-            bow = list(terms.items())[:self.signal_length] + [[0, 0]]*pad_length
-            attn_mask = [1]*min(len(terms), self.signal_length) + [0]*pad_length
-
-            bows.append(bow)
-            attn_masks.append(attn_mask)
-
-        attn_masks = np.asarray(attn_masks)
-        attn_masks_dedup = attn_masks.copy()
-
-        logger.info("unmasking at least k...")
-        for i, mask in enumerate(attn_masks_dedup):
-            if mask.sum() < self.k + 1:
-                attn_masks_dedup[i][:self.k+1] = 1
-
-        return np.asarray(bows), attn_masks, attn_masks_dedup
-
-
-class DeDuplicate(object):
-    """
-    mask duplicated terms in one document by attention masks
-    """
-    def __init__(self, signal_length, k, deduplicate=False) -> None:
-        super().__init__()
-        self.k = k
-        self.signal_length = signal_length
-        self.deduplicate = deduplicate
-
-    def __call__(self, documents, attn_masks):
-        """
-        set the attention mask of padded news to have k unpadded terms
-        return modified attention masks, where duplicated terms are masked
-        """
-        logger.info("unmasking at least k...")
-        attn_masks = attn_masks.copy()
-        for i, mask in enumerate(attn_masks):
-            if mask.sum() < self.k + 1:
-                attn_masks[i][:self.k+1] = 1
-
-        if self.deduplicate:
-            logger.info("deduplicating...")
-            for i, document in enumerate(documents):
-                terms = set()
-                duplicated = []
-                # ignore [CLS]
-                for j, term in enumerate(document[1:self.signal_length]):
-                    if term in terms:
-                        # if the term duplicates
-                        duplicated.append(j + 1)
-                    else:
-                        terms.add(term)
-
-                # ignore [CLS]
-                term_num = attn_masks[i][1:self.signal_length].sum()
-                if term_num - len(duplicated) > self.k:
-                    # in case the non-duplicate terms are more than k, then mask duplicated terms
-                    attn_masks[i, duplicated] = 0
-                else:
-                    # otherwise, only maks part of them
-                    maskable_term_num = term_num - self.k
-                    attn_masks[i, duplicated[:maskable_term_num]] = 0
-
-        return documents, attn_masks
+        return sorted_documents
 
 
 class DoNothing(object):
     def __init__(self) -> None:
         super().__init__()
 
+    def __call__(self, documents):
+        return documents
+
+
+class DeDuplicate(object):
+    """
+    mask duplicated terms in one document by attention masks
+    """
+    def __init__(self, signal_length) -> None:
+        super().__init__()
+        self.signal_length = signal_length
+
     def __call__(self, documents, attn_masks):
+        """
+            1. set the attention mask of duplicated tokens to 0
+            2. only keep the first signal_length tokens per article
+        """
+        # do not modify the orginal attention mask
+        documents = documents[:, :self.signal_length]
+        attn_masks = attn_masks.copy()[:, :self.signal_length]
+
+        logger.info("deduplicating...")
+        for i, document in enumerate(documents):
+            tokens = set()
+            duplicated = []
+            # ignore [CLS]
+            for j, token in enumerate(document[1:]):
+                if token in tokens:
+                    # if the term duplicates
+                    # [CLS] token always stands ahead
+                    duplicated.append(j + 1)
+                else:
+                    tokens.add(token)
+
+            # in case the non-duplicate terms are more than k, then mask duplicated terms
+            attn_masks[i, duplicated] = 0
+
         return documents, attn_masks
+
+
+class CountFreq(object):
+    """
+    generate token count pairs
+    """
+    def __init__(self, signal_length, position=False) -> None:
+        super().__init__()
+        self.signal_length = signal_length
+        self.position = position
+
+    def __call__(self, documents, attn_masks):
+        """
+        count unique tokens in the first signal_length per article
+
+        Returns:
+            documents: list of list of tuples, [[(word1 : freq1), ...] ...]
+            positions: [[]]
+        """
+        logger.info("reducing to Bag-of-Words...")
+        token_counts = []
+        attn_masks = []
+
+        documents = documents[:, :self.signal_length]
+
+        for i, document in enumerate(documents):
+            token_count = defaultdict(int)
+            for j, token in enumerate(document):
+                if token == 0:
+                    break
+                token_count[token] += 1
+
+            pad_length = self.signal_length - len(token_count)
+            token_count_tuples = list(token_count.items()) + [[0, 0]] * pad_length
+            attn_mask = [1] * len(token_count) + [0] * pad_length
+
+            token_counts.append(token_count_tuples)
+            attn_masks.append(attn_mask)
+
+        attn_masks = np.asarray(attn_masks)
+
+        return np.asarray(token_counts), attn_masks
+
+
+class Truncate(object):
+    def __init__(self, signal_length) -> None:
+        super().__init__()
+        self.signal_length = signal_length
+
+    def __call__(self, documents, attn_masks):
+        """
+            only keep the first signal_length tokens per article
+        """
+        return documents[:, :self.signal_length], attn_masks[:, :self.signal_length]
