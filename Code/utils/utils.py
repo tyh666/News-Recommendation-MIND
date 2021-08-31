@@ -802,9 +802,9 @@ class CountFreq(object):
 
         documents = documents[:, :self.signal_length]
 
-        for i, document in enumerate(documents):
+        for document in documents:
             token_count = defaultdict(int)
-            for j, token in enumerate(document):
+            for token in document:
                 if token == 0:
                     break
                 token_count[token] += 1

@@ -212,9 +212,11 @@ class Manager():
         elif self.reducer == 'bow':
             max_input["cdd_encoded_index"] = torch.rand(1, self.impr_size, self.signal_length, 2).random_(0,10)
             max_input["his_encoded_index"] = torch.rand(1, self.his_size, self.signal_length, 2).random_(0,10)
+            max_input["his_refined_mask"] = max_input["his_attn_mask"]
         elif self.reducer == 'bm25':
             max_input["his_encoded_index"] = max_input["his_encoded_index"][:, :, :self.k+1]
-            max_input["his_attn_mask"] = max_input["his_attn_mask"][:, :, self.k+1]
+            max_input["his_attn_mask"] = max_input["his_attn_mask"][:, :, :self.k+1]
+            max_input["his_subword_index"] = max_input["his_subword_index"][:, :, :self.k+1]
 
         model(max_input)
 
@@ -507,7 +509,6 @@ class Manager():
         if self.rank in [0,-1]:
             logger.info("testing...")
 
-        # input the biggest to fill the model's buffer
         max_input = {
             'cdd_id': torch.empty(1, self.impr_size).random_(0,10),
             'his_id': torch.empty(1, self.his_size).random_(0,10),
@@ -525,9 +526,11 @@ class Manager():
         elif self.reducer == 'bow':
             max_input["cdd_encoded_index"] = torch.rand(1, self.impr_size, self.signal_length, 2).random_(0,10)
             max_input["his_encoded_index"] = torch.rand(1, self.his_size, self.signal_length, 2).random_(0,10)
+            max_input["his_refined_mask"] = max_input["his_attn_mask"]
         elif self.reducer == 'bm25':
             max_input["his_encoded_index"] = max_input["his_encoded_index"][:, :, :self.k+1]
-            max_input["his_encoded_mask"] = max_input["his_encoded_mask"][:, :, self.k+1]
+            max_input["his_attn_mask"] = max_input["his_attn_mask"][:, :, :self.k+1]
+            max_input["his_subword_index"] = max_input["his_subword_index"][:, :, :self.k+1]
 
         model(max_input)
 
@@ -653,6 +656,8 @@ class Manager():
         for x in loader:
             _, term_indexes = model(x)
             his_encoded_index = x['his_encoded_index']
+            if self.reducer == 'bow':
+                his_encoded_index = his_encoded_index[:, :, :, 0]
             his_attn_mask = x['his_attn_mask']
             if self.bm25:
                 his_id = x['his_id']

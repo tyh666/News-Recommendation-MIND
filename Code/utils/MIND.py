@@ -462,7 +462,7 @@ class MIND(Dataset):
                 his_subword_index = self.subwords[his_ids]
                 back_dic["cdd_subword_index"] = cdd_subword_index
                 back_dic["his_subword_index"] = his_subword_index
-
+ 
             if self.reducer == "matching":
                 his_attn_mask_dedup = self.attn_mask_dedup[his_ids]
                 back_dic["his_refined_mask"] = his_attn_mask_dedup
@@ -471,6 +471,9 @@ class MIND(Dataset):
                 back_dic["cdd_encoded_index"] = self.encoded_news_original[cdd_ids]
                 back_dic["cdd_attn_mask"] = self.attn_mask_original[cdd_ids]
                 back_dic["his_subword_index"] = back_dic["his_subword_index"][:, :self.k + 1]
+
+            elif self.reducer == 'bow':
+                back_dic["his_refined_mask"] = back_dic["his_attn_mask"]
 
             return back_dic
 
@@ -525,6 +528,9 @@ class MIND(Dataset):
                 back_dic["cdd_attn_mask"] = self.attn_mask_original[cdd_ids]
                 back_dic["his_subword_index"] = back_dic["his_subword_index"][:, :self.k + 1]
 
+            elif self.reducer == 'bow':
+                back_dic["his_refined_mask"] = back_dic["his_attn_mask"]
+
             return back_dic
 
         elif self.mode == "test":
@@ -574,6 +580,9 @@ class MIND(Dataset):
                 back_dic["cdd_encoded_index"] = self.encoded_news_original[cdd_ids]
                 back_dic["cdd_attn_mask"] = self.attn_mask_original[cdd_ids]
                 back_dic["his_subword_index"] = back_dic["his_subword_index"][:, :self.k + 1]
+
+            elif self.reducer == 'bow':
+                back_dic["his_refined_mask"] = back_dic["his_attn_mask"]
 
             return back_dic
 

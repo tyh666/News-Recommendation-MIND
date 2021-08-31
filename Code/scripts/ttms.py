@@ -38,7 +38,7 @@ def main(rank, manager, dist=False):
     if manager.reducer in ['matching', 'bow']:
         from models.Modules.DRM import Matching_Reducer
         reducer = Matching_Reducer(manager)
-    elif manager.reducer in 'bm25':
+    elif manager.reducer == 'bm25':
         from models.Modules.DRM import BM25_Reducer
         reducer = BM25_Reducer(manager)
 
