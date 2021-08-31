@@ -214,7 +214,7 @@ class Manager():
             max_input["his_encoded_index"] = torch.rand(1, self.his_size, self.signal_length, 2).random_(0,10)
         elif self.reducer == 'bm25':
             max_input["his_encoded_index"] = max_input["his_encoded_index"][:, :, :self.k+1]
-            max_input["his_encoded_mask"] = max_input["his_encoded_mask"][:, :, self.k+1]
+            max_input["his_attn_mask"] = max_input["his_attn_mask"][:, :, self.k+1]
 
         model(max_input)
 
@@ -678,7 +678,7 @@ class Manager():
                     else:
                         print("[personalized terms]\n\t {}".format(' '.join(ps_terms)))
                         if self.bm25:
-                            print("[bm25 terms]\n\t {}".format(t.decode(bm25_terms[his_id[i,j]])))
+                            print("[bm25 terms]\n\t {}".format(t.decode(bm25_terms[his_id[i,j]][1:])))
 
                         print("[original news]\n\t {}".format(t.decode(his_encoded_index[i, j, :his_attn_mask[i, j].sum()])))
 
