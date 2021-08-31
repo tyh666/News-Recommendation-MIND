@@ -42,7 +42,7 @@ def main(rank, manager, dist=False):
     ttm = TTM(manager, embedding, encoderN, encoderU).to(rank)
 
     if dist:
-        ttm = DDP(ttm, device_ids=[rank], output_device=rank, find_unused_parameters=True)
+        ttm = DDP(ttm, device_ids=[rank], output_device=rank, find_unused_parameters=False)
 
     if manager.mode == 'dev':
         manager.evaluate(ttm, loaders[0], load=True)

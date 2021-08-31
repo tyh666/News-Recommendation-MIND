@@ -30,6 +30,7 @@ class MIND(Dataset):
         self.k = config.k
         self.ascend_history = config.ascend_history
         self.reducer = config.reducer
+        self.granularity = config.granularity
 
         pat = re.search("MIND/(.*_(.*)/)news", news_file)
         self.mode = pat.group(2)
@@ -58,7 +59,7 @@ class MIND(Dataset):
                     self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_{}.json".format(config.scale, self.mode))
                 try:
                     self.uid2index = getId2idx("data/dictionaries/uid2idx_{}.json".format(config.scale))
-                except:
+                except FileNotFoundError:
                     config.construct_uid2idx()
                     self.uid2index = getId2idx("data/dictionaries/uid2idx_{}.json".format(config.scale))
 
@@ -68,8 +69,15 @@ class MIND(Dataset):
                 logger.info("loading cached news tokenization from {}".format(self.news_path))
                 with open(self.news_path, "rb") as f:
                     news = pickle.load(f)
-                    for k,v in news.items():
-                        setattr(self, k, v)
+                    self.encoded_news = news['encoded_news']
+                    self.attn_mask = news['attn_mask']
+                    if self.granularity in ['avg','sum']:
+                        self.subwords = news['subwords_all']
+                    elif self.granularity == 'first':
+                        self.subwords = news['subwords_first']
+                    else:
+                        self.subwords = None
+
             else:
                 from transformers import BertTokenizerFast
                 logger.info("encoding news of {}...".format(news_file))
@@ -91,8 +99,14 @@ class MIND(Dataset):
                 logger.info("child process NO.{} loading cached news tokenization from {}".format(config.rank, self.news_path))
                 with open(self.news_path, "rb") as f:
                     news = pickle.load(f)
-                    for k,v in news.items():
-                        setattr(self, k, v)
+                    self.encoded_news = news['encoded_news']
+                    self.attn_mask = news['attn_mask']
+                    if self.granularity in ['avg','sum']:
+                        self.subwords = news['subwords_all']
+                    elif self.granularity == 'first':
+                        self.subwords = news['subwords_first']
+                    else:
+                        self.subwords = None
 
         self.reduction_path = self.cache_directory + self.reducer + ".pkl"
         if config.reducer == "bm25":
@@ -122,7 +136,8 @@ class MIND(Dataset):
         # The nid2idx dictionary must follow the original order of news in news.tsv
 
         documents = [""]
-        subwords = [[]]
+        subwords_all = [[]]
+        subwords_first = [[]]
         with open(self.news_file, "r", encoding="utf-8") as rd:
             for idx in rd:
                 nid, vert, subvert, title, ab, url, _, _ = idx.strip("\n").split("\t")
@@ -130,7 +145,8 @@ class MIND(Dataset):
                 tokens = self.tokenizer.tokenize(document)[:512]
 
                 # index for 1 entry
-                subword = []
+                subword_all = []
+                subword_first = []
 
                 i = -1
                 j = -1
@@ -138,30 +154,46 @@ class MIND(Dataset):
                     if token.startswith('##'):
                         j += 1
                         # subword.append([0,0])
-                        subword.append([i,j])
+                        subword_all.append([i,j])
+                        subword_first.append([0,0])
 
                     else:
                         i += 1
                         j += 1
-                        subword.append([i,j])
+                        subword_all.append([i,j])
+                        subword_first.append([i,j])
 
                 documents.append(document)
-                subwords.append(subword)
+                subwords_all.append(subword_all)
+                subwords_first.append(subword_first)
 
         encoded_dict = self.tokenizer(documents, add_special_tokens=False, padding=True, truncation=True, max_length=self.max_news_length, return_tensors="np")
         self.encoded_news = encoded_dict.input_ids
         self.attn_mask = encoded_dict.attention_mask
 
         max_token_length = self.encoded_news.shape[1]
-        for i,subword in enumerate(subwords):
-            subwords[i].extend([[0,0]] * (max_token_length - len(subword)))
-        self.subwords = np.asarray(subwords)
+        for i,subword in enumerate(subwords_all):
+            pad_length = max_token_length - len(subword)
+
+            subwords_all[i].extend([[0,0]] * pad_length)
+            subwords_first[i].extend([[0,0]] * pad_length)
+
+        subwords_all = np.asarray(subwords_all)
+        subwords_first = np.asarray(subwords_first)
+
+        if self.granularity in ['avg','sum']:
+            self.subwords = subwords_all
+        elif self.granularity == 'first':
+            self.subwords = subwords_first
+        else:
+            self.subwords = None
 
         with open(self.news_path, "wb") as f:
             pickle.dump(
                 {
                     "encoded_news": self.encoded_news,
-                    "subwords": self.subwords,
+                    "subwords_first": subwords_first,
+                    "subwords_all": subwords_all,
                     "attn_mask": self.attn_mask
                 },
                 f
@@ -183,6 +215,9 @@ class MIND(Dataset):
 
         else:
             self.attn_mask_reduced = reduced_news_mask[1]
+
+        if self.granularity == 'first':
+            pass
 
     def init_behaviors(self):
         """
@@ -377,21 +412,6 @@ class MIND(Dataset):
             his_encoded_index = self.encoded_news[his_ids][:, :self.signal_length]
             his_attn_mask = self.attn_mask[his_ids][:, :self.signal_length]
 
-            cdd_subword_index = self.subwords[cdd_ids][:, :self.signal_length]
-            # cdd_subword_index = cdd_subword_index_all[:, :, 0] * self.signal_length + cdd_subword_index_all[:, :, 1]
-            his_subword_index = self.subwords[his_ids][:, :self.signal_length]
-            # his_subword_index = his_subword_index_all[:, :, 0] * self.signal_length + his_subword_index_all[:, :, 1]
-
-            # cdd_dest = torch.zeros((cdd_size, self.signal_length * self.signal_length))
-            # cdd_src = torch.ones((cdd_size, self.signal_length * self.signal_length))
-            # cdd_subword_prefix = cdd_dest.scatter(dim=-1, index=cdd_subword_index, src=cdd_src) * cdd_mask
-            # cdd_subword_prefix = cdd_subword_prefix.view(cdd_size, self.signal_length, self.signal_length)
-
-            # his_dest = torch.zeros((self.his_size, self.signal_length * self.signal_length))
-            # his_src = torch.ones((self.his_size, self.signal_length * self.signal_length))
-            # his_subword_prefix = his_dest.scatter(dim=-1, index=his_subword_index, src=his_src) * his_mask
-            # his_subword_prefix = his_subword_prefix.view(self.his_size, self.signal_length, self.signal_length)
-
             back_dic = {
                 "user_index": np.asarray(user_index),
                 "cdd_id": np.asarray(cdd_ids),
@@ -400,12 +420,16 @@ class MIND(Dataset):
                 "his_encoded_index": his_encoded_index,
                 "cdd_attn_mask": cdd_attn_mask,
                 "his_attn_mask": his_attn_mask,
-                "cdd_subword_index": cdd_subword_index,
-                "his_subword_index": his_subword_index,
                 "cdd_mask": cdd_mask,
                 "his_mask": his_mask,
                 "label": label
             }
+
+            if self.subwords is not None:
+                cdd_subword_index = self.subwords[cdd_ids][:, :self.signal_length]
+                his_subword_index = self.subwords[his_ids][:, :self.signal_length]
+                back_dic["cdd_subword_index"] = cdd_subword_index
+                back_dic["his_subword_index"] = his_subword_index
 
             if self.reducer == "bm25":
                 his_reduced_index = self.reduced_news[his_ids][:, :self.k + 1]
@@ -450,21 +474,6 @@ class MIND(Dataset):
             his_encoded_index = self.encoded_news[his_ids][:, :self.signal_length]
             his_attn_mask = self.attn_mask[his_ids][:, :self.signal_length]
 
-            cdd_subword_index = self.subwords[cdd_ids][:, :self.signal_length]
-            # cdd_subword_index = cdd_subword_index_all[:, :, 0] * self.signal_length + cdd_subword_index_all[:, :, 1]
-            his_subword_index = self.subwords[his_ids][:, :self.signal_length]
-            # his_subword_index = his_subword_index_all[:, :, 0] * self.signal_length + his_subword_index_all[:, :, 1]
-
-            # cdd_dest = torch.zeros((cdd_size, self.signal_length * self.signal_length))
-            # cdd_src = torch.ones((cdd_size, self.signal_length * self.signal_length))
-            # cdd_subword_prefix = cdd_dest.scatter(dim=-1, index=cdd_subword_index, src=cdd_src) * cdd_mask
-            # cdd_subword_prefix = cdd_subword_prefix.view(cdd_size, self.signal_length, self.signal_length)
-
-            # his_dest = torch.zeros((self.his_size, self.signal_length * self.signal_length))
-            # his_src = torch.ones((self.his_size, self.signal_length * self.signal_length))
-            # his_subword_prefix = his_dest.scatter(dim=-1, index=his_subword_index, src=his_src) * his_mask
-            # his_subword_prefix = his_subword_prefix.view(self.his_size, self.signal_length, self.signal_length)
-
             back_dic = {
                 "impr_index": impr_index + 1,
                 "user_index": np.asarray(user_index),
@@ -474,11 +483,15 @@ class MIND(Dataset):
                 "his_encoded_index": his_encoded_index,
                 "cdd_attn_mask": cdd_attn_mask,
                 "his_attn_mask": his_attn_mask,
-                "cdd_subword_index": cdd_subword_index,
-                "his_subword_index": his_subword_index,
                 "his_mask": his_mask,
                 "label": np.asarray(label)
             }
+
+            if self.subwords is not None:
+                cdd_subword_index = self.subwords[cdd_ids][:, :self.signal_length]
+                his_subword_index = self.subwords[his_ids][:, :self.signal_length]
+                back_dic["cdd_subword_index"] = cdd_subword_index
+                back_dic["his_subword_index"] = his_subword_index
 
             if self.reducer == "bm25":
                 his_reduced_index = self.reduced_news[his_ids][:, :self.k + 1]
@@ -521,21 +534,6 @@ class MIND(Dataset):
             his_encoded_index = self.encoded_news[his_ids][:, :self.signal_length]
             his_attn_mask = self.attn_mask[his_ids][:, :self.signal_length]
 
-            cdd_subword_index = self.subwords[cdd_ids][:, :self.signal_length]
-            # cdd_subword_index = cdd_subword_index_all[:, :, 0] * self.signal_length + cdd_subword_index_all[:, :, 1]
-            his_subword_index = self.subwords[his_ids][:, :self.signal_length]
-            # his_subword_index = his_subword_index_all[:, :, 0] * self.signal_length + his_subword_index_all[:, :, 1]
-
-            # cdd_dest = torch.zeros((cdd_size, self.signal_length * self.signal_length))
-            # cdd_src = torch.ones((cdd_size, self.signal_length * self.signal_length))
-            # cdd_subword_prefix = cdd_dest.scatter(dim=-1, index=cdd_subword_index, src=cdd_src) * cdd_mask
-            # cdd_subword_prefix = cdd_subword_prefix.view(cdd_size, self.signal_length, self.signal_length)
-
-            # his_dest = torch.zeros((self.his_size, self.signal_length * self.signal_length))
-            # his_src = torch.ones((self.his_size, self.signal_length * self.signal_length))
-            # his_subword_prefix = his_dest.scatter(dim=-1, index=his_subword_index, src=his_src) * his_mask
-            # his_subword_prefix = his_subword_prefix.view(self.his_size, self.signal_length, self.signal_length)
-
             back_dic = {
                 "impr_index": impr_index + 1,
                 "user_index": np.asarray(user_index),
@@ -545,10 +543,14 @@ class MIND(Dataset):
                 "his_encoded_index": his_encoded_index,
                 "cdd_attn_mask": cdd_attn_mask,
                 "his_attn_mask": his_attn_mask,
-                "cdd_subword_index": cdd_subword_index,
-                "his_subword_index": his_subword_index,
                 "his_mask": his_mask,
             }
+
+            if self.subwords is not None:
+                cdd_subword_index = self.subwords[cdd_ids][:, :self.signal_length]
+                his_subword_index = self.subwords[his_ids][:, :self.signal_length]
+                back_dic["cdd_subword_index"] = cdd_subword_index
+                back_dic["his_subword_index"] = his_subword_index
 
             if self.reducer == "bm25":
                 his_reduced_index = self.reduced_news[his_ids][:, :self.k + 1]

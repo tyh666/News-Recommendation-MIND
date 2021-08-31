@@ -57,7 +57,7 @@ def main(rank, manager, dist=False):
     ttms = TTMS(manager, embedding, encoderN, encoderU, reducer, aggregator).to(rank)
 
     if dist:
-        ttms = DDP(ttms, device_ids=[rank], output_device=rank, find_unused_parameters=True)
+        ttms = DDP(ttms, device_ids=[rank], output_device=rank, find_unused_parameters=False)
 
     if manager.mode == 'dev':
         manager.evaluate(ttms, loaders[0], load=True)

@@ -41,7 +41,7 @@ class config:
     ascend_history = False
     no_dedup = False
     diversify = False
-    word_level = True
+    granularity = 'avg'
 
     scheduler = 'linear'
     warmup = 100

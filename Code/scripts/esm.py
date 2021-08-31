@@ -66,7 +66,7 @@ def main(rank, manager, dist=False):
     esm = ESM(manager, embedding, encoderN, encoderU, reducer, None, ranker).to(rank)
 
     if dist:
-        esm = DDP(esm, device_ids=[rank], output_device=rank, find_unused_parameters=True)
+        esm = DDP(esm, device_ids=[rank], output_device=rank, find_unused_parameters=False)
 
     if manager.mode == 'dev':
         manager.evaluate(esm, loaders[0], load=True)

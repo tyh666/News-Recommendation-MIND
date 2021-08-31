@@ -346,7 +346,7 @@ def load_manager():
     parser.add_argument("-p", "--path", dest="path", type=str, default="../../../Data/", help="root path for large-scale reusable data")
 
     parser.add_argument("-bs", "--batch_size", dest="batch_size",
-                        help="batch size", type=int, default=100)
+                        help="batch size", type=int, default=25)
     parser.add_argument("-hs", "--his_size", dest="his_size",
                         help="history size", type=int, default=50)
     parser.add_argument("-is", "--impr_size", dest="impr_size",
@@ -392,6 +392,7 @@ def load_manager():
     parser.add_argument("-encu", "--encoderU", dest="encoderU", help="choose user encoder", choices=['avg','attn','cnn','rnn','lstur','mha'], default="rnn")
     parser.add_argument("-slc", "--selector", dest="selector", help="choose history selector", choices=['recent','sfi'], default="sfi")
     parser.add_argument("-red", "--reducer", dest="reducer", help="choose document reducer", choices=['bm25','matching','bow'], default="matching")
+    parser.add_argument("-g", "--granularity", dest="granularity", help="the granularity for reduction", choices=["token", "avg", "first", "sum"], default="avg")
     parser.add_argument("-fus", "--fuser", dest="fuser", help="choose term fuser", choices=['union'], default="union")
     parser.add_argument("-rk", "--ranker", dest="ranker", help="choose ranker", choices=['onepass','original','cnn','knrm'], default="onepass")
     parser.add_argument("-agg", "--aggregator", dest="aggregator", help="choose history aggregator, only used in TTMS", choices=['avg','attn','cnn','rnn','lstur','mha'], default=None)
@@ -405,7 +406,6 @@ def load_manager():
     parser.add_argument("--seeds", dest="seeds", default=None, type=int)
 
     parser.add_argument("--bert", dest="bert", help="choose bert model", choices=["bert-base-uncased"], default="bert-base-uncased")
-    parser.add_argument("-wl", "--word_level", dest="word_level", help="select words instead of tokens", action='store_true', default=False)
 
     parser.add_argument("-hn", "--head_num", dest="head_num", help="number of multi-heads", type=int, default=12)
 

@@ -93,7 +93,7 @@ def main(rank, manager, dist=False):
     sfi = SFI(manager, embedding, encoder, selector, ranker).to(manager.device)
 
     if dist:
-        sfi = DDP(sfi, device_ids=[rank], output_device=rank, find_unused_parameters=True)
+        sfi = DDP(sfi, device_ids=[rank], output_device=rank, find_unused_parameters=False)
 
     if manager.mode == 'dev':
         manager.evaluate(sfi,loaders[0],load=True)

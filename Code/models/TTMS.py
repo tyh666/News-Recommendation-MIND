@@ -24,8 +24,8 @@ class TTMS(nn.Module):
 
         self.aggregator = aggregator
 
-        self.word_level = config.word_level
-        if self.word_level:
+        self.granularity = config.granularity
+        if self.granularity != 'token':
             self.register_buffer('cdd_dest', torch.zeros((self.batch_size, config.impr_size, self.signal_length * self.signal_length)), persistent=False)
             self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, self.signal_length * self.signal_length)), persistent=False)
 
@@ -84,9 +84,10 @@ class TTMS(nn.Module):
             his_subword_prefix = his_dest.scatter(dim=-1, index=his_subword_index, value=1) * x["his_mask"].to(self.device)
             his_subword_prefix = his_subword_prefix.view(batch_size, self.his_size, self.signal_length, self.signal_length)
 
-            # average subword embeddings as the word embedding
-            # cdd_subword_prefix = F.normalize(cdd_subword_prefix, p=1, dim=-1)
-            # his_subword_prefix = F.normalize(his_subword_prefix, p=1, dim=-1)
+            if self.granularity == 'avg':
+                # average subword embeddings as the word embedding
+                cdd_subword_prefix = F.normalize(cdd_subword_prefix, p=1, dim=-1)
+                his_subword_prefix = F.normalize(his_subword_prefix, p=1, dim=-1)
 
             his_attn_mask = his_subword_prefix.matmul(x["his_attn_mask"].to(self.device).float().unsqueeze(-1)).squeeze(-1)
             his_reduced_mask = his_subword_prefix.matmul(x["his_reduced_mask"].to(self.device).float().unsqueeze(-1)).squeeze(-1)
