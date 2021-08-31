@@ -26,8 +26,11 @@ class TTMS(nn.Module):
 
         self.granularity = config.granularity
         if self.granularity != 'token':
-            self.register_buffer('cdd_dest', torch.zeros((self.batch_size, config.impr_size, self.signal_length * self.signal_length)), persistent=False)
-            self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, self.signal_length * self.signal_length)), persistent=False)
+            self.register_buffer('cdd_dest', torch.zeros((self.batch_size, config.impr_size, config.signal_length * config.signal_length)), persistent=False)
+            if self.reducer.name != 'bm25':
+                self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, config.signal_length * config.signal_length)), persistent=False)
+            else:
+                self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, (config.k + 1) * (config.k + 1))), persistent=False)
 
         if not aggregator:
             self.userProject = nn.Sequential(
@@ -71,9 +74,10 @@ class TTMS(nn.Module):
                 his_dest = self.his_dest[[0]]
 
             cdd_subword_index = x['cdd_subword_index'].to(self.device)
-            cdd_subword_index = cdd_subword_index[:, :, :, 0] * self.signal_length + cdd_subword_index[:, :, :, 1]
             his_subword_index = x['his_subword_index'].to(self.device)
-            his_subword_index = his_subword_index[:, :, :, 0] * self.signal_length + his_subword_index[:, :, :, 1]
+            his_signal_length = his_subword_index.size(-2)
+            cdd_subword_index = cdd_subword_index[:, :, :, 0] * self.signal_length + cdd_subword_index[:, :, :, 1]
+            his_subword_index = his_subword_index[:, :, :, 0] * his_signal_length + his_subword_index[:, :, :, 1]
 
             if self.training:
                 cdd_subword_prefix = cdd_dest.scatter(dim=-1, index=cdd_subword_index, value=1) * x["cdd_mask"].to(self.device)
@@ -82,7 +86,7 @@ class TTMS(nn.Module):
             cdd_subword_prefix = cdd_subword_prefix.view(batch_size, cdd_size, self.signal_length, self.signal_length)
 
             his_subword_prefix = his_dest.scatter(dim=-1, index=his_subword_index, value=1) * x["his_mask"].to(self.device)
-            his_subword_prefix = his_subword_prefix.view(batch_size, self.his_size, self.signal_length, self.signal_length)
+            his_subword_prefix = his_subword_prefix.view(batch_size, self.his_size, his_signal_length, his_signal_length)
 
             if self.granularity == 'avg':
                 # average subword embeddings as the word embedding
@@ -91,18 +95,18 @@ class TTMS(nn.Module):
 
             cdd_attn_mask = cdd_subword_prefix.matmul(x['cdd_attn_mask'].to(self.device).float().unsqueeze(-1)).squeeze(-1)
             his_attn_mask = his_subword_prefix.matmul(x["his_attn_mask"].to(self.device).float().unsqueeze(-1)).squeeze(-1)
-            his_refined_mask = x["his_refined_mask"]
-            if his_refined_mask is not None:
-                his_refined_mask = his_subword_prefix.matmul(his_refined_mask.to(self.device).float().unsqueeze(-1)).squeeze(-1)
+            his_refined_mask = None
+            if 'his_refined_mask' in x:
+                his_refined_mask = his_subword_prefix.matmul(x["his_refined_mask"].to(self.device).float().unsqueeze(-1)).squeeze(-1)
 
         else:
             cdd_subword_prefix = None
             his_subword_prefix = None
             cdd_attn_mask = x['cdd_attn_mask'].to(self.device)
             his_attn_mask = x["his_attn_mask"].to(self.device)
-            his_refined_mask = x["his_refined_mask"]
-            if his_refined_mask:
-                his_refined_mask = his_refined_mask.to(self.device)
+            his_refined_mask = None
+            if 'his_refined_mask' in x:
+                his_refined_mask = x["his_refined_mask"].to(self.device)
 
 
         cdd_news = x["cdd_encoded_index"].long().to(self.device)

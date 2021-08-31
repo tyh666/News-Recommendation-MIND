@@ -202,7 +202,6 @@ class Manager():
             "his_encoded_index": torch.empty(1, self.his_size, self.signal_length).random_(0,10),
             "cdd_attn_mask": torch.ones(1, self.impr_size, self.signal_length),
             "his_attn_mask": torch.ones(1, self.his_size, self.signal_length),
-            "his_refined_mask": None,
             "cdd_subword_index": torch.ones(1, self.impr_size, self.signal_length, 2, dtype=torch.int64),
             "his_subword_index": torch.ones(1, self.his_size, self.signal_length, 2, dtype=torch.int64),
             "cdd_mask": torch.ones((1, self.impr_size, 1)),
@@ -211,8 +210,8 @@ class Manager():
         if self.reducer == 'matching':
             max_input["his_refined_mask"] = torch.ones(1, self.his_size, self.signal_length)
         elif self.reducer == 'bow':
-            max_input["cdd_refined_index"] = torch.rand(1, self.impr_size, self.signal_length, 2).random_(0,10)
-            max_input["his_refined_index"] = torch.rand(1, self.his_size, self.signal_length, 2).random_(0,10)
+            max_input["cdd_encoded_index"] = torch.rand(1, self.impr_size, self.signal_length, 2).random_(0,10)
+            max_input["his_encoded_index"] = torch.rand(1, self.his_size, self.signal_length, 2).random_(0,10)
         elif self.reducer == 'bm25':
             max_input["his_encoded_index"] = max_input["his_encoded_index"][:, :, :self.k+1]
             max_input["his_encoded_mask"] = max_input["his_encoded_mask"][:, :, self.k+1]
@@ -516,7 +515,6 @@ class Manager():
             "his_encoded_index": torch.empty(1, self.his_size, self.signal_length).random_(0,10),
             "cdd_attn_mask": torch.ones(1, self.impr_size, self.signal_length),
             "his_attn_mask": torch.ones(1, self.his_size, self.signal_length),
-            "his_refined_mask": None,
             "cdd_subword_index": torch.ones(1, self.impr_size, self.signal_length, 2, dtype=torch.int64),
             "his_subword_index": torch.ones(1, self.his_size, self.signal_length, 2, dtype=torch.int64),
             "cdd_mask": torch.ones((1, self.impr_size, 1)),
@@ -525,12 +523,12 @@ class Manager():
         if self.reducer == 'matching':
             max_input["his_refined_mask"] = torch.ones(1, self.his_size, self.signal_length)
         elif self.reducer == 'bow':
-            max_input["cdd_refined_index"] = torch.rand(1, self.impr_size, self.signal_length, 2).random_(0,10)
-            max_input["his_refined_index"] = torch.rand(1, self.his_size, self.signal_length, 2).random_(0,10)
+            max_input["cdd_encoded_index"] = torch.rand(1, self.impr_size, self.signal_length, 2).random_(0,10)
+            max_input["his_encoded_index"] = torch.rand(1, self.his_size, self.signal_length, 2).random_(0,10)
         elif self.reducer == 'bm25':
             max_input["his_encoded_index"] = max_input["his_encoded_index"][:, :, :self.k+1]
             max_input["his_encoded_mask"] = max_input["his_encoded_mask"][:, :, self.k+1]
-            
+
         model(max_input)
 
         impr_indexes = []
@@ -656,7 +654,7 @@ class Manager():
             _, term_indexes = model(x)
             his_encoded_index = x['his_encoded_index']
             his_attn_mask = x['his_attn_mask']
-            if reducer == 'bm25':
+            if self.bm25:
                 his_id = x['his_id']
 
             encoded_ids = his_encoded_index[:, :, 1:]

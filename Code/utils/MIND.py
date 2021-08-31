@@ -111,7 +111,7 @@ class MIND(Dataset):
 
         if self.reducer == 'bm25':
             try:
-                with open(self.cache_directory + "news_matching.pkl", "rb") as f:
+                with open(self.cache_directory + "news.pkl", "rb") as f:
                     news = pickle.load(f)
                     self.encoded_news_original = news['encoded_news']
                     self.attn_mask_original = news['attn_mask']
@@ -469,12 +469,8 @@ class MIND(Dataset):
 
             elif self.reducer == "bm25":
                 back_dic["cdd_encoded_index"] = self.encoded_news_original[cdd_ids]
-                # placeholder
-                back_dic["his_refined_mask"] = None
-
-            elif self.reducer == "bow":
-                # placeholder
-                back_dic["his_refined_mask"] = None
+                back_dic["cdd_attn_mask"] = self.attn_mask_original[cdd_ids]
+                back_dic["his_subword_index"] = back_dic["his_subword_index"][:, :self.k + 1]
 
             return back_dic
 
@@ -526,12 +522,8 @@ class MIND(Dataset):
 
             elif self.reducer == "bm25":
                 back_dic["cdd_encoded_index"] = self.encoded_news_original[cdd_ids]
-                # placeholder
-                back_dic["his_refined_mask"] = None
-
-            elif self.reducer == "bow":
-                # placeholder
-                back_dic["his_refined_mask"] = None
+                back_dic["cdd_attn_mask"] = self.attn_mask_original[cdd_ids]
+                back_dic["his_subword_index"] = back_dic["his_subword_index"][:, :self.k + 1]
 
             return back_dic
 
@@ -580,12 +572,8 @@ class MIND(Dataset):
 
             elif self.reducer == "bm25":
                 back_dic["cdd_encoded_index"] = self.encoded_news_original[cdd_ids]
-                # placeholder
-                back_dic["his_refined_mask"] = None
-
-            elif self.reducer == "bow":
-                # placeholder
-                back_dic["his_refined_mask"] = None
+                back_dic["cdd_attn_mask"] = self.attn_mask_original[cdd_ids]
+                back_dic["his_subword_index"] = back_dic["his_subword_index"][:, :self.k + 1]
 
             return back_dic
 

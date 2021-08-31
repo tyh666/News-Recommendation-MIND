@@ -106,7 +106,7 @@ class BM25_Reducer(nn.Module):
         ps_terms = news_embedding[:, :, 1:]
         ps_term_mask = his_attn_mask[:, :, 1:]
 
-        return ps_terms, ps_term_mask
+        return ps_terms, ps_term_mask, None
 
 
 class BOW_Reducer(nn.Module):
