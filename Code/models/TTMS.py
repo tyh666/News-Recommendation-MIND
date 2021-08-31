@@ -104,10 +104,10 @@ class TTMS(nn.Module):
             if his_refined_mask:
                 his_refined_mask = his_refined_mask.to(self.device)
 
-    
+
         cdd_news = x["cdd_encoded_index"].long().to(self.device)
         _, cdd_news_repr = self.bert(
-            self.embedding(cdd_news, cdd_subword_prefix),
+            self.embedding(cdd_news, cdd_subword_prefix), cdd_attn_mask
         )
 
         his_news = x["his_encoded_index"].long().to(self.device)

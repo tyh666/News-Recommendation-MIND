@@ -200,20 +200,22 @@ class Manager():
             'his_id': torch.empty(1, self.his_size).random_(0,10),
             "cdd_encoded_index": torch.empty(1, self.impr_size, self.signal_length).random_(0,10),
             "his_encoded_index": torch.empty(1, self.his_size, self.signal_length).random_(0,10),
-            "his_reduced_index": torch.empty(1, self.his_size, self.signal_length).random_(0,10),
             "cdd_attn_mask": torch.ones(1, self.impr_size, self.signal_length),
             "his_attn_mask": torch.ones(1, self.his_size, self.signal_length),
-            "his_reduced_mask": torch.ones(1, self.his_size, self.signal_length),
+            "his_refined_mask": None,
             "cdd_subword_index": torch.ones(1, self.impr_size, self.signal_length, 2, dtype=torch.int64),
             "his_subword_index": torch.ones(1, self.his_size, self.signal_length, 2, dtype=torch.int64),
             "cdd_mask": torch.ones((1, self.impr_size, 1)),
             "his_mask": torch.ones((1, self.his_size, 1)),
         }
-        if self.reducer == 'bow':
-            max_input["his_reduced_index"] = torch.rand(1, self.his_size, self.signal_length, 2).random_(0,10)
+        if self.reducer == 'matching':
+            max_input["his_refined_mask"] = torch.ones(1, self.his_size, self.signal_length)
+        elif self.reducer == 'bow':
+            max_input["cdd_refined_index"] = torch.rand(1, self.impr_size, self.signal_length, 2).random_(0,10)
+            max_input["his_refined_index"] = torch.rand(1, self.his_size, self.signal_length, 2).random_(0,10)
         elif self.reducer == 'bm25':
-            max_input["his_reduced_index"] = max_input["his_reduced_index"][:, :, :self.k+1]
-            max_input["his_reduced_mask"] = max_input["his_reduced_mask"][:, :, self.k+1]
+            max_input["his_encoded_index"] = max_input["his_encoded_index"][:, :, :self.k+1]
+            max_input["his_encoded_mask"] = max_input["his_encoded_mask"][:, :, self.k+1]
 
         model(max_input)
 
@@ -512,21 +514,23 @@ class Manager():
             'his_id': torch.empty(1, self.his_size).random_(0,10),
             "cdd_encoded_index": torch.empty(1, self.impr_size, self.signal_length).random_(0,10),
             "his_encoded_index": torch.empty(1, self.his_size, self.signal_length).random_(0,10),
-            "his_reduced_index": torch.empty(1, self.his_size, self.signal_length).random_(0,10),
             "cdd_attn_mask": torch.ones(1, self.impr_size, self.signal_length),
             "his_attn_mask": torch.ones(1, self.his_size, self.signal_length),
-            "his_reduced_mask": torch.ones(1, self.his_size, self.signal_length),
+            "his_refined_mask": None,
             "cdd_subword_index": torch.ones(1, self.impr_size, self.signal_length, 2, dtype=torch.int64),
             "his_subword_index": torch.ones(1, self.his_size, self.signal_length, 2, dtype=torch.int64),
             "cdd_mask": torch.ones((1, self.impr_size, 1)),
             "his_mask": torch.ones((1, self.his_size, 1)),
         }
-        if self.reducer == 'bow':
-            max_input["his_reduced_index"] = torch.rand(1, self.his_size, self.signal_length, 2).random_(0,10)
+        if self.reducer == 'matching':
+            max_input["his_refined_mask"] = torch.ones(1, self.his_size, self.signal_length)
+        elif self.reducer == 'bow':
+            max_input["cdd_refined_index"] = torch.rand(1, self.impr_size, self.signal_length, 2).random_(0,10)
+            max_input["his_refined_index"] = torch.rand(1, self.his_size, self.signal_length, 2).random_(0,10)
         elif self.reducer == 'bm25':
-            max_input["his_reduced_index"] = max_input["his_reduced_index"][:, :, :self.k+1]
-            max_input["his_reduced_mask"] = max_input["his_reduced_mask"][:, :, self.k+1]
-
+            max_input["his_encoded_index"] = max_input["his_encoded_index"][:, :, :self.k+1]
+            max_input["his_encoded_mask"] = max_input["his_encoded_mask"][:, :, self.k+1]
+            
         model(max_input)
 
         impr_indexes = []
@@ -552,11 +556,10 @@ class Manager():
             preds = self._group_lists(impr_indexes, preds)[0]
 
         if self.rank in [0, -1]:
-            save_directory = "data/results/{}".format(self.name)
+            save_directory = "data/results/{}".format(self.name + "/{}_step{}_[k={}]".format(self.scale, self.checkpoint, self.k))
             os.makedirs(save_directory, exist_ok=True)
 
-            save_path = save_directory + "/{}_step{}_[k={}].txt".format(
-                self.scale, self.checkpoint, self.k)
+            save_path = save_directory + "/prediction.txt"
 
             index = 1
             with open(save_path, 'w') as f:
@@ -637,9 +640,11 @@ class Manager():
         logger.info("inspecting {}...".format(self.name))
 
         reducer = model.reducer.name
-        bm25 = (reducer == 'bm25')
-        if bm25:
-            bm25_terms = loader.dataset.reduced_news
+
+        if self.bm25:
+            import pickle
+            with open(loader.dataset.cache_directory + "news_bm25.pkl", 'rb') as f:
+                bm25_terms = pickle.load(f)['encoded_news'][:, :self.k + 1]
 
         self.load(model, self.checkpoint)
         t = BertTokenizer.from_pretrained('bert-base-uncased')
@@ -649,14 +654,10 @@ class Manager():
         jumpout = False
         for x in loader:
             _, term_indexes = model(x)
-            if reducer == 'bow':
-                his_encoded_index = x['his_reduced_index'][:, :, :, 0].to(model.device)
-                his_attn_mask = x['his_reduced_mask'].to(model.device)
-            else:
-                his_encoded_index = x['his_encoded_index'].to(model.device)
-                his_attn_mask = x['his_attn_mask'].to(model.device)
+            his_encoded_index = x['his_encoded_index']
+            his_attn_mask = x['his_attn_mask']
             if reducer == 'bm25':
-                his_id = x['his_id'].to(model.device)
+                his_id = x['his_id']
 
             encoded_ids = his_encoded_index[:, :, 1:]
 
@@ -664,8 +665,10 @@ class Manager():
                 for j,his_token_ids in enumerate(batch):
                     print('*******************************************************')
                     tokens = t.convert_ids_to_tokens(his_token_ids)
-                    if self.word_level:
+                    if self.granularity != 'token':
                         terms = convert_tokens_to_words(tokens)
+                        terms.extend(['[PAD]'] * (self.signal_length - len(terms)))
+                        terms = np.asarray(terms)
                     else:
                         terms = np.asarray(tokens)
                     ps_term_ids = term_indexes[i, j].cpu().numpy()
@@ -676,8 +679,8 @@ class Manager():
                         break
                     else:
                         print("[personalized terms]\n\t {}".format(' '.join(ps_terms)))
-                        if bm25:
-                            print("[bm25 terms]\n\t {}".format(t.decode(x['his_reduced_index'][i, j, :self.k+1])))
+                        if self.bm25:
+                            print("[bm25 terms]\n\t {}".format(t.decode(bm25_terms[his_id[i,j]])))
 
                         print("[original news]\n\t {}".format(t.decode(his_encoded_index[i, j, :his_attn_mask[i, j].sum()])))
 
