@@ -36,6 +36,7 @@ class MIND(Dataset):
         self.ascend_history = config.ascend_history
         self.reducer = config.reducer
         self.granularity = config.granularity
+        self.word_extra_span = config.word_extra_span
 
         pat = re.search("MIND/(.*_(.*)/)news", news_file)
         self.mode = pat.group(2)

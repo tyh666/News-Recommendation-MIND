@@ -248,8 +248,8 @@ def load_manager():
     parser.add_argument("-sm", "--smoothing", dest="smoothing", help="smoothing factor of tqdm", type=float, default=0.3)
 
     parser.add_argument("--ascend_history", dest="ascend_history", help="whether to order history by time in ascending", action='store_true', default=False)
-    parser.add_argument("--no_dedup", dest="no_dedup", help="whether to disable deduplication forarticles", action='store_true', default=False)
-    parser.add_argument("--bm25", dest="bm25", help="whether to check bm25 topk terms when inspecting", action='store_true', default=False)
+    parser.add_argument("--no_dedup", dest="no_dedup", help="whether to deduplicate tokens", action='store_true', default=False)
+    parser.add_argument("--no_bm25", dest="no_bm25", help="whether to check bm25 topk terms when inspecting", action='store_true', default=False)
     parser.add_argument("--no_sep_his", dest="no_sep_his", help="whether to separate personalized terms from different news with an extra token", action='store_true', default=False)
     parser.add_argument("--no_order_embed", dest="no_order_embed", help="whether to add an extra embedding to ps terms from the same historical news", action='store_true', default=False)
 
@@ -263,12 +263,13 @@ def load_manager():
     parser.add_argument("--npratio", dest="npratio", help="the number of unclicked news to sample when training", type=int, default=4)
     parser.add_argument("--metrics", dest="metrics", help="metrics for evaluating the model", type=str, default='')
 
+    parser.add_argument("-g", "--granularity", dest="granularity", help="the granularity for reduction", choices=["token", "avg", "first", "sum"], default="avg")
+    parser.add_argument("-sp", "--word_span", dest="word_span", help="how many extra tokens to preserve", type=int, default=10)
     parser.add_argument("-emb", "--embedding", dest="embedding", help="choose embedding", choices=['bert','random'], default='bert')
     parser.add_argument("-encn", "--encoderN", dest="encoderN", help="choose news encoder", choices=['cnn','rnn','npa','fim','mha','bert'], default="cnn")
     parser.add_argument("-encu", "--encoderU", dest="encoderU", help="choose user encoder", choices=['avg','attn','cnn','rnn','lstur','mha'], default="rnn")
     parser.add_argument("-slc", "--selector", dest="selector", help="choose history selector", choices=['recent','sfi'], default="sfi")
     parser.add_argument("-red", "--reducer", dest="reducer", help="choose document reducer", choices=['bm25','matching','bow'], default="matching")
-    parser.add_argument("-g", "--granularity", dest="granularity", help="the granularity for reduction", choices=["token", "avg", "first", "sum"], default="avg")
     parser.add_argument("-fus", "--fuser", dest="fuser", help="choose term fuser", choices=['union'], default="union")
     parser.add_argument("-rk", "--ranker", dest="ranker", help="choose ranker", choices=['onepass','original','cnn','knrm'], default="onepass")
     parser.add_argument("-agg", "--aggregator", dest="aggregator", help="choose history aggregator, only used in TTMS", choices=['avg','attn','cnn','rnn','lstur','mha'], default=None)

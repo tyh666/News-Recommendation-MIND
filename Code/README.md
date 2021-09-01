@@ -25,7 +25,7 @@ else
 
   ipython kernel install --name "nn" --user
 
-  pip install torch==1.9.0+cu111 -f https://download.pytorch.org/whl/torch_stable.html
+  pip install torch==1.7.1+cu110 -f https://download.pytorch.org/whl/torch_stable.html
   pip install tensorboard ipython jupyter notebook typing pandas scipy scikit-learn transformers
 
   cd /data/
@@ -41,8 +41,8 @@ else
   sudo apt-get install screen
   sleep infinity
 fi
-
 ```
+
 - `python==3.8`
 - `torch==1.7.1`
 

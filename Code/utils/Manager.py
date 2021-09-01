@@ -639,9 +639,7 @@ class Manager():
         model.eval()
         logger.info("inspecting {}...".format(self.name))
 
-        reducer = model.reducer.name
-
-        if self.bm25:
+        if not self.no_bm25:
             import pickle
             with open(loader.dataset.cache_directory + "news_bm25.pkl", 'rb') as f:
                 bm25_terms = pickle.load(f)['encoded_news'][:, :self.k + 1]
@@ -658,7 +656,7 @@ class Manager():
             if self.reducer == 'bow':
                 his_encoded_index = his_encoded_index[:, :, :, 0]
             his_attn_mask = x['his_attn_mask']
-            if self.bm25:
+            if not self.no_bm25:
                 his_id = x['his_id']
 
             encoded_ids = his_encoded_index[:, :, 1:]
@@ -681,7 +679,7 @@ class Manager():
                         break
                     else:
                         print("[personalized terms]\n\t {}".format(' '.join(ps_terms)))
-                        if self.bm25:
+                        if not self.no_bm25:
                             print("[bm25 terms]\n\t {}".format(t.decode(bm25_terms[his_id[i,j]][1:])))
 
                         print("[original news]\n\t {}".format(t.decode(his_encoded_index[i, j, 1:his_attn_mask[i, j].sum()])))
