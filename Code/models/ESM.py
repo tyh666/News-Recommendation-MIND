@@ -31,12 +31,15 @@ class ESM(nn.Module):
             nn.Linear(int(self.final_dim/2),1)
         )
 
-        self.word_level = config.word_level
-        if self.word_level:
-            self.register_buffer('cdd_dest', torch.zeros((self.batch_size, config.impr_size, self.signal_length * self.signal_length)), persistent=False)
-            self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, self.signal_length * self.signal_length)), persistent=False)
+        self.granularity = config.granularity
+        if self.granularity != 'token':
+            self.register_buffer('cdd_dest', torch.zeros((self.batch_size, config.impr_size, config.signal_length * config.signal_length)), persistent=False)
+            if self.reducer.name != 'bm25':
+                self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, config.signal_length * config.signal_length)), persistent=False)
+            else:
+                self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, (config.k + 1) * (config.k + 1))), persistent=False)
 
-        self.name = '__'.join(['esm', self.encoderN.name, self.encoderU.name, self.reducer.name, self.ranker.name])
+        self.name = '__'.join(['esm', self.encoderN.name, self.encoderU.name, self.reducer.name, self.ranker.name, self.granularity])
         config.name = self.name
 
     def clickPredictor(self, reduced_tensor, cdd_news_repr, user_repr):

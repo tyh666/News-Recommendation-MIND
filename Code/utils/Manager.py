@@ -633,7 +633,6 @@ class Manager():
         """
         inspect personalized terms
         """
-        assert model.reducer.name in ['matching', 'bow'], "only available when using matching/bow reducer"
         from transformers import BertTokenizer
         from .utils import convert_tokens_to_words
 

@@ -169,7 +169,7 @@ class BERT_Onepass_Ranker(nn.Module):
         # [bs, cs*sl, hd]
         cdd_news_embedding = (cdd_news_embedding + self.token_type_embedding[0]).view(batch_size, -1, self.embedding_dim)
 
-        bert_input = torch.cat([cdd_news_embedding, ps_terms], dim=-2)
+        bert_input = torch.cat([cdd_news_embedding, self.sep_embedding.expand(batch_size, 1, self.embedding_dim), ps_terms], dim=-2)
 
         # [bs, cs*sl]
         attn_mask = cdd_attn_mask.view(batch_size, -1)

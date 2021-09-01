@@ -37,7 +37,7 @@ class TTMS(nn.Module):
 
         self.register_buffer('extra_cls_mask', torch.ones(1,1), persistent=False)
 
-        self.name = '__'.join(['ttms', self.encoderN.name, self.encoderU.name, config.reducer])
+        self.name = '__'.join(['ttms', self.encoderN.name, self.encoderU.name, config.reducer, self.granularity])
         config.name = self.name
 
     def clickPredictor(self, cdd_news_repr, user_repr):
