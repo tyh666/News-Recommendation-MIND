@@ -138,7 +138,6 @@ class MIND(Dataset):
         else:
             refiner = None
 
-        logger.info("reducing news of {}...".format(news_file))
         self.init_refinement(refiner)
 
 

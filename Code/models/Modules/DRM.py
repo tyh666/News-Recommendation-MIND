@@ -34,6 +34,7 @@ class Matching_Reducer(nn.Module):
             config.term_num += (self.his_size - 1)
             self.sep_embedding = nn.Parameter(torch.randn(1, 1, 1, config.embedding_dim))
             self.register_buffer('extra_sep_mask', torch.ones(1, 1, 1), persistent=False)
+            nn.init.xavier_normal_(self.sep_embedding)
 
         if not config.no_order_embed:
             self.order_embedding = nn.Parameter(torch.randn(config.his_size, 1, config.embedding_dim))

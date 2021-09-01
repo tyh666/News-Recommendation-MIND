@@ -685,7 +685,7 @@ class Manager():
                         if self.bm25:
                             print("[bm25 terms]\n\t {}".format(t.decode(bm25_terms[his_id[i,j]][1:])))
 
-                        print("[original news]\n\t {}".format(t.decode(his_encoded_index[i, j, :his_attn_mask[i, j].sum()])))
+                        print("[original news]\n\t {}".format(t.decode(his_encoded_index[i, j, 1:his_attn_mask[i, j].sum()])))
 
                         command = input()
                         if command == 'n':

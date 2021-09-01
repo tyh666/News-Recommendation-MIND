@@ -42,6 +42,8 @@ class config:
     no_dedup = False
     diversify = False
     granularity = 'avg'
+    no_sep_his = False
+    no_order_embed = False
 
     scheduler = 'linear'
     warmup = 100
