@@ -42,19 +42,19 @@ def main(rank, manager, dist=False):
         from models.Modules.DRM import BM25_Reducer
         reducer = BM25_Reducer(manager)
 
-    if manager.aggregator == 'rnn':
-        from models.Encoders.RNN import RNN_User_Encoder
-        aggregator = RNN_User_Encoder(manager)
-    elif manager.aggregator == 'avg':
-        from models.Encoders.Pooling import Average_Pooling
-        aggregator = Average_Pooling(manager)
-    elif manager.aggregator == 'attn':
-        from models.Encoders.Pooling import Attention_Pooling
-        aggregator = Attention_Pooling(manager)
-    else:
-        aggregator = None
+    # if manager.aggregator == 'rnn':
+    #     from models.Encoders.RNN import RNN_User_Encoder
+    #     aggregator = RNN_User_Encoder(manager)
+    # elif manager.aggregator == 'avg':
+    #     from models.Encoders.Pooling import Average_Pooling
+    #     aggregator = Average_Pooling(manager)
+    # elif manager.aggregator == 'attn':
+    #     from models.Encoders.Pooling import Attention_Pooling
+    #     aggregator = Attention_Pooling(manager)
+    # else:
+    #     aggregator = None
 
-    ttms = TTMS(manager, embedding, encoderN, encoderU, reducer, aggregator).to(rank)
+    ttms = TTMS(manager, embedding, encoderN, encoderU, reducer).to(rank)
 
     if dist:
         ttms = DDP(ttms, device_ids=[rank], output_device=rank, find_unused_parameters=False)

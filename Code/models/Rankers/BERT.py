@@ -139,19 +139,14 @@ class BERT_Onepass_Ranker(nn.Module):
             nn.Tanh()
         )
 
-        # self.dropOut = bert.embeddings.dropout
-
         # [2, embedding_dim]
         self.token_type_embedding = nn.Parameter(bert.embeddings.token_type_embeddings.weight)
         # [SEP] token
         self.sep_embedding = nn.Parameter(bert.embeddings.word_embeddings(torch.tensor([102])).clone().detach().requires_grad_(True).view(1,1,self.embedding_dim))
 
-        self.order_embedding = nn.Parameter(torch.randn(config.his_size, 1, config.embedding_dim))
-        nn.init.xavier_normal_(self.order_embedding)
-
         nn.init.xavier_normal_(self.pooler[0].weight)
 
-    def forward(self, cdd_news_embedding, ps_terms, cdd_attn_mask, his_attn_mask):
+    def forward(self, cdd_news_embedding, ps_terms, cdd_attn_mask, ps_term_mask):
         """
         calculate interaction tensor and reduce it to a vector
 
@@ -159,7 +154,7 @@ class BERT_Onepass_Ranker(nn.Module):
             cdd_news_embedding: word-level representation of candidate news, [batch_size, cdd_size, signal_length, embedding_dim]
             ps_terms: concatenated historical news or personalized terms, [batch_size, term_num, embedding_dim]
             cdd_attn_mask: attention mask of the candidate news, [batch_size, cdd_size, signal_length]
-            his_attn_mask: attention mask of the history sequence, [batch_size, his_size, k]/[batch_size, cdd_size, k, signal_length]
+            ps_term_mask: attention mask of the personalized terms, [batch_size, term_num]
 
         Returns:
             reduced_tensor: output tensor after CNN2d, [batch_size, cdd_size, final_dim]
@@ -167,23 +162,18 @@ class BERT_Onepass_Ranker(nn.Module):
         batch_size = cdd_news_embedding.size(0)
         cdd_size = cdd_news_embedding.size(1)
 
-        # ps_terms = ps_terms.view(batch_size, -1, self.embedding_dim)
-        ps_terms = (ps_terms + self.order_embedding).view(batch_size, -1, self.embedding_dim)
-
         # [bs,tn,hd]
-        ps_terms = torch.cat([self.sep_embedding.expand(batch_size, 1, self.embedding_dim), ps_terms], dim=1)
-        ps_terms[:,1:] += self.token_type_embedding[1]
         ps_terms[:,0] += self.token_type_embedding[0]
+        ps_terms[:,1:] += self.token_type_embedding[1]
 
         # [bs, cs*sl, hd]
         cdd_news_embedding = (cdd_news_embedding + self.token_type_embedding[0]).view(batch_size, -1, self.embedding_dim)
 
         bert_input = torch.cat([cdd_news_embedding, ps_terms], dim=-2)
-        # bert_input = self.dropOut(bert_input)
 
         # [bs, cs*sl]
         attn_mask = cdd_attn_mask.view(batch_size, -1)
-        attn_mask = torch.cat([attn_mask, torch.ones(batch_size, 1, device=cdd_attn_mask.device), his_attn_mask.reshape(batch_size, -1)], dim=-1).reshape(batch_size, 1, 1, -1)
+        attn_mask = torch.cat([attn_mask, torch.ones(batch_size, 1, device=cdd_attn_mask.device), ps_term_mask], dim=-1).reshape(batch_size, 1, 1, -1)
 
         bert_output = self.bert(bert_input, attention_mask=attn_mask).last_hidden_state[:, 0 : cdd_size * (self.signal_length) : self.signal_length].view(batch_size, cdd_size, self.embedding_dim)
         bert_output = self.pooler(bert_output)

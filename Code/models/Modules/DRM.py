@@ -12,7 +12,9 @@ class Matching_Reducer(nn.Module):
         self.name = "matching"
 
         self.k = config.k
+        self.his_size = config.his_size
         self.diversify = config.diversify
+        self.embedding_dim = config.embedding_dim
 
         config.term_num = config.k * config.his_size
 
@@ -28,6 +30,16 @@ class Matching_Reducer(nn.Module):
             threshold = torch.tensor([config.threshold])
             self.register_buffer('threshold', threshold)
 
+        if not config.no_sep_his:
+            config.term_num += (self.his_size - 1)
+            self.sep_embedding = nn.Parameter(torch.randn(1, 1, 1, config.embedding_dim))
+            self.register_buffer('extra_sep_mask', torch.ones(1, 1, 1), persistent=False)
+
+        if not config.no_order_embed:
+            self.order_embedding = nn.Parameter(torch.randn(config.his_size, 1, config.embedding_dim))
+            nn.init.xavier_normal_(self.order_embedding)
+
+
     def forward(self, news_selection_embedding, news_embedding, user_repr, news_repr, his_attn_mask, his_refined_mask):
         """
         Extract words from news text according to the overall user interest
@@ -39,9 +51,11 @@ class Matching_Reducer(nn.Module):
             user_repr: user representation, [batch_size, 1, hidden_dim]
 
         Returns:
-            ps_terms: weighted embedding for personalized terms, [batch_size, his_size, k, hidden_dim]
-            ps_term_mask: attention mask of output terms, [batch_size, his_size, k]
+            ps_terms: weighted embedding for personalized terms, [batch_size, term_num, embedding_dim]
+            ps_term_mask: attention mask of output terms, [batch_size, term_num]
         """
+        batch_size = news_embedding.size(0)
+
         # strip off [CLS]
         news_selection_embedding = news_selection_embedding[:, :, 1:]
         news_embedding = news_embedding[:, :, 1:]
@@ -73,6 +87,15 @@ class Matching_Reducer(nn.Module):
         else:
             ps_terms = ps_terms * (F.softmax(score_k, dim=-1).unsqueeze(-1))
             # ps_terms = ps_terms * (score_k.unsqueeze(-1))
+        if hasattr(self, 'order_embedding'):
+            ps_terms += self.order_embedding
+
+        if hasattr(self, 'sep_embedding'):
+            ps_terms = torch.cat([ps_terms, self.sep_embedding.expand(batch_size, self.his_size, 1, self.embedding_dim)], dim=-2).view(batch_size, -1, self.embedding_dim)[:, :-1]
+            ps_term_mask = torch.cat([ps_term_mask, self.extra_sep_mask.expand(batch_size, self.his_size, 1)], dim=-1).view(batch_size, -1)[:, :-1]
+        else:
+            ps_terms = ps_terms.view(batch_size, -1, self.embedding_dim)
+            ps_term_mask = ps_term_mask.view(batch_size, -1)
 
         return ps_terms, ps_term_mask, score_kid
 

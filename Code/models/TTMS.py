@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from .Encoders.BERT import BERT_Encoder
 
 class TTMS(nn.Module):
-    def __init__(self, config, embedding, encoderN, encoderU, reducer, aggregator=None):
+    def __init__(self, config, embedding, encoderN, encoderU, reducer):
         super().__init__()
 
         self.scale = config.scale
@@ -22,8 +22,6 @@ class TTMS(nn.Module):
         self.reducer = reducer
         self.bert = BERT_Encoder(config)
 
-        self.aggregator = aggregator
-
         self.granularity = config.granularity
         if self.granularity != 'token':
             self.register_buffer('cdd_dest', torch.zeros((self.batch_size, config.impr_size, config.signal_length * config.signal_length)), persistent=False)
@@ -32,11 +30,12 @@ class TTMS(nn.Module):
             else:
                 self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, (config.k + 1) * (config.k + 1))), persistent=False)
 
-        if not aggregator:
-            self.userProject = nn.Sequential(
-                nn.Linear(self.bert.hidden_dim, self.bert.hidden_dim),
-                nn.Tanh()
-            )
+        self.userProject = nn.Sequential(
+            nn.Linear(self.bert.hidden_dim, self.bert.hidden_dim),
+            nn.Tanh()
+        )
+
+        self.register_buffer('extra_cls_mask', torch.ones(1,1), persistent=False)
 
         self.name = '__'.join(['ttms', self.encoderN.name, self.encoderU.name, config.reducer])
         config.name = self.name
@@ -123,20 +122,12 @@ class TTMS(nn.Module):
 
         ps_terms, ps_term_mask, kid = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, his_attn_mask, his_refined_mask)
 
-        # append CLS to each historical news, aggregator historical news representation to user repr
-        if self.aggregator:
-            ps_terms = torch.cat([his_news_embedding[:, :, 0].unsqueeze(-2), ps_terms], dim=-2)
-            ps_term_mask = torch.cat([torch.ones(*ps_term_mask.shape[0:2], 1, device=ps_term_mask.device), ps_term_mask], dim=-1)
-            ps_terms, his_news_repr = self.bert(ps_terms, ps_term_mask)
-            user_repr = self.aggregator(his_news_repr)
-
         # append CLS to the entire browsing history, directly deriving user repr
-        else:
-            batch_size = ps_terms.size(0)
-            ps_terms = torch.cat([his_news_embedding[:, 0, 0].unsqueeze(1).unsqueeze(1), ps_terms.reshape(batch_size, 1, -1, ps_terms.size(-1))], dim=-2)
-            ps_term_mask = torch.cat([torch.ones(batch_size, 1, 1, device=ps_term_mask.device), ps_term_mask.reshape(batch_size, 1, -1)], dim=-1)
-            _, user_cls = self.bert(ps_terms, ps_term_mask)
-            user_repr = self.userProject(user_cls)
+        batch_size = ps_terms.size(0)
+        ps_terms = torch.cat([his_news_embedding[:, 0, 0].unsqueeze(1), ps_terms], dim=-2)
+        ps_term_mask = torch.cat([self.extra_cls_mask.expand(batch_size, 1), ps_term_mask], dim=-1)
+        _, user_cls = self.bert(ps_terms.unsqueeze(1), ps_term_mask.unsqueeze(1))
+        user_repr = self.userProject(user_cls)
 
         return self.clickPredictor(cdd_news_repr, user_repr), kid
 

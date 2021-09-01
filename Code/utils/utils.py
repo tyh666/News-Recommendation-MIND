@@ -379,6 +379,8 @@ def load_manager():
     parser.add_argument("--ascend_history", dest="ascend_history", help="whether to order history by time in ascending", action='store_true', default=False)
     parser.add_argument("--no_dedup", dest="no_dedup", help="whether to disable deduplication forarticles", action='store_true', default=False)
     parser.add_argument("--bm25", dest="bm25", help="whether to check bm25 topk terms when inspecting", action='store_true', default=False)
+    parser.add_argument("--no_sep_his", dest="no_sep_his", help="whether to separate personalized terms from different news with an extra token", action='store_true', default=False)
+    parser.add_argument("--no_order_embed", dest="no_order_embed", help="whether to add an extra embedding to ps terms from the same historical news", action='store_true', default=False)
 
     parser.add_argument("--num_workers", dest="num_workers", help="worker number of a dataloader", type=int, default=0)
     parser.add_argument("--shuffle", dest="shuffle", help="whether to shuffle the indices", action='store_true', default=False)

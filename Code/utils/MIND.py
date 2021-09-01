@@ -151,8 +151,6 @@ class MIND(Dataset):
             No assignment to self
         """
         articles = [""]
-        subwords_all = [[]]
-        subwords_first = [[]]
         with open(self.news_file, "r", encoding="utf-8") as rd:
             for idx in rd:
                 nid, vert, subvert, title, ab, url, _, _ = idx.strip("\n").split("\t")
@@ -167,6 +165,8 @@ class MIND(Dataset):
 
         article_toks = []
         attention_masks = []
+        subwords_all = []
+        subwords_first = []
         for article in articles:
             tokens = self.tokenizer.tokenize(article)
 
@@ -462,7 +462,7 @@ class MIND(Dataset):
                 his_subword_index = self.subwords[his_ids]
                 back_dic["cdd_subword_index"] = cdd_subword_index
                 back_dic["his_subword_index"] = his_subword_index
- 
+
             if self.reducer == "matching":
                 his_attn_mask_dedup = self.attn_mask_dedup[his_ids]
                 back_dic["his_refined_mask"] = his_attn_mask_dedup
