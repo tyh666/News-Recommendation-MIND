@@ -38,9 +38,9 @@ def main(rank, manager, dist=False):
     if manager.reducer in ['matching', 'bow']:
         from models.Modules.DRM import Matching_Reducer
         reducer = Matching_Reducer(manager)
-    elif manager.reducer == 'bm25':
-        from models.Modules.DRM import BM25_Reducer
-        reducer = BM25_Reducer(manager)
+    elif manager.reducer in ['bm25', "entity", "first"]:
+        from models.Modules.DRM import Slicing_Reducer
+        reducer = Slicing_Reducer(manager)
 
     # if manager.aggregator == 'rnn':
     #     from models.Encoders.RNN import RNN_User_Encoder

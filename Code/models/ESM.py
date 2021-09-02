@@ -34,10 +34,10 @@ class ESM(nn.Module):
         self.granularity = config.granularity
         if self.granularity != 'token':
             self.register_buffer('cdd_dest', torch.zeros((self.batch_size, config.impr_size, config.signal_length * config.signal_length)), persistent=False)
-            if self.reducer.name != 'bm25':
-                self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, config.signal_length * config.signal_length)), persistent=False)
-            else:
+            if config.reducer in ["bm25", "entity", "first"]:
                 self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, (config.k + 1) * (config.k + 1))), persistent=False)
+            else:
+                self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, config.signal_length * config.signal_length)), persistent=False)
 
         self.name = '__'.join(['esm', self.encoderN.name, self.encoderU.name, self.reducer.name, self.ranker.name, self.granularity])
         config.name = self.name

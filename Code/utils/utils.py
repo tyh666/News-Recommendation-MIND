@@ -24,7 +24,7 @@ transformers.logging.set_verbosity_error()
 
 logger = logging.getLogger(__name__)
 
-# stopwords = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', "you're", "you've", "you'll", "you'd", 'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his', 'himself', 'she', "she's", 'her', 'hers', 'herself', 'it', "it's", 'its', 'itself', 'they', 'them', 'their', 'theirs', 'themselves', 'what', 'which', 'who', 'whom', 'this', 'that', "that'll", 'these', 'those', 'am', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'having', 'do', 'does', 'did', 'doing', 'a', 'an', 'the', 'and', 'but', 'if', 'or', 'because', 'as', 'until', 'while', 'of', 'at', 'by', 'for', 'with', 'about', 'against', 'between', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'to', 'from', 'up', 'down', 'in', 'out', 'on', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 's', 't', 'can', 'will', 'just', 'don', "don't", 'should', "should've", 'now', 'd', 'll', 'm', 'o', 're', 've', 'y', 'ain', 'aren', "aren't", 'couldn', "couldn't", 'didn', "didn't", 'doesn', "doesn't", 'hadn', "hadn't", 'hasn', "hasn't", 'haven', "haven't", 'isn', "isn't", 'ma', 'mightn', "mightn't", 'mustn', "mustn't", 'needn', "needn't", 'shan', "shan't", 'shouldn', "shouldn't", 'wasn', "wasn't", 'weren', "weren't", 'won', "won't", 'wouldn', "wouldn't"]
+# stopwords = ["i", "me", "my", "myself", "we", "our", "ours", "ourselves", "you", "you"re", "you"ve", "you"ll", "you"d", "your", "yours", "yourself", "yourselves", "he", "him", "his", "himself", "she", "she"s", "her", "hers", "herself", "it", "it"s", "its", "itself", "they", "them", "their", "theirs", "themselves", "what", "which", "who", "whom", "this", "that", "that"ll", "these", "those", "am", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "having", "do", "does", "did", "doing", "a", "an", "the", "and", "but", "if", "or", "because", "as", "until", "while", "of", "at", "by", "for", "with", "about", "against", "between", "into", "through", "during", "before", "after", "above", "below", "to", "from", "up", "down", "in", "out", "on", "off", "over", "under", "again", "further", "then", "once", "here", "there", "when", "where", "why", "how", "all", "any", "both", "each", "few", "more", "most", "other", "some", "such", "no", "nor", "not", "only", "own", "same", "so", "than", "too", "very", "s", "t", "can", "will", "just", "don", "don"t", "should", "should"ve", "now", "d", "ll", "m", "o", "re", "ve", "y", "ain", "aren", "aren"t", "couldn", "couldn"t", "didn", "didn"t", "doesn", "doesn"t", "hadn", "hadn"t", "hasn", "hasn"t", "haven", "haven"t", "isn", "isn"t", "ma", "mightn", "mightn"t", "mustn", "mustn"t", "needn", "needn"t", "shan", "shan"t", "shouldn", "shouldn"t", "wasn", "wasn"t", "weren", "weren"t", "won", "won"t", "wouldn", "wouldn"t"]
 
 def tokenize(sent):
     """ Split sentence into words
@@ -51,15 +51,15 @@ def convert_tokens_to_words(tokens):
     """
     words = []
     for tok in tokens:
-        if tok.startswith('##'):
+        if tok.startswith("##"):
             words[-1] += tok[2:]
-        elif tok == '[PAD]':
+        elif tok == "[PAD]":
             break
         else:
             words.append(tok)
 
     # if len(words) < len(tokens):
-    #     words.extend(['[PAD]'] * (len(tokens) - len(words)))
+    #     words.extend(["[PAD]"] * (len(tokens) - len(words)))
     return words
 
 
@@ -141,17 +141,17 @@ def construct_sequential_behaviors(path):
 
     """
     behaviors = defaultdict(list)
-    train_path = path + 'behaviors.tsv'
+    train_path = path + "behaviors.tsv"
 
-    with open(train_path, "r", encoding='utf-8') as rd:
+    with open(train_path, "r", encoding="utf-8") as rd:
         for idx in rd:
-            impr_index, uid, time, history, impr = idx.strip("\n").split('\t')
+            impr_index, uid, time, history, impr = idx.strip("\n").split("\t")
             # important to subtract 1 because all list related to behaviors start from 0
 
             behaviors[uid].append([impr_index, uid, time, history, impr])
 
     for k,v in behaviors.items():
-        behaviors[k] = sorted(v,key=lambda x: datetime.strptime(x[2], '%m/%d/%Y %X %p'))
+        behaviors[k] = sorted(v,key=lambda x: datetime.strptime(x[2], "%m/%d/%Y %X %p"))
 
     for k,v in behaviors.items():
         tmp = []
@@ -161,16 +161,16 @@ def construct_sequential_behaviors(path):
             labels = [i.split("-")[1] for i in impr]
 
             for news,label in zip(impr_news, labels):
-                if(label == '1'):
+                if(label == "1"):
                     tmp.append(news)
 
             if(i > 0 and tmp):
-                behav[3] = behav[3] + ' ' +' '.join(tmp)
+                behav[3] = behav[3] + " " +" ".join(tmp)
 
-    with open(path + 'behaviors_sequential.tsv','w',encoding='utf-8') as f:
+    with open(path + "behaviors_sequential.tsv","w",encoding="utf-8") as f:
         for k,v in behaviors.items():
             for behav in v:
-                f.write('\t'.join(behav) + '\n')
+                f.write("\t".join(behav) + "\n")
 
 
 def getId2idx(file):
@@ -247,39 +247,38 @@ def load_manager():
                         help="learning rate of bert based modules", type=float, default=3e-5)
     parser.add_argument("-sm", "--smoothing", dest="smoothing", help="smoothing factor of tqdm", type=float, default=0.3)
 
-    parser.add_argument("--ascend_history", dest="ascend_history", help="whether to order history by time in ascending", action='store_true', default=False)
-    parser.add_argument("--no_dedup", dest="no_dedup", help="whether to deduplicate tokens", action='store_true', default=False)
-    parser.add_argument("--no_bm25", dest="no_bm25", help="whether to check bm25 topk terms when inspecting", action='store_true', default=False)
-    parser.add_argument("--no_sep_his", dest="no_sep_his", help="whether to separate personalized terms from different news with an extra token", action='store_true', default=False)
-    parser.add_argument("--no_order_embed", dest="no_order_embed", help="whether to add an extra embedding to ps terms from the same historical news", action='store_true', default=False)
+    parser.add_argument("--ascend_history", dest="ascend_history", help="whether to order history by time in ascending", action="store_true", default=False)
+    parser.add_argument("--no_dedup", dest="no_dedup", help="whether to deduplicate tokens", action="store_true", default=False)
+    parser.add_argument("--no_bm25", dest="no_bm25", help="whether to check bm25 topk terms when inspecting", action="store_true", default=False)
+    parser.add_argument("--no_sep_his", dest="no_sep_his", help="whether to separate personalized terms from different news with an extra token", action="store_true", default=False)
+    parser.add_argument("--no_order_embed", dest="no_order_embed", help="whether to add an extra embedding to ps terms from the same historical news", action="store_true", default=False)
 
     parser.add_argument("--num_workers", dest="num_workers", help="worker number of a dataloader", type=int, default=0)
-    parser.add_argument("--shuffle", dest="shuffle", help="whether to shuffle the indices", action='store_true', default=False)
+    parser.add_argument("--shuffle", dest="shuffle", help="whether to shuffle the indices", action="store_true", default=False)
     parser.add_argument("--pin_memory", dest="pin_memory", help="whether to pin memory to speed up tensor transfer", default=True)
-    parser.add_argument("--scheduler", dest="scheduler", help="choose schedule scheme for optimizer", choices=['linear'], default="linear")
+    parser.add_argument("--scheduler", dest="scheduler", help="choose schedule scheme for optimizer", choices=["linear"], default="linear")
     parser.add_argument("--warmup", dest="warmup", help="warmup steps of scheduler", type=int, default=10000)
     parser.add_argument("--interval", dest="interval", help="the step interval to update processing bar", default=10, type=int)
 
     parser.add_argument("--npratio", dest="npratio", help="the number of unclicked news to sample when training", type=int, default=4)
-    parser.add_argument("--metrics", dest="metrics", help="metrics for evaluating the model", type=str, default='')
+    parser.add_argument("--metrics", dest="metrics", help="metrics for evaluating the model", type=str, default="")
 
     parser.add_argument("-g", "--granularity", dest="granularity", help="the granularity for reduction", choices=["token", "avg", "first", "sum"], default="avg")
-    parser.add_argument("-sp", "--word_span", dest="word_span", help="how many extra tokens to preserve", type=int, default=10)
-    parser.add_argument("-emb", "--embedding", dest="embedding", help="choose embedding", choices=['bert','random'], default='bert')
-    parser.add_argument("-encn", "--encoderN", dest="encoderN", help="choose news encoder", choices=['cnn','rnn','npa','fim','mha','bert'], default="cnn")
-    parser.add_argument("-encu", "--encoderU", dest="encoderU", help="choose user encoder", choices=['avg','attn','cnn','rnn','lstur','mha'], default="rnn")
-    parser.add_argument("-slc", "--selector", dest="selector", help="choose history selector", choices=['recent','sfi'], default="sfi")
-    parser.add_argument("-red", "--reducer", dest="reducer", help="choose document reducer", choices=['bm25','matching','bow'], default="matching")
-    parser.add_argument("-fus", "--fuser", dest="fuser", help="choose term fuser", choices=['union'], default="union")
-    parser.add_argument("-rk", "--ranker", dest="ranker", help="choose ranker", choices=['onepass','original','cnn','knrm'], default="onepass")
-    parser.add_argument("-agg", "--aggregator", dest="aggregator", help="choose history aggregator, only used in TTMS", choices=['avg','attn','cnn','rnn','lstur','mha'], default=None)
-    parser.add_argument("-div", "--diversify", dest="diversify", help="whether to diversify selection with news representation", action='store_true', default=False)
+    parser.add_argument("-emb", "--embedding", dest="embedding", help="choose embedding", choices=["bert","random"], default="bert")
+    parser.add_argument("-encn", "--encoderN", dest="encoderN", help="choose news encoder", choices=["cnn","rnn","npa","fim","mha","bert"], default="cnn")
+    parser.add_argument("-encu", "--encoderU", dest="encoderU", help="choose user encoder", choices=["avg","attn","cnn","rnn","lstur","mha"], default="rnn")
+    parser.add_argument("-slc", "--selector", dest="selector", help="choose history selector", choices=["recent","sfi"], default="sfi")
+    parser.add_argument("-red", "--reducer", dest="reducer", help="choose document reducer", choices=["bm25","matching","bow","entity","first"], default="matching")
+    parser.add_argument("-fus", "--fuser", dest="fuser", help="choose term fuser", choices=["union"], default="union")
+    parser.add_argument("-rk", "--ranker", dest="ranker", help="choose ranker", choices=["onepass","original","cnn","knrm"], default="onepass")
+    parser.add_argument("-agg", "--aggregator", dest="aggregator", help="choose history aggregator, only used in TTMS", choices=["avg","attn","cnn","rnn","lstur","mha"], default=None)
+    parser.add_argument("-div", "--diversify", dest="diversify", help="whether to diversify selection with news representation", action="store_true", default=False)
 
     parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=5)
     parser.add_argument("-thr", "--threshold", dest="threshold", help="threshold to mask terms", default=-float("inf"), type=float)
 
-    parser.add_argument("--spadam", dest="spadam", action='store_true', default=False)
-    parser.add_argument("--tb", dest="tb", action='store_true', default=False)
+    parser.add_argument("--spadam", dest="spadam", action="store_true", default=False)
+    parser.add_argument("--tb", dest="tb", action="store_true", default=False)
     parser.add_argument("--seeds", dest="seeds", default=None, type=int)
 
     parser.add_argument("--bert", dest="bert", help="choose bert model", choices=["bert-base-uncased"], default="bert-base-uncased")
@@ -292,16 +291,16 @@ def load_manager():
     args = parser.parse_args()
 
     args.cdd_size = args.npratio + 1
-    args.metrics = "auc,mean_mrr,ndcg@5,ndcg@10".split(',') + [i for i in args.metrics.split(',') if i]
+    args.metrics = "auc,mean_mrr,ndcg@5,ndcg@10".split(",") + [i for i in args.metrics.split(",") if i]
     if args.device == -1:
-        args.device = 'cpu'
+        args.device = "cpu"
         args.pin_memory = False
 
     manager = Manager(args)
     return manager
 
 def manual_seed(seed):
-    # os.environ['PYTHONHASHSEED'] = str(seed)
+    # os.environ["PYTHONHASHSEED"] = str(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
@@ -360,7 +359,7 @@ def prepare(config):
     #     loader_news_dev = DataLoader(
     #         dataset_dev, batch_size=1, pin_memory=pin_memory, num_workers=num_workers, drop_last=False)
 
-    #     vocab = getVocab('data/dictionaries/vocab.pkl')
+    #     vocab = getVocab("data/dictionaries/vocab.pkl")
     #     embedding = GloVe(dim=300, cache=vec_cache_path)
     #     vocab.load_vectors(embedding)
 
@@ -441,7 +440,7 @@ def analyse(config):
     """
         analyse over MIND
     """
-    mind_path = config.path + 'MIND'
+    mind_path = config.path + "MIND"
 
     avg_title_length = 0
     avg_abstract_length = 0
@@ -495,13 +494,13 @@ def setup(rank, manager):
     set up distributed training and fix seeds
     """
     if manager.world_size > 1:
-        os.environ['MASTER_ADDR'] = 'localhost'
-        os.environ['MASTER_PORT'] = '12355'
+        os.environ["MASTER_ADDR"] = "localhost"
+        os.environ["MASTER_PORT"] = "12355"
 
         # initialize the process group
         dist.init_process_group("nccl", rank=rank, world_size=manager.world_size)
 
-        os.environ['TOKENIZERS_PARALLELISM'] = 'True'
+        os.environ["TOKENIZERS_PARALLELISM"] = "True"
         # manager.rank will be invoked in creating DistributedSampler
         manager.rank = rank
         # manager.device will be invoked in the model
@@ -511,9 +510,9 @@ def setup(rank, manager):
         # one-gpu
         manager.rank = -1
 
-    if rank != 'cpu':
+    if rank != "cpu":
         torch.cuda.set_device(rank)
-        os.environ['CUDA_VISIBLE_DEVICES'] = str(rank)
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(rank)
 
 
 def cleanup():
@@ -602,9 +601,10 @@ class BM25(object):
         for i, bm25 in enumerate(bm25_scores):
             # [CLS] token in the front
             if not i:
-                sorted_documents.append('')
+                # the first article is empty
+                sorted_documents.append("")
             else:
-                sorted_documents.append(' '.join(["[CLS]"] + list(bm25.keys())))
+                sorted_documents.append(" ".join(["[CLS]"] + list(bm25.keys())))
 
         return sorted_documents
 
@@ -621,18 +621,18 @@ class DeDuplicate(object):
     """
     mask duplicated terms in one document by attention masks
     """
-    def __init__(self, signal_length) -> None:
+    def __init__(self, max_length) -> None:
         super().__init__()
-        self.signal_length = signal_length
+        self.max_length = max_length
 
     def __call__(self, documents, attn_masks):
         """
             1. set the attention mask of duplicated tokens to 0
-            2. only keep the first signal_length tokens per article
+            2. only keep the first max_length tokens per article
         """
         # do not modify the orginal attention mask
-        documents = documents[:, :self.signal_length]
-        attn_masks = attn_masks.copy()[:, :self.signal_length]
+        documents = documents[:, :self.max_length]
+        attn_masks = attn_masks.copy()[:, :self.max_length]
 
         logger.info("deduplicating...")
         for i, document in enumerate(documents):
@@ -657,14 +657,14 @@ class CountFreq(object):
     """
     generate token count pairs
     """
-    def __init__(self, signal_length, position=False) -> None:
+    def __init__(self, max_length, position=False) -> None:
         super().__init__()
-        self.signal_length = signal_length
+        self.max_length = max_length
         self.position = position
 
     def __call__(self, documents, attn_masks):
         """
-        count unique tokens in the first signal_length per article
+        count unique tokens in the first max_length per article
 
         Returns:
             documents: list of list of tuples, [[(word1 : freq1), ...] ...]
@@ -674,7 +674,7 @@ class CountFreq(object):
         token_counts = []
         attn_masks = []
 
-        documents = documents[:, :self.signal_length]
+        documents = documents[:, :self.max_length]
 
         for document in documents:
             token_count = defaultdict(int)
@@ -683,7 +683,7 @@ class CountFreq(object):
                     break
                 token_count[token] += 1
 
-            pad_length = self.signal_length - len(token_count)
+            pad_length = self.max_length - len(token_count)
             token_count_tuples = list(token_count.items()) + [[0, 0]] * pad_length
             attn_mask = [1] * len(token_count) + [0] * pad_length
 
@@ -696,12 +696,12 @@ class CountFreq(object):
 
 
 class Truncate(object):
-    def __init__(self, signal_length) -> None:
+    def __init__(self, max_length) -> None:
         super().__init__()
-        self.signal_length = signal_length
+        self.max_length = max_length
 
     def __call__(self, documents, attn_masks):
         """
-            only keep the first signal_length tokens per article
+            only keep the first max_length tokens per article
         """
-        return documents[:, :self.signal_length], attn_masks[:, :self.signal_length]
+        return documents[:, :self.max_length], attn_masks[:, :self.max_length]

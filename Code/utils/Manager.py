@@ -27,7 +27,7 @@ class Manager():
     """
     def __init__(self, args):
         for k,v in vars(args).items():
-            if not k.startswith('__'):
+            if not k.startswith("__"):
                 setattr(self, k, v)
 
     def __str__(self):
@@ -66,15 +66,15 @@ class Manager():
         if self.world_size <= 1:
             # in case we load a DDP model checkpoint to a non-DDP model
             model_dict = OrderedDict()
-            pattern = re.compile('module.')
+            pattern = re.compile("module.")
 
-            for k,v in state_dict['model'].items():
+            for k,v in state_dict["model"].items():
                 if re.search("module", k):
-                    model_dict[re.sub(pattern, '', k)] = v
+                    model_dict[re.sub(pattern, "", k)] = v
                 else:
-                    model_dict = state_dict['model']
+                    model_dict = state_dict["model"]
         else:
-            model_dict = state_dict['model']
+            model_dict = state_dict["model"]
             if not re.search("module", list(model_dict.keys())[0]):
                 logger.warning("Loading a non-distributed model to a distributed one!")
                 model = model.module
@@ -128,23 +128,23 @@ class Manager():
         base_params = []
         bert_params = []
         for name, param in model.named_parameters():
-            if re.search('bert', name):
+            if re.search("bert", name):
                 bert_params.append(param)
             else:
                 base_params.append(param)
 
         optimizer = optim.Adam([
             {
-                'params': base_params,
-                'lr': self.lr #lr_schedule(args.lr, 1, args)
+                "params": base_params,
+                "lr": self.lr #lr_schedule(args.lr, 1, args)
             },
             {
-                'params': bert_params,
-                'lr': self.bert_lr #lr_schedule(args.pretrain_lr, 1, args)
+                "params": bert_params,
+                "lr": self.bert_lr #lr_schedule(args.pretrain_lr, 1, args)
             }
         ])
 
-        if self.scheduler == 'linear':
+        if self.scheduler == "linear":
             total_steps = loader_train_length * self.epochs
             scheduler = get_linear_schedule_with_warmup(optimizer,
                                             num_warmup_steps = self.warmup,
@@ -196,8 +196,8 @@ class Manager():
         preds = []
 
         max_input = {
-            'cdd_id': torch.empty(1, self.impr_size).random_(0,10),
-            'his_id': torch.empty(1, self.his_size).random_(0,10),
+            "cdd_id": torch.empty(1, self.impr_size).random_(0,10),
+            "his_id": torch.empty(1, self.his_size).random_(0,10),
             "cdd_encoded_index": torch.empty(1, self.impr_size, self.signal_length).random_(0,10),
             "his_encoded_index": torch.empty(1, self.his_size, self.signal_length).random_(0,10),
             "cdd_attn_mask": torch.ones(1, self.impr_size, self.signal_length),
@@ -207,13 +207,13 @@ class Manager():
             "cdd_mask": torch.ones((1, self.impr_size, 1)),
             "his_mask": torch.ones((1, self.his_size, 1)),
         }
-        if self.reducer == 'matching':
+        if self.reducer == "matching":
             max_input["his_refined_mask"] = torch.ones(1, self.his_size, self.signal_length)
-        elif self.reducer == 'bow':
+        elif self.reducer == "bow":
             max_input["cdd_encoded_index"] = torch.rand(1, self.impr_size, self.signal_length, 2).random_(0,10)
             max_input["his_encoded_index"] = torch.rand(1, self.his_size, self.signal_length, 2).random_(0,10)
             max_input["his_refined_mask"] = max_input["his_attn_mask"]
-        elif self.reducer == 'bm25':
+        elif self.reducer in ["bm25", "entity", "first"]:
             max_input["his_encoded_index"] = max_input["his_encoded_index"][:, :, :self.k+1]
             max_input["his_attn_mask"] = max_input["his_attn_mask"][:, :, :self.k+1]
             max_input["his_subword_index"] = max_input["his_subword_index"][:, :, :self.k+1]
@@ -327,7 +327,7 @@ class Manager():
                 optimizer.zero_grad(set_to_none=True)
 
                 pred = model(x)[0]
-                label = x['label'].to(model.device)
+                label = x["label"].to(model.device)
 
                 loss = loss_func(pred, label)
 
@@ -396,7 +396,7 @@ class Manager():
         steps = 0
         interval = self.interval
 
-        if self.scale == 'demo':
+        if self.scale == "demo":
             save_step = len(loaders[0]) - 1
         else:
             save_step = self.step
@@ -423,7 +423,7 @@ class Manager():
                 optimizer.zero_grad(set_to_none=True)
 
                 pred = model(x)[0]
-                label = x['label'].to(model.device)
+                label = x["label"].to(model.device)
 
                 loss = loss_func(pred, label)
                 epoch_loss += loss
@@ -510,8 +510,8 @@ class Manager():
             logger.info("testing...")
 
         max_input = {
-            'cdd_id': torch.empty(1, self.impr_size).random_(0,10),
-            'his_id': torch.empty(1, self.his_size).random_(0,10),
+            "cdd_id": torch.empty(1, self.impr_size).random_(0,10),
+            "his_id": torch.empty(1, self.his_size).random_(0,10),
             "cdd_encoded_index": torch.empty(1, self.impr_size, self.signal_length).random_(0,10),
             "his_encoded_index": torch.empty(1, self.his_size, self.signal_length).random_(0,10),
             "cdd_attn_mask": torch.ones(1, self.impr_size, self.signal_length),
@@ -521,13 +521,13 @@ class Manager():
             "cdd_mask": torch.ones((1, self.impr_size, 1)),
             "his_mask": torch.ones((1, self.his_size, 1)),
         }
-        if self.reducer == 'matching':
+        if self.reducer == "matching":
             max_input["his_refined_mask"] = torch.ones(1, self.his_size, self.signal_length)
-        elif self.reducer == 'bow':
+        elif self.reducer == "bow":
             max_input["cdd_encoded_index"] = torch.rand(1, self.impr_size, self.signal_length, 2).random_(0,10)
             max_input["his_encoded_index"] = torch.rand(1, self.his_size, self.signal_length, 2).random_(0,10)
             max_input["his_refined_mask"] = max_input["his_attn_mask"]
-        elif self.reducer == 'bm25':
+        elif self.reducer in ["bm25", "entity", "first"]:
             max_input["his_encoded_index"] = max_input["his_encoded_index"][:, :, :self.k+1]
             max_input["his_attn_mask"] = max_input["his_attn_mask"][:, :, :self.k+1]
             max_input["his_subword_index"] = max_input["his_subword_index"][:, :, :self.k+1]
@@ -563,7 +563,7 @@ class Manager():
             save_path = save_directory + "/prediction.txt"
 
             index = 1
-            with open(save_path, 'w') as f:
+            with open(save_path, "w") as f:
                 for pred in preds:
                     array = np.asarray(pred)
                     rank_list = ss.rankdata(1 - array, method="ordinal")
@@ -609,15 +609,15 @@ class Manager():
 
         start_pos = 0
         for x in tqdm(loader):
-            news = x['cdd_encoded_index'].long()
+            news = x["cdd_encoded_index"].long()
             news_embedding = model.embedding(news)
             news_repr,_ = model.encoder(news_embedding)
 
             news_reprs[start_pos:start_pos+model.batch_size] = news_repr
             news_embeddings[start_pos:start_pos+self.batch_size] = news_embedding
 
-        os.makedirs('data/tensors/news_reprs/{}/'.format(self.name), exist_ok=True)
-        os.makedirs('data/tensors/news_embeddings/{}/'.format(self.name), exist_ok=True)
+        os.makedirs("data/tensors/news_reprs/{}/".format(self.name), exist_ok=True)
+        os.makedirs("data/tensors/news_embeddings/{}/".format(self.name), exist_ok=True)
 
         torch.save(news_reprs, "data/tensors/news_reprs/{}/{}_{}.tensor".format(
             self.name, scale, mode))
@@ -633,61 +633,61 @@ class Manager():
         """
         inspect personalized terms
         """
+        import pickle
         from transformers import BertTokenizer
         from .utils import convert_tokens_to_words
 
         model.eval()
         logger.info("inspecting {}...".format(self.name))
 
-        if not self.no_bm25:
-            import pickle
-            with open(loader.dataset.cache_directory + "news_bm25.pkl", 'rb') as f:
-                bm25_terms = pickle.load(f)['encoded_news'][:, :self.k + 1]
+        with open(loader.dataset.cache_directory + "bm25.pkl", "rb") as f:
+            bm25_terms = pickle.load(f)["encoded_news"][:, :self.k + 1]
+        with open(loader.dataset.cache_directory + "entity.pkl", "rb") as f:
+            entities = pickle.load(f)["encoded_news"][:, :self.k + 1]
 
         self.load(model, self.checkpoint)
-        t = BertTokenizer.from_pretrained('bert-base-uncased')
+        t = BertTokenizer.from_pretrained("bert-base-uncased")
 
-        logger.info("press <ENTER> to continue, <q> to quit")
+        logger.info("press <ENTER> to continue")
 
         jumpout = False
         for x in loader:
             _, term_indexes = model(x)
-            his_encoded_index = x['his_encoded_index']
-            if self.reducer == 'bow':
+            his_encoded_index = x["his_encoded_index"]
+            if self.reducer == "bow":
                 his_encoded_index = his_encoded_index[:, :, :, 0]
-            his_attn_mask = x['his_attn_mask']
-            if not self.no_bm25:
-                his_id = x['his_id']
+            his_attn_mask = x["his_attn_mask"]
+            his_id = x["his_id"]
 
             encoded_ids = his_encoded_index[:, :, 1:]
 
             for i,batch in enumerate(encoded_ids):
                 for j,his_token_ids in enumerate(batch):
-                    print('*******************************************************')
+                    print("*******************************************************")
                     tokens = t.convert_ids_to_tokens(his_token_ids)
-                    if self.granularity != 'token':
+                    if self.granularity != "token":
                         terms = convert_tokens_to_words(tokens)
-                        terms.extend(['[PAD]'] * (self.signal_length - len(terms)))
+                        terms.extend(["[PAD]"] * (self.signal_length - len(terms)))
                         terms = np.asarray(terms)
                     else:
                         terms = np.asarray(tokens)
                     ps_term_ids = term_indexes[i, j].cpu().numpy()
                     ps_terms = terms[ps_term_ids]
 
-                    if ps_terms[0] == '[PAD]':
+                    if ps_terms[0] == "[PAD]":
                         jumpout = True
                         break
                     else:
-                        print("[personalized terms]\n\t {}".format(' '.join(ps_terms)))
-                        if not self.no_bm25:
-                            print("[bm25 terms]\n\t {}".format(t.decode(bm25_terms[his_id[i,j]][1:])))
+                        print("[personalized terms]\n\t {}".format(" ".join(ps_terms)))
+                        print("[bm25 terms]\n\t {}".format(t.decode(bm25_terms[his_id[i,j]][1:])))
+                        print("[entities]\n\t {}".format(t.decode(entities[his_id[i,j]][1:])))
 
                         print("[original news]\n\t {}".format(t.decode(his_encoded_index[i, j, 1:his_attn_mask[i, j].sum()])))
 
                         command = input()
-                        if command == 'n':
+                        if command == "n":
                             break
-                        elif command == 'q':
+                        elif command == "q":
                             return
 
                 if jumpout:
@@ -736,9 +736,9 @@ class Manager():
         mind_path = self.path + "MIND"
         if scale is None:
             scale = self.scale
-        behavior_file_list = [mind_path+"/MIND" + scale + "_" + mode + "/behaviors.tsv" for mode in ['train','dev','test']]
+        behavior_file_list = [mind_path+"/MIND" + scale + "_" + mode + "/behaviors.tsv" for mode in ["train","dev","test"]]
 
-        if scale == 'small':
+        if scale == "small":
             behavior_file_list = behavior_file_list[:2]
 
         for f in behavior_file_list:

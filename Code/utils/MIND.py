@@ -1,5 +1,6 @@
 import re
 import os
+import json
 import pickle
 import logging
 import torch
@@ -22,9 +23,11 @@ class MIND(Dataset):
 
     def __init__(self, config, news_file, behaviors_file, shuffle_pos=False):
         reducer_map = {
-            'matching': '',
-            'bm25': '_bm25',
-            'bow': '',
+            "matching": "news.pkl",
+            "bm25": "bm25.pkl",
+            "bow": "news.pkl",
+            "entity": "entity.pkl",
+            "first": "news.pkl"
         }
         # initiate the whole iterator
         self.npratio = config.npratio
@@ -36,13 +39,12 @@ class MIND(Dataset):
         self.ascend_history = config.ascend_history
         self.reducer = config.reducer
         self.granularity = config.granularity
-        self.word_extra_span = config.word_extra_span
 
         pat = re.search("MIND/(.*_(.*)/)news", news_file)
         self.mode = pat.group(2)
 
         self.cache_directory = "/".join(["data/cache", config.embedding, pat.group(1)])
-        self.news_path = self.cache_directory + "news" + reducer_map[self.reducer] + ".pkl"
+        self.news_path = self.cache_directory + reducer_map[self.reducer]
         self.behav_path = self.cache_directory + "{}/{}".format(self.impr_size, re.search("(\w*\.)tsv", behaviors_file).group(1) + ".pkl")
 
         # only preprocess on the master node, the worker can directly load the cache
@@ -67,26 +69,18 @@ class MIND(Dataset):
                 self.init_behaviors()
 
 
-            if not os.path.exists(self.news_path):
+            if not (os.path.exists(self.cache_directory + "news.pkl") and os.path.exists(self.cache_directory + "bm25.pkl") and os.path.exists(self.cache_directory + "entity.pkl")):
                 from transformers import BertTokenizerFast
                 logger.info("encoding news of {}...".format(news_file))
                 self.news_file = news_file
-                self.max_news_length = 512
-                # there are only two types of vocabulary
+
+                self.max_token_length = 512
+                self.max_reduction_length = 30
+
                 self.tokenizer = BertTokenizerFast.from_pretrained(config.bert, cache=config.path + "bert_cache/")
                 self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_{}.json".format(config.scale, self.mode))
 
-                if config.reducer == "matching":
-                    from utils.utils import DoNothing
-                    reducer = DoNothing()
-                elif config.reducer == "bm25":
-                    from utils.utils import BM25
-                    reducer = BM25()
-                elif config.reducer == "bow":
-                    from utils.utils import DoNothing
-                    reducer = DoNothing()
-
-                self.init_news(reducer)
+                self.init_news()
 
         # synchronize all processes
         if config.world_size > 1:
@@ -101,36 +95,32 @@ class MIND(Dataset):
         logger.info("process NO.{} loading cached news tokenization from {}".format(config.rank, self.news_path))
         with open(self.news_path, "rb") as f:
             news = pickle.load(f)
-            self.encoded_news = news['encoded_news']
-            self.attn_mask = news['attn_mask']
-            if self.granularity in ['avg','sum']:
-                self.subwords = news['subwords_all'][:, :self.signal_length]
-            elif self.granularity == 'first':
-                self.subwords = news['subwords_first'][:, :self.signal_length]
+            self.encoded_news = news["encoded_news"]
+            self.attn_mask = news["attn_mask"]
+            if self.granularity in ["avg","sum"]:
+                self.subwords = news["subwords_all"][:, :self.signal_length]
+            elif self.granularity == "first":
+                self.subwords = news["subwords_first"][:, :self.signal_length]
             else:
                 self.subwords = None
 
-        if self.reducer == 'bm25':
-            try:
-                with open(self.cache_directory + "news.pkl", "rb") as f:
-                    news = pickle.load(f)
-                    self.encoded_news_original = news['encoded_news']
-                    self.attn_mask_original = news['attn_mask']
-                    if self.granularity in ['avg','sum']:
-                        self.subwords_original = news['subwords_all'][:, :self.signal_length]
-                    elif self.granularity == 'first':
-                        self.subwords_original = news['subwords_first'][:, :self.signal_length]
-                    else:
-                        self.subwords_original = None
-            except FileNotFoundError:
-                raise FileNotFoundError("You should always encode with matching reducer before the first time of bm25 reducer")
-
+        if self.reducer in ["bm25", "entity", "first"]:
+            with open(self.cache_directory + "news.pkl", "rb") as f:
+                news = pickle.load(f)
+                self.encoded_news_original = news["encoded_news"]
+                self.attn_mask_original = news["attn_mask"]
+                if self.granularity in ["avg","sum"]:
+                    self.subwords_original = news["subwords_all"][:, :self.signal_length]
+                elif self.granularity == "first":
+                    self.subwords_original = news["subwords_first"][:, :self.signal_length]
+                else:
+                    self.subwords_original = None
 
         if config.reducer == "matching":
             if not config.no_dedup:
                 from utils.utils import DeDuplicate
                 refiner = DeDuplicate(self.signal_length)
-        elif config.reducer == "bm25":
+        elif config.reducer in ["bm25", "entity", "first"]:
             from utils.utils import Truncate
             refiner = Truncate(self.k + 1)
         elif config.reducer == "bow":
@@ -142,84 +132,110 @@ class MIND(Dataset):
         self.init_refinement(refiner)
 
 
-    def init_news(self, reducer):
+    def init_news(self):
         """
-            1. encode news text to tokens
-            2. rerank words in the news text according to reduction methods
-            2. get subword indices
+            parse news text into tokens, and save in the file, no assignment to self
 
-            No assignment to self
+            1. encode news text to tokens
+            2. rerank words in the news text by bm25
+            3. get subword indices
+            4. get entities
         """
+        from tqdm import tqdm
         articles = [""]
+        entities = [""]
         with open(self.news_file, "r", encoding="utf-8") as rd:
-            for idx in rd:
-                nid, vert, subvert, title, ab, url, _, _ = idx.strip("\n").split("\t")
+            for idx in tqdm(rd):
+                nid, vert, subvert, title, ab, url, title_entity, abs_entity = idx.strip("\n").split("\t")
                 article = " ".join(["[CLS]", title, ab, vert, subvert])
-                tokens = self.tokenizer.tokenize(article)[:512]
+                tokens = self.tokenizer.tokenize(article)[:self.max_token_length]
                 # unify subwords
                 words = convert_tokens_to_words(tokens)
                 articles.append(' '.join(words))
 
-        # rank words according to reduction rules
-        articles = reducer(articles)
+                entity_dic = dict()
+                title_entity = json.loads(title_entity)
+                abs_entity = json.loads(abs_entity)
+                for entity in title_entity + abs_entity:
+                    surface_forms = entity["SurfaceForms"]
+                    if len(surface_forms):
+                        entity_dic[surface_forms[0].lower()] = 1
 
-        article_toks = []
-        attention_masks = []
-        subwords_all = []
-        subwords_first = []
-        for article in articles:
-            tokens = self.tokenizer.tokenize(article)
-
-            # maintain subword entry
-            subword_all = []
-            # mask subword entry
-            subword_first = []
-
-            i = -1
-            j = -1
-            for token in tokens:
-                if token.startswith('##'):
-                    j += 1
-                    # subword.append([0,0])
-                    subword_all.append([i,j])
-                    subword_first.append([0,0])
-
+                if len(entity_dic) == 0:
+                    entities.append(' '.join(['[CLS]'] + words[:self.max_reduction_length]))
                 else:
-                    i += 1
-                    j += 1
-                    subword_all.append([i,j])
-                    subword_first.append([i,j])
+                    entities.append(' '.join(['[CLS]'] + list(entity_dic)))
 
-            pad_length = self.max_news_length - len(tokens)
+        # initialize other kind of reducer here
+        # rank words according to reduction rules
+        from utils.utils import BM25
+        bm25 = BM25()
+        articles_bm25 = bm25(articles)
 
-            article_toks.append(self.tokenizer.convert_tokens_to_ids(tokens[:self.max_news_length]) + [0] * pad_length)
-            attention_masks.append([1] * min(len(tokens), self.max_news_length) + [0] * pad_length)
-            subwords_all.append(subword_all)
-            subwords_first.append(subword_first)
+        def parse_texts(tokenizer, texts, news_path, max_length):
+            """
+            convert texts to tokens indices and get subword indices
+            """
+            text_toks = []
+            attention_masks = []
+            subwords_all = []
+            subwords_first = []
+            for text in tqdm(texts):
+                tokens = tokenizer.tokenize(text)
 
-        # encode news
-        encoded_news = np.asarray(article_toks)
-        attn_mask = np.asarray(attention_masks)
+                # maintain subword entry
+                subword_all = []
+                # mask subword entry
+                subword_first = []
 
-        for i,subword in enumerate(subwords_all):
-            pad_length = self.max_news_length - len(subword)
+                i = -1
+                j = -1
+                for token in tokens:
+                    if token.startswith("##"):
+                        j += 1
+                        # subword.append([0,0])
+                        subword_all.append([i,j])
+                        subword_first.append([0,0])
 
-            subwords_all[i].extend([[0,0]] * pad_length)
-            subwords_first[i].extend([[0,0]] * pad_length)
+                    else:
+                        i += 1
+                        j += 1
+                        subword_all.append([i,j])
+                        subword_first.append([i,j])
 
-        subwords_all = np.asarray(subwords_all)
-        subwords_first = np.asarray(subwords_first)
+                pad_length = max_length - len(tokens)
 
-        with open(self.news_path, "wb") as f:
-            pickle.dump(
-                {
-                    "encoded_news": encoded_news,
-                    "subwords_first": subwords_first,
-                    "subwords_all": subwords_all,
-                    "attn_mask": attn_mask
-                },
-                f
-            )
+                text_toks.append(tokenizer.convert_tokens_to_ids(tokens[:max_length]) + [0] * pad_length)
+                attention_masks.append([1] * min(len(tokens), max_length) + [0] * pad_length)
+
+                subword_all.extend([[0,0]] * pad_length)
+                subword_first.extend([[0,0]] * pad_length)
+                subwords_all.append(subword_all[:max_length])
+                subwords_first.append(subword_first[:max_length])
+
+            # encode news
+            encoded_news = np.asarray(text_toks)
+            attn_mask = np.asarray(attention_masks)
+
+            subwords_all = np.asarray(subwords_all)
+            subwords_first = np.asarray(subwords_first)
+
+            with open(news_path, "wb") as f:
+                pickle.dump(
+                    {
+                        "encoded_news": encoded_news,
+                        "subwords_first": subwords_first,
+                        "subwords_all": subwords_all,
+                        "attn_mask": attn_mask
+                    },
+                    f
+                )
+        logger.info("tokenizing news...")
+        parse_texts(self.tokenizer, articles, self.cache_directory + "news.pkl", self.max_token_length)
+        logger.info("tokenizing bm25 ordered news...")
+        parse_texts(self.tokenizer, articles_bm25, self.cache_directory + "bm25.pkl", self.max_reduction_length)
+        logger.info("tokenizing entities...")
+        parse_texts(self.tokenizer, entities, self.cache_directory + "entity.pkl", self.max_reduction_length)
 
 
     def init_behaviors(self):
@@ -367,20 +383,20 @@ class MIND(Dataset):
             return
 
         refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
-        if self.reducer == 'matching':
+        if self.reducer == "matching":
             self.encoded_news = refined_news
             self.attn_mask_dedup = refined_mask
             # truncate the attention mask
             self.attn_mask = self.attn_mask[:, :self.signal_length]
 
-        elif self.reducer == 'bm25':
+        elif self.reducer in ["bm25", "entity", "first"]:
             self.encoded_news = refined_news
             self.attn_mask = refined_mask
             # truncate the original text tokens
             self.encoded_news_original = self.encoded_news_original[:, :self.signal_length]
             self.attn_mask_original = self.attn_mask_original[:, :self.signal_length]
 
-        elif self.reducer == 'bow':
+        elif self.reducer == "bow":
             self.encoded_news = refined_news
             self.attn_mask = refined_mask
 
@@ -467,12 +483,12 @@ class MIND(Dataset):
                 his_attn_mask_dedup = self.attn_mask_dedup[his_ids]
                 back_dic["his_refined_mask"] = his_attn_mask_dedup
 
-            elif self.reducer == "bm25":
+            elif self.reducer in ["bm25","entity","first"]:
                 back_dic["cdd_encoded_index"] = self.encoded_news_original[cdd_ids]
                 back_dic["cdd_attn_mask"] = self.attn_mask_original[cdd_ids]
                 back_dic["his_subword_index"] = back_dic["his_subword_index"][:, :self.k + 1]
 
-            elif self.reducer == 'bow':
+            elif self.reducer == "bow":
                 back_dic["his_refined_mask"] = back_dic["his_attn_mask"]
 
             return back_dic
@@ -523,12 +539,12 @@ class MIND(Dataset):
                 his_attn_mask_dedup = self.attn_mask_dedup[his_ids]
                 back_dic["his_refined_mask"] = his_attn_mask_dedup
 
-            elif self.reducer == "bm25":
+            elif self.reducer in ["bm25","entity","first"]:
                 back_dic["cdd_encoded_index"] = self.encoded_news_original[cdd_ids]
                 back_dic["cdd_attn_mask"] = self.attn_mask_original[cdd_ids]
                 back_dic["his_subword_index"] = back_dic["his_subword_index"][:, :self.k + 1]
 
-            elif self.reducer == 'bow':
+            elif self.reducer == "bow":
                 back_dic["his_refined_mask"] = back_dic["his_attn_mask"]
 
             return back_dic
@@ -576,12 +592,12 @@ class MIND(Dataset):
                 his_attn_mask_dedup = self.attn_mask_dedup[his_ids]
                 back_dic["his_refined_mask"] = his_attn_mask_dedup
 
-            elif self.reducer == "bm25":
+            elif self.reducer in ["bm25","entity"]:
                 back_dic["cdd_encoded_index"] = self.encoded_news_original[cdd_ids]
                 back_dic["cdd_attn_mask"] = self.attn_mask_original[cdd_ids]
                 back_dic["his_subword_index"] = back_dic["his_subword_index"][:, :self.k + 1]
 
-            elif self.reducer == 'bow':
+            elif self.reducer == "bow":
                 back_dic["his_refined_mask"] = back_dic["his_attn_mask"]
 
             return back_dic

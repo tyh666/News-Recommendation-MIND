@@ -102,14 +102,14 @@ class Matching_Reducer(nn.Module):
         return ps_terms, ps_term_mask, score_kid
 
 
-class BM25_Reducer(nn.Module):
+class Slicing_Reducer(nn.Module):
     """
-    topk BM25 score
+    truncation
     """
     def __init__(self, config):
         super().__init__()
 
-        self.name = "bm25"
+        self.name = "slicing"
         self.k = config.k
         self.his_size = config.his_size
         self.embedding_dim = config.embedding_dim

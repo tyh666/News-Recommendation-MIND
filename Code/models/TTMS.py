@@ -25,10 +25,10 @@ class TTMS(nn.Module):
         self.granularity = config.granularity
         if self.granularity != 'token':
             self.register_buffer('cdd_dest', torch.zeros((self.batch_size, config.impr_size, config.signal_length * config.signal_length)), persistent=False)
-            if self.reducer.name != 'bm25':
-                self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, config.signal_length * config.signal_length)), persistent=False)
-            else:
+            if config.reducer in ["bm25", "entity", "first"]:
                 self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, (config.k + 1) * (config.k + 1))), persistent=False)
+            else:
+                self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, config.signal_length * config.signal_length)), persistent=False)
 
         self.userProject = nn.Sequential(
             nn.Linear(self.bert.hidden_dim, self.bert.hidden_dim),
@@ -118,7 +118,11 @@ class TTMS(nn.Module):
         his_news_encoded_embedding, his_news_repr = self.encoderN(
             his_news_embedding
         )
-        user_repr = self.encoderU(his_news_repr)
+        # no need to calculate this if ps_terms are fixed in advance
+        if self.reducer.name == 'matching':
+            user_repr = self.encoderU(his_news_repr)
+        else:
+            user_repr = None
 
         ps_terms, ps_term_mask, kid = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, his_attn_mask, his_refined_mask)
 
