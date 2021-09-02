@@ -640,6 +640,8 @@ class Manager():
         model.eval()
         logger.info("inspecting {}...".format(self.name))
 
+        with open(loader.dataset.cache_directory + "news.pkl", "rb") as f:
+            news = pickle.load(f)["encoded_news"][:, :self.signal_length]
         with open(loader.dataset.cache_directory + "bm25.pkl", "rb") as f:
             bm25_terms = pickle.load(f)["encoded_news"][:, :self.k + 1]
         with open(loader.dataset.cache_directory + "entity.pkl", "rb") as f:
@@ -681,8 +683,7 @@ class Manager():
                         print("[personalized terms]\n\t {}".format(" ".join(ps_terms)))
                         print("[bm25 terms]\n\t {}".format(t.decode(bm25_terms[his_id[i,j]][1:])))
                         print("[entities]\n\t {}".format(t.decode(entities[his_id[i,j]][1:])))
-
-                        print("[original news]\n\t {}".format(t.decode(his_encoded_index[i, j, 1:his_attn_mask[i, j].sum()])))
+                        print("[original news]\n\t {}".format(t.decode(news[his_id[i,j]][1:self.signal_length], skip_special_tokens=True)))
 
                         command = input()
                         if command == "n":

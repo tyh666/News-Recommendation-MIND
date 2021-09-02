@@ -162,7 +162,7 @@ class MIND(Dataset):
                         entity_dic[surface_forms[0].lower()] = 1
 
                 if len(entity_dic) == 0:
-                    entities.append(' '.join(['[CLS]'] + words[:self.max_reduction_length]))
+                    entities.append(' '.join(words[:self.max_reduction_length]))
                 else:
                     entities.append(' '.join(['[CLS]'] + list(entity_dic)))
 
