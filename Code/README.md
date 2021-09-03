@@ -153,6 +153,7 @@ python -m scripts.esm -m test -s large -is=120 -ck=150000 -ws=2
 - [x] manager.encode
 - [x] distributed evaluate
 - [x] reverse history when learning user profile
+- [ ] which part consumes time most?
 
 ## Questions
 - use bag-of-words to encode user history?

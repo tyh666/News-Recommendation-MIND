@@ -264,7 +264,7 @@ def load_manager():
     parser.add_argument("--metrics", dest="metrics", help="metrics for evaluating the model", type=str, default="")
 
     parser.add_argument("-g", "--granularity", dest="granularity", help="the granularity for reduction", choices=["token", "avg", "first", "sum"], default="avg")
-    parser.add_argument("-emb", "--embedding", dest="embedding", help="choose embedding", choices=["bert","random"], default="bert")
+    parser.add_argument("-emb", "--embedding", dest="embedding", help="choose embedding", choices=["bert","random","deberta"], default="bert")
     parser.add_argument("-encn", "--encoderN", dest="encoderN", help="choose news encoder", choices=["cnn","rnn","npa","fim","mha","bert"], default="cnn")
     parser.add_argument("-encu", "--encoderU", dest="encoderU", help="choose user encoder", choices=["avg","attn","cnn","rnn","lstur","mha"], default="rnn")
     parser.add_argument("-slc", "--selector", dest="selector", help="choose history selector", choices=["recent","sfi"], default="sfi")
@@ -296,6 +296,8 @@ def load_manager():
         args.device = "cpu"
         args.pin_memory = False
 
+    if args.embedding == 'deberta':
+        args.bert = 'microsoft/deberta-base'
     manager = Manager(args)
     return manager
 

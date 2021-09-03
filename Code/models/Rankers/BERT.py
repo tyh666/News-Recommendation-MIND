@@ -142,7 +142,13 @@ class BERT_Onepass_Ranker(nn.Module):
         # [2, embedding_dim]
         self.token_type_embedding = nn.Parameter(bert.embeddings.token_type_embeddings.weight)
         # [SEP] token
-        self.sep_embedding = nn.Parameter(bert.embeddings.word_embeddings(torch.tensor([102])).clone().detach().requires_grad_(True).view(1,1,self.embedding_dim))
+        if config.embedding == 'bert':
+            self.sep_embedding = nn.Parameter(bert.embeddings.word_embeddings(torch.tensor([102])).clone().detach().requires_grad_(True).view(1,1,self.embedding_dim))
+        elif config.embedding == 'deberta':
+            self.sep_embedding = nn.Parameter(bert.embeddings.word_embeddings(torch.tensor([2])).clone().detach().requires_grad_(True).view(1,1,self.embedding_dim))
+        else:
+            self.sep_embedding = nn.Parameter(torch.randn(1,1,self.embedding_dim))
+            nn.init.xavier_normal_(self.sep_embedding)
 
         nn.init.xavier_normal_(self.pooler[0].weight)
 

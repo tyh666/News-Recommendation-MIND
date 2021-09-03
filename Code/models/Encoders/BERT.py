@@ -1,5 +1,5 @@
 import torch.nn as nn
-from transformers import BertModel
+from transformers import AutoModel
 
 class BERT_Encoder(nn.Module):
     """
@@ -13,7 +13,7 @@ class BERT_Encoder(nn.Module):
         self.hidden_dim = 768
         config.hidden_dim = self.hidden_dim
 
-        bert = BertModel.from_pretrained(
+        bert = AutoModel.from_pretrained(
             config.bert,
             cache_dir=config.path + 'bert_cache/'
         )

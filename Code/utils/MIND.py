@@ -70,14 +70,16 @@ class MIND(Dataset):
 
 
             if not (os.path.exists(self.cache_directory + "news.pkl") and os.path.exists(self.cache_directory + "bm25.pkl") and os.path.exists(self.cache_directory + "entity.pkl")):
-                from transformers import BertTokenizerFast
+                from transformers import AutoTokenizer
+                self.tokenizer = AutoTokenizer.from_pretrained(config.bert, cache=config.path + "bert_cache/")
+
                 logger.info("encoding news of {}...".format(news_file))
                 self.news_file = news_file
+                self.embedding = config.embedding
 
                 self.max_token_length = 512
                 self.max_reduction_length = 30
 
-                self.tokenizer = BertTokenizerFast.from_pretrained(config.bert, cache=config.path + "bert_cache/")
                 self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_{}.json".format(config.scale, self.mode))
 
                 self.init_news()
@@ -172,7 +174,7 @@ class MIND(Dataset):
         bm25 = BM25()
         articles_bm25 = bm25(articles)
 
-        def parse_texts(tokenizer, texts, news_path, max_length):
+        def parse_texts_bert(tokenizer, texts, news_path, max_length):
             """
             convert texts to tokens indices and get subword indices
             """
@@ -230,12 +232,82 @@ class MIND(Dataset):
                     },
                     f
                 )
-        logger.info("tokenizing news...")
-        parse_texts(self.tokenizer, articles, self.cache_directory + "news.pkl", self.max_token_length)
-        logger.info("tokenizing bm25 ordered news...")
-        parse_texts(self.tokenizer, articles_bm25, self.cache_directory + "bm25.pkl", self.max_reduction_length)
-        logger.info("tokenizing entities...")
-        parse_texts(self.tokenizer, entities, self.cache_directory + "entity.pkl", self.max_reduction_length)
+
+        def parse_texts_deberta(tokenizer, texts, news_path, max_length):
+            """
+            convert texts to tokens indices and get subword indices
+            """
+            text_toks = []
+            attention_masks = []
+            subwords_all = []
+            subwords_first = []
+            for text in tqdm(texts):
+                tokens = tokenizer.tokenize(text)
+
+                # maintain subword entry
+                subword_all = []
+                # mask subword entry
+                subword_first = []
+
+                i = -1
+                j = -1
+                for token in tokens:
+                    # not subword
+                    if token.startswith("Ġ"):
+                        i += 1
+                        j += 1
+                        subword_all.append([i,j])
+                        subword_first.append([i,j])
+
+                    # subword
+                    else:
+                        j += 1
+                        # subword.append([0,0])
+                        subword_all.append([i,j])
+                        subword_first.append([0,0])
+
+                pad_length = max_length - len(tokens)
+
+                text_toks.append(tokenizer.convert_tokens_to_ids(tokens[:max_length]) + [0] * pad_length)
+                attention_masks.append([1] * min(len(tokens), max_length) + [0] * pad_length)
+
+                subword_all.extend([[0,0]] * pad_length)
+                subword_first.extend([[0,0]] * pad_length)
+                subwords_all.append(subword_all[:max_length])
+                subwords_first.append(subword_first[:max_length])
+
+            # encode news
+            encoded_news = np.asarray(text_toks)
+            attn_mask = np.asarray(attention_masks)
+
+            subwords_all = np.asarray(subwords_all)
+            subwords_first = np.asarray(subwords_first)
+
+            with open(news_path, "wb") as f:
+                pickle.dump(
+                    {
+                        "encoded_news": encoded_news,
+                        "subwords_first": subwords_first,
+                        "subwords_all": subwords_all,
+                        "attn_mask": attn_mask
+                    },
+                    f
+                )
+        if self.embedding == 'bert':
+            logger.info("tokenizing news...")
+            parse_texts_bert(self.tokenizer, articles, self.cache_directory + "news.pkl", self.max_token_length)
+            logger.info("tokenizing bm25 ordered news...")
+            parse_texts_bert(self.tokenizer, articles_bm25, self.cache_directory + "bm25.pkl", self.max_reduction_length)
+            logger.info("tokenizing entities...")
+            parse_texts_bert(self.tokenizer, entities, self.cache_directory + "entity.pkl", self.max_reduction_length)
+
+        elif self.embedding == 'deberta':
+            logger.info("tokenizing news...")
+            parse_texts_deberta(self.tokenizer, articles, self.cache_directory + "news.pkl", self.max_token_length)
+            logger.info("tokenizing bm25 ordered news...")
+            parse_texts_deberta(self.tokenizer, articles_bm25, self.cache_directory + "bm25.pkl", self.max_reduction_length)
+            logger.info("tokenizing entities...")
+            parse_texts_deberta(self.tokenizer, entities, self.cache_directory + "entity.pkl", self.max_reduction_length)
 
 
     def init_behaviors(self):
@@ -478,6 +550,7 @@ class MIND(Dataset):
                     his_subword_index = self.subwords[his_ids][:, :self.k + 1]
                 else:
                     cdd_subword_index = self.subwords[cdd_ids]
+                    his_subword_index = self.subwords[his_ids]
                 back_dic["cdd_subword_index"] = cdd_subword_index
                 back_dic["his_subword_index"] = his_subword_index
 
@@ -536,6 +609,7 @@ class MIND(Dataset):
                     his_subword_index = self.subwords[his_ids][:, :self.k + 1]
                 else:
                     cdd_subword_index = self.subwords[cdd_ids]
+                    his_subword_index = self.subwords[his_ids]
                 back_dic["cdd_subword_index"] = cdd_subword_index
                 back_dic["his_subword_index"] = his_subword_index
 
@@ -591,6 +665,7 @@ class MIND(Dataset):
                     his_subword_index = self.subwords[his_ids][:, :self.k + 1]
                 else:
                     cdd_subword_index = self.subwords[cdd_ids]
+                    his_subword_index = self.subwords[his_ids]
                 back_dic["cdd_subword_index"] = cdd_subword_index
                 back_dic["his_subword_index"] = his_subword_index
 
