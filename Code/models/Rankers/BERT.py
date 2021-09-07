@@ -48,7 +48,7 @@ class BERT_Original_Ranker(nn.Module):
 
         Args:
             cdd_news_embedding: word-level representation of candidate news, [batch_size, cdd_size, signal_length, embedding_dim]
-            his_seq: personalized terms, [batch_size, (cdd_size, k, signal_length)/(his_size, k), embedding_dim]
+            his_seq: personalized terms, [batch_size, (cdd_size, k, signal_length)/(term_num), embedding_dim]
             cdd_attn_mask: attention mask of the candidate news, [batch_size, cdd_size, signal_length]
             his_seq_attn_mask: attention mask of the history sequence, [batch_size, (cdd_size, k, signal_length)/(his_size, k)]
 
@@ -60,17 +60,14 @@ class BERT_Original_Ranker(nn.Module):
         bs = batch_size * cdd_size
 
         # [bs, seq_length, embedding_dim]
-        if his_seq.dim() == 4:
-            his_seq = (his_seq + self.order_embedding).view(batch_size, -1, self.embedding_dim)
+        if his_seq.dim() == 3:
             his_seq = torch.cat([self.sep_embedding.expand(batch_size, 1, self.embedding_dim), his_seq], dim=1)
-            his_seq[:,1:] += self.token_type_embedding[1]
             his_seq[:,0] += self.token_type_embedding[0]
+            his_seq[:,1:] += self.token_type_embedding[1]
             his_seq = his_seq.unsqueeze(1).expand(batch_size, cdd_size, -1, self.embedding_dim).reshape(bs, -1, self.embedding_dim)
-
             his_seq_attn_mask = his_seq_attn_mask.view(batch_size, 1, -1).expand(batch_size, cdd_size, -1).reshape(bs, -1)
 
         elif his_seq.dim() == 5:
-            his_seq = (his_seq + self.order_embedding[:self.k]).view(batch_size, -1, self.embedding_dim)
             his_seq = his_seq.reshape(bs, -1, self.embedding_dim)
             his_seq = torch.cat([self.sep_embedding.expand(bs, 1, self.embedding_dim), his_seq], dim=1)
             his_seq[:,1:] += self.token_type_embedding[1]

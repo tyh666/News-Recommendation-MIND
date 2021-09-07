@@ -42,17 +42,10 @@ class TTM(nn.Module):
             self.embedding(cdd_news), x['cdd_attn_mask'].to(self.device)
         )
 
-        if self.reducer.name == 'bm25':
-            his_news = x["his_reduced_index"].long().to(self.device)
-            _, his_news_repr = self.encoderN(
-                self.embedding(his_news), x['his_reduced_mask'].to(self.device)
-            )
-
-        else:
-            his_news = x["his_encoded_index"].long().to(self.device)
-            _, his_news_repr = self.encoderN(
-                self.embedding(his_news), x['his_attn_mask'].to(self.device)
-            )
+        his_news = x["his_encoded_index"].long().to(self.device)
+        _, his_news_repr = self.encoderN(
+            self.embedding(his_news), x['his_attn_mask'].to(self.device)
+        )
 
         user_repr = self.encoderU(his_news_repr)
 

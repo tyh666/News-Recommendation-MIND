@@ -18,11 +18,7 @@ class BERT_Encoder(nn.Module):
             cache_dir=config.path + 'bert_cache/'
         )
         self.bert = bert.encoder
-        # self.pooler = nn.Sequential(
-        #     nn.Linear(self.hidden_dim, self.hidden_dim),
-        #     nn.Tanh()
-        # )
-        # nn.init.xavier_normal_(self.pooler[0].weight)
+
 
     def forward(self, news_embedding, attn_mask):
         """ encode news with bert

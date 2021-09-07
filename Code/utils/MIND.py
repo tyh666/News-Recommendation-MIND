@@ -253,7 +253,7 @@ class MIND(Dataset):
                 j = -1
                 for token in tokens:
                     # not subword
-                    if token.startswith("Ġ"):
+                    if token.startswith("Ġ") or token == '[CLS]':
                         i += 1
                         j += 1
                         subword_all.append([i,j])
