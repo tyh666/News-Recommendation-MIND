@@ -51,7 +51,8 @@ class TTMS(nn.Module):
             score of each candidate news, [batch_size, cdd_size]
         """
         # print(user_repr.mean(), cdd_news_repr.mean(), user_repr.max(), cdd_news_repr.max(), user_repr.sum(), cdd_news_repr.sum())
-        score = F.normalize(cdd_news_repr, dim=-1).matmul(F.normalize(user_repr, dim=-1).transpose(-2,-1)).squeeze(-1)
+        # score = F.normalize(cdd_news_repr, dim=-1).matmul(F.normalize(user_repr, dim=-1).transpose(-2,-1)).squeeze(-1)
+        score = cdd_news_repr.matmul(user_repr.transpose(-2,-1)).squeeze(-1)
         return score
 
     def _forward(self,x):

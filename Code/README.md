@@ -23,8 +23,6 @@ else
   source ~/.bashrc
   nn
 
-  ipython kernel install --name "nn" --user
-
   pip install torch==1.7.1+cu110 -f https://download.pytorch.org/whl/torch_stable.html
   pip install tensorboard ipython jupyter notebook typing pandas scipy scikit-learn transformers
 
@@ -37,8 +35,8 @@ else
   cd Code
   git clone https://github.com/namespace-Pt/Document-Reduction.git
 
-  sudo apt-get install rsync
-  sudo apt-get install screen
+  sudo apt-get install rsync -y
+  sudo apt-get install screen -y
   sleep infinity
 fi
 ```

@@ -65,10 +65,10 @@ class Matching_Reducer(nn.Module):
             news_user_repr = torch.cat([user_repr.expand(news_repr.size()), news_repr], dim=-1)
             selection_query = self.newsUserAlign(news_user_repr).unsqueeze(-1)
         else:
-            selection_query = user_repr.expand(news_repr.size()).unsqueeze(-1)
+            selection_query = user_repr.unsqueeze(1)
 
         # [bs, hs, sl - 1]
-        scores = F.normalize(news_selection_embedding, dim=-1).matmul(F.normalize(selection_query, dim=-1)).squeeze(-1)
+        scores = F.normalize(news_selection_embedding, dim=-1).matmul(F.normalize(selection_query, dim=-1).transpose(-1,-2)).squeeze(-1)
 
         pad_pos = ~(((his_refined_mask + self.keep_k_modifier)[:, :, 1:]).bool())
         # mask the padded term
