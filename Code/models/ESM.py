@@ -39,8 +39,8 @@ class ESM(nn.Module):
             else:
                 self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, config.signal_length * config.signal_length)), persistent=False)
 
-        self.name = '__'.join(['esm', self.encoderN.name, self.encoderU.name, self.reducer.name, self.ranker.name, self.granularity])
-        config.name = self.name
+        config.name = '__'.join(['esm', config.embedding, config.encoderN, config.encoderU, config.reducer, config.ranker, config.granularity])
+
 
     def clickPredictor(self, reduced_tensor, cdd_news_repr, user_repr):
         """ calculate batch of click probabolity

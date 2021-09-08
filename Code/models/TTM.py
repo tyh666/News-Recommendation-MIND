@@ -18,8 +18,8 @@ class TTM(nn.Module):
 
         self.reducer = config.reducer
 
-        self.name = '__'.join(['ttm', self.encoderN.name, self.encoderU.name])
-        config.name = self.name
+        config.name = '__'.join(['ttm', config.embedding, config.encoderN, config.encoderU, config.granularity])
+
 
     def clickPredictor(self, cdd_news_repr, user_repr):
         """ calculate batch of click probabolity

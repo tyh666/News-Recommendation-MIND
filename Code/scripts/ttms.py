@@ -24,6 +24,9 @@ def main(rank, manager, dist=False):
     elif manager.encoderN == 'bert':
         from models.Encoders.BERT import BERT_Encoder
         encoderN = BERT_Encoder(manager)
+    elif manager.encoderN == 'mha':
+        from models.Encoders.MHA import MHA_Encoder
+        encoderN = MHA_Encoder(manager)
 
     if manager.encoderU == 'rnn':
         from models.Encoders.RNN import RNN_User_Encoder

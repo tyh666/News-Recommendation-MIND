@@ -24,6 +24,8 @@ class config:
     # subvert_num = 293
 
     embedding = 'bert'
+    encoderN = 'cnn'
+    encoderU = 'rnn'
     selector = 'sfi'
     reducer = 'matching'
     interactor = 'onepass'

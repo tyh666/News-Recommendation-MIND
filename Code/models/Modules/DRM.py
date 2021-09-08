@@ -65,16 +65,16 @@ class Matching_Reducer(nn.Module):
             news_user_repr = torch.cat([user_repr.expand(news_repr.size()), news_repr], dim=-1)
             selection_query = self.newsUserAlign(news_user_repr).unsqueeze(-1)
         else:
-            selection_query = user_repr.unsqueeze(1)
+            selection_query = user_repr.unsqueeze(-1)
 
         # [bs, hs, sl - 1]
-        scores = F.normalize(news_selection_embedding, dim=-1).matmul(F.normalize(selection_query, dim=-1).transpose(-1,-2)).squeeze(-1)
-
+        scores = F.normalize(news_selection_embedding, dim=-1).matmul(F.normalize(selection_query, dim=-2)).squeeze(-1)
+        # print(scores[0])
         pad_pos = ~(((his_refined_mask + self.keep_k_modifier)[:, :, 1:]).bool())
         # mask the padded term
         scores = scores.masked_fill(pad_pos, -float('inf'))
 
-        score_k, score_kid = scores.topk(dim=-1, k=self.k, sorted=False)
+        score_k, score_kid = scores.topk(dim=-1, k=self.k)
 
         ps_terms = news_embedding.gather(dim=-2,index=score_kid.unsqueeze(-1).expand(score_kid.size() + (news_embedding.size(-1),)))
         # [bs, hs, k]
@@ -87,8 +87,8 @@ class Matching_Reducer(nn.Module):
             ps_term_mask = ps_term_mask * (~mask_pos)
 
         else:
-            ps_terms = ps_terms * (F.softmax(score_k, dim=-1).unsqueeze(-1))
-            # ps_terms = ps_terms * (score_k.unsqueeze(-1))
+            # ps_terms = ps_terms * (F.softmax(score_k, dim=-1).unsqueeze(-1))
+            ps_terms = ps_terms * (score_k.unsqueeze(-1))
         if hasattr(self, 'order_embedding'):
             ps_terms += self.order_embedding
 

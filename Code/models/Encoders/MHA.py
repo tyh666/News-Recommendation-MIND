@@ -5,7 +5,7 @@ from ..Modules.Attention import ScaledDpAttention, MultiheadAttention
 class MHA_Encoder(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.name = 'mha-n'
+        self.name = 'mha'
 
         self.hidden_dim = config.hidden_dim
         self.embedding_dim = config.embedding_dim
