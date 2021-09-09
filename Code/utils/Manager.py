@@ -634,8 +634,7 @@ class Manager():
         inspect personalized terms
         """
         import pickle
-        from transformers import BertTokenizer
-        from .utils import convert_tokens_to_words
+        from transformers import AutoTokenizer
 
         model.eval()
         logger.info("inspecting {}...".format(self.name))
@@ -648,7 +647,7 @@ class Manager():
             entities = pickle.load(f)["encoded_news"][:, :self.k + 1]
 
         self.load(model, self.checkpoint)
-        t = BertTokenizer.from_pretrained("bert-base-uncased")
+        t = AutoTokenizer.from_pretrained(self.bert)
 
         logger.info("press <ENTER> to continue")
 
@@ -668,11 +667,12 @@ class Manager():
                     print("*******************************************************")
                     tokens = t.convert_ids_to_tokens(his_token_ids)
                     if self.granularity != "token":
-                        terms = convert_tokens_to_words(tokens)
+                        terms = self.convert_tokens_to_words(tokens, punctuation=True)
                         terms.extend(["[PAD]"] * (self.signal_length - len(terms)))
                         terms = np.asarray(terms)
                     else:
                         terms = np.asarray(tokens)
+                    print(tokens)
                     ps_term_ids = term_indexes[i, j].cpu().numpy()
                     ps_terms = terms[ps_term_ids]
 
@@ -694,6 +694,21 @@ class Manager():
                 if jumpout:
                     jumpout = False
                     break
+
+
+    def convert_tokens_to_words(self, tokens, punctuation=False):
+        """
+        wrapping bert/deberta
+        """
+        if punctuation:
+            from utils.utils import convert_tokens_to_words_deberta_punctuation
+            return convert_tokens_to_words_deberta_punctuation(tokens)
+        if self.embedding in ['bert','random']:
+            from utils.utils import convert_tokens_to_words_bert
+            return convert_tokens_to_words_bert(tokens)
+        elif self.embedding == 'deberta':
+            from utils.utils import convert_tokens_to_words_deberta
+            return convert_tokens_to_words_deberta(tokens)
 
 
     def construct_nid2idx(self, scale=None, mode=None):

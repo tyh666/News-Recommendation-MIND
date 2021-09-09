@@ -39,7 +39,7 @@ def tokenize(sent):
     return [x for x in pat.findall(sent.lower())]
 
 
-def convert_tokens_to_words(tokens):
+def convert_tokens_to_words_bert(tokens):
     """
     transform the tokens output by tokenizer to words (connecting subwords)
 
@@ -58,8 +58,58 @@ def convert_tokens_to_words(tokens):
         else:
             words.append(tok)
 
-    # if len(words) < len(tokens):
-    #     words.extend(["[PAD]"] * (len(tokens) - len(words)))
+    return words
+
+
+def convert_tokens_to_words_deberta(tokens):
+    """
+    transform the tokens output by tokenizer to words (connecting subwords)
+
+    Args:
+        tokens: list of tokens
+
+    Returns:
+        words: list of words, without [PAD]
+    """
+    words = []
+    for tok in tokens:
+        # the beginning of a word
+        if tok == "[PAD]":
+            break
+        elif tok == "[CLS]":
+            words.append(tok)
+        elif tok.startswith("Ġ"):
+            words.append(tok[1:])
+        else:
+            words[-1] += tok
+
+    return words
+
+
+def convert_tokens_to_words_deberta_punctuation(tokens):
+    """
+    transform the tokens output by tokenizer to words (connecting subwords)
+
+    Args:
+        tokens: list of tokens
+
+    Returns:
+        words: list of words, without [PAD]
+    """
+    words = []
+    for tok in tokens:
+        # the beginning of a word
+        if tok == "[PAD]":
+            break
+        elif tok == "[CLS]":
+            words.append(tok)
+        elif tok.startswith("Ġ"):
+            words.append(tok[1:])
+        elif tok in r"[.&*()+=/\<>,!?;:~`@#$%^]":
+            words.append(tok)
+        else:
+            words[-1] += tok
+
     return words
 
 
@@ -248,7 +298,9 @@ def load_manager():
     parser.add_argument("-sm", "--smoothing", dest="smoothing", help="smoothing factor of tqdm", type=float, default=0.3)
 
     parser.add_argument("--ascend_history", dest="ascend_history", help="whether to order history by time in ascending", action="store_true", default=False)
+    parser.add_argument("--save_pos", dest="sive_pos", help="whether to save token positions", action="store_true", default=False)
     parser.add_argument("--no_dedup", dest="no_dedup", help="whether to deduplicate tokens", action="store_true", default=False)
+    parser.add_argument("--no_rm_punc", dest="no_rm_punc", help="whether to mask punctuations when selecting", action="store_true", default=False)
     parser.add_argument("--no_sep_his", dest="no_sep_his", help="whether to separate personalized terms from different news with an extra token", action="store_true", default=False)
     parser.add_argument("--no_order_embed", dest="no_order_embed", help="whether to add an extra embedding to ps terms from the same historical news", action="store_true", default=False)
 
@@ -622,9 +674,18 @@ class DeDuplicate(object):
     """
     mask duplicated terms in one document by attention masks
     """
-    def __init__(self, max_length) -> None:
+    def __init__(self, config) -> None:
         super().__init__()
-        self.max_length = max_length
+        self.max_length = config.signal_length
+
+        if not config.no_rm_punc:
+            punc_map = {
+                'bert':set([1031,1012,1004,1008,1006,1007,1009,1027,1013,1032,1026,1028,1010,999,1029,1025,1024,1066,1036,1030,1001,1002,1003,1034,1033]),
+                "deberta":set([10975,4,947,3226,1640,43,2744,5214,73,37457,41552,15698,6,328,116,131,35,34437,12905,1039,10431,1629,207,35227,742])
+            }
+            self.punctuations = punc_map[config.embedding]
+        else:
+            self.punctuations = ''
 
     def __call__(self, documents, attn_masks):
         """
@@ -641,7 +702,7 @@ class DeDuplicate(object):
             duplicated = []
             # ignore [CLS]
             for j, token in enumerate(document[1:]):
-                if token in tokens:
+                if token in tokens or token in self.punctuations:
                     # if the term duplicates
                     # [CLS] token always stands ahead
                     duplicated.append(j + 1)
@@ -658,10 +719,10 @@ class CountFreq(object):
     """
     generate token count pairs
     """
-    def __init__(self, max_length, position=False) -> None:
+    def __init__(self, config) -> None:
         super().__init__()
-        self.max_length = max_length
-        self.position = position
+        self.max_length = config.signal_length
+        self.position = config.save_pos
 
     def __call__(self, documents, attn_masks):
         """
@@ -697,9 +758,9 @@ class CountFreq(object):
 
 
 class Truncate(object):
-    def __init__(self, max_length) -> None:
+    def __init__(self, config) -> None:
         super().__init__()
-        self.max_length = max_length
+        self.max_length = config.signal_length
 
     def __call__(self, documents, attn_masks):
         """

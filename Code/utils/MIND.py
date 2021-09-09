@@ -7,7 +7,7 @@ import torch
 import numpy as np
 import torch.distributed as dist
 from torch.utils.data import Dataset
-from utils.utils import newsample, getId2idx, tokenize, getVocab, convert_tokens_to_words
+from utils.utils import newsample, getId2idx, tokenize, getVocab
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +82,8 @@ class MIND(Dataset):
 
                 self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_{}.json".format(config.scale, self.mode))
 
+                self.convert_tokens_to_words = config.convert_tokens_to_words
+
                 self.init_news()
 
         # synchronize all processes
@@ -121,13 +123,13 @@ class MIND(Dataset):
         if config.reducer == "matching":
             if not config.no_dedup:
                 from utils.utils import DeDuplicate
-                refiner = DeDuplicate(self.signal_length)
+                refiner = DeDuplicate(config)
         elif config.reducer in ["bm25", "entity", "first"]:
             from utils.utils import Truncate
-            refiner = Truncate(self.k + 1)
+            refiner = Truncate(config)
         elif config.reducer == "bow":
             from utils.utils import CountFreq
-            refiner = CountFreq(self.signal_length)
+            refiner = CountFreq(config)
         else:
             refiner = None
 
@@ -150,9 +152,10 @@ class MIND(Dataset):
             for idx in tqdm(rd):
                 nid, vert, subvert, title, ab, url, title_entity, abs_entity = idx.strip("\n").split("\t")
                 article = " ".join(["[CLS]", title, ab, vert, subvert])
+                article = re.sub("\'|\"", '', article)
                 tokens = self.tokenizer.tokenize(article)[:self.max_token_length]
                 # unify subwords
-                words = convert_tokens_to_words(tokens)
+                words = self.convert_tokens_to_words(tokens)
                 articles.append(' '.join(words))
 
                 entity_dic = dict()
@@ -253,7 +256,7 @@ class MIND(Dataset):
                 j = -1
                 for token in tokens:
                     # not subword
-                    if token.startswith("Ġ") or token == '[CLS]':
+                    if token.startswith("Ġ") or token == '[CLS]' or token in r"[.&*()+=/\<>,!?;:~`@#$%^]":
                         i += 1
                         j += 1
                         subword_all.append([i,j])
