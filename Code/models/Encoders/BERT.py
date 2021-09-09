@@ -7,17 +7,41 @@ class BERT_Encoder(nn.Module):
     """
     def __init__(self, config):
         super().__init__()
-        self.name = 'bert'
+        bert_map = {
+            'random':'bert',
+            "bert":"bert",
+            "deberta":"deberta"
+        }
+        self.name = bert_map[config.embedding]
 
         # dimension for the final output embedding/representation
         self.hidden_dim = 768
-        config.hidden_dim = self.hidden_dim
 
         bert = AutoModel.from_pretrained(
             config.bert,
             cache_dir=config.path + 'bert_cache/'
         )
         self.bert = bert.encoder
+
+
+    def get_attn_mask(self, attn_mask):
+        """
+        extend the attention mask
+
+        Args:
+            attn_mask: [batch_size, *]
+
+        Returns:
+            attn_mask: [batch_size, 1, *, *]
+        """
+        if attn_mask.dim() == 3:
+            attn_mask = attn_mask.view(-1, attn_mask.size(-1))
+
+        extended_attn_mask = attn_mask.unsqueeze(1).unsqueeze(2)
+        attn_mask = extended_attn_mask * extended_attn_mask.squeeze(-2).unsqueeze(-1)
+        attn_mask = attn_mask.byte()
+
+        return attn_mask
 
 
     def forward(self, news_embedding, attn_mask):
@@ -35,8 +59,10 @@ class BERT_Encoder(nn.Module):
         signal_length = news_embedding.size(2)
 
         bert_input = news_embedding.view(-1, signal_length, self.hidden_dim)
-        attn_mask = attn_mask.view(-1, 1, 1, signal_length)
-        attn_mask = (1.0 - attn_mask) * -10000.0
+        attn_mask = self.get_attn_mask(attn_mask)
+
+        if self.name == 'bert':
+            attn_mask = (1.0 - attn_mask) * -10000.0
 
         # [bs, cs/hs, sl, ed]
         bert_output = self.bert(bert_input, attention_mask=attn_mask).last_hidden_state
