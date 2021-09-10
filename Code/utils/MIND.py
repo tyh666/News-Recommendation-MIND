@@ -6,6 +6,7 @@ import logging
 import torch
 import numpy as np
 import torch.distributed as dist
+from tqdm import tqdm
 from torch.utils.data import Dataset
 from utils.utils import newsample, getId2idx, tokenize, getVocab
 
@@ -145,13 +146,12 @@ class MIND(Dataset):
             3. get subword indices
             4. get entities
         """
-        from tqdm import tqdm
         articles = [""]
         entities = [""]
         with open(self.news_file, "r", encoding="utf-8") as rd:
             for idx in tqdm(rd):
                 nid, vert, subvert, title, ab, url, title_entity, abs_entity = idx.strip("\n").split("\t")
-                article = " ".join(["[CLS]", title, ab, vert, subvert])
+                article = " ".join([title, ab, vert, subvert])
                 article = re.sub("\'|\"", '', article)
                 tokens = self.tokenizer.tokenize(article)[:self.max_token_length]
                 # unify subwords
@@ -169,7 +169,7 @@ class MIND(Dataset):
                 if len(entity_dic) == 0:
                     entities.append(' '.join(words[:self.max_reduction_length]))
                 else:
-                    entities.append(' '.join(['[CLS]'] + list(entity_dic)))
+                    entities.append(' '.join(list(entity_dic.keys())))
 
         # initialize other kind of reducer here
         # rank words according to reduction rules
@@ -189,12 +189,12 @@ class MIND(Dataset):
                 tokens = tokenizer.tokenize(text)
 
                 # maintain subword entry
-                subword_all = []
+                subword_all = [[0,0]]
                 # mask subword entry
-                subword_first = []
+                subword_first = [[0,0]]
 
-                i = -1
-                j = -1
+                i = 0
+                j = 0
                 for token in tokens:
                     if token.startswith("##"):
                         j += 1
@@ -208,10 +208,11 @@ class MIND(Dataset):
                         subword_all.append([i,j])
                         subword_first.append([i,j])
 
-                pad_length = max_length - len(tokens)
+                token_ids = tokenizer.convert_tokens_to_ids(["[CLS]"]) + tokenizer.convert_tokens_to_ids(tokens[:max_length - 1])
+                pad_length = max_length - len(token_ids)
 
-                text_toks.append(tokenizer.convert_tokens_to_ids(tokens[:max_length]) + [0] * pad_length)
-                attention_masks.append([1] * min(len(tokens), max_length) + [0] * pad_length)
+                text_toks.append(token_ids + [0] * pad_length)
+                attention_masks.append([1] * min(len(token_ids), max_length) + [0] * pad_length)
 
                 subword_all.extend([[0,0]] * pad_length)
                 subword_first.extend([[0,0]] * pad_length)
@@ -244,19 +245,19 @@ class MIND(Dataset):
             attention_masks = []
             subwords_all = []
             subwords_first = []
-            for text in tqdm(texts):
+            for text in texts:
                 tokens = tokenizer.tokenize(text)
 
                 # maintain subword entry
-                subword_all = []
+                subword_all = [[0,0]]
                 # mask subword entry
-                subword_first = []
+                subword_first = [[0,0]]
 
-                i = -1
-                j = -1
-                for token in tokens:
+                i = 0
+                j = 0
+                for index,token in enumerate(tokens):
                     # not subword
-                    if token.startswith("Ġ") or token == '[CLS]' or token in r"[.&*()+=/\<>,!?;:~`@#$%^]":
+                    if index == 0 or token.startswith("Ġ") or token in r"[.&*()+=/\<>,!?;:~`@#$%^]":
                         i += 1
                         j += 1
                         subword_all.append([i,j])
@@ -269,10 +270,11 @@ class MIND(Dataset):
                         subword_all.append([i,j])
                         subword_first.append([0,0])
 
-                pad_length = max_length - len(tokens)
+                token_ids = tokenizer.convert_tokens_to_ids(["[CLS]"]) + tokenizer.convert_tokens_to_ids(tokens[:max_length - 1])
+                pad_length = max_length - len(token_ids)
 
-                text_toks.append(tokenizer.convert_tokens_to_ids(tokens[:max_length]) + [0] * pad_length)
-                attention_masks.append([1] * min(len(tokens), max_length) + [0] * pad_length)
+                text_toks.append(token_ids + [0] * pad_length)
+                attention_masks.append([1] * min(len(token_ids), max_length) + [0] * pad_length)
 
                 subword_all.extend([[0,0]] * pad_length)
                 subword_first.extend([[0,0]] * pad_length)
@@ -296,6 +298,7 @@ class MIND(Dataset):
                     },
                     f
                 )
+
         if self.embedding == 'bert':
             logger.info("tokenizing news...")
             parse_texts_bert(self.tokenizer, articles, self.cache_directory + "news.pkl", self.max_token_length)
@@ -333,7 +336,7 @@ class MIND(Dataset):
             negatives = []
 
             with open(self.behaviors_file, "r", encoding="utf-8") as rd:
-                for idx in rd:
+                for idx in tqdm(rd):
                     _, uid, time, history, impr = idx.strip("\n").split("\t")
 
                     history = [self.nid2index[i] for i in history.split()]

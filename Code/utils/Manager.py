@@ -657,7 +657,6 @@ class Manager():
             his_encoded_index = x["his_encoded_index"]
             if self.reducer == "bow":
                 his_encoded_index = his_encoded_index[:, :, :, 0]
-            his_attn_mask = x["his_attn_mask"]
             his_id = x["his_id"]
 
             encoded_ids = his_encoded_index[:, :, 1:]
@@ -671,8 +670,14 @@ class Manager():
                         terms.extend(["[PAD]"] * (self.signal_length - len(terms)))
                         terms = np.asarray(terms)
                     else:
-                        terms = np.asarray(tokens)
-                    print(tokens)
+                        if self.embedding == 'deberta':
+                            terms = []
+                            for token in tokens:
+                                if token.startswith('Ġ'):
+                                    terms.append(token[1:])
+                                else:
+                                    terms.append(token)
+                        terms = np.asarray(terms)
                     ps_term_ids = term_indexes[i, j].cpu().numpy()
                     ps_terms = terms[ps_term_ids]
 
@@ -681,9 +686,9 @@ class Manager():
                         break
                     else:
                         print("[personalized terms]\n\t {}".format(" ".join(ps_terms)))
-                        print("[bm25 terms]\n\t {}".format(t.decode(bm25_terms[his_id[i,j]][1:])))
-                        print("[entities]\n\t {}".format(t.decode(entities[his_id[i,j]][1:])))
-                        print("[original news]\n\t {}".format(t.decode(news[his_id[i,j]][1:self.signal_length], skip_special_tokens=True)))
+                        print("[bm25 terms]\n\t {}".format(t.decode(bm25_terms[his_id[i,j]])))
+                        print("[entities]\n\t {}".format(t.decode(entities[his_id[i,j]])))
+                        print("[original news]\n\t {}".format(t.decode(news[his_id[i,j]][:self.signal_length], skip_special_tokens=True)))
 
                         command = input()
                         if command == "n":
@@ -700,15 +705,16 @@ class Manager():
         """
         wrapping bert/deberta
         """
-        if punctuation:
-            from utils.utils import convert_tokens_to_words_deberta_punctuation
-            return convert_tokens_to_words_deberta_punctuation(tokens)
         if self.embedding in ['bert','random']:
             from utils.utils import convert_tokens_to_words_bert
             return convert_tokens_to_words_bert(tokens)
         elif self.embedding == 'deberta':
-            from utils.utils import convert_tokens_to_words_deberta
-            return convert_tokens_to_words_deberta(tokens)
+            if punctuation:
+                from utils.utils import convert_tokens_to_words_deberta_punctuation
+                return convert_tokens_to_words_deberta_punctuation(tokens)
+            else:
+                from utils.utils import convert_tokens_to_words_deberta
+                return convert_tokens_to_words_deberta(tokens)
 
 
     def construct_nid2idx(self, scale=None, mode=None):

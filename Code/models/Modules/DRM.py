@@ -30,7 +30,7 @@ class Matching_Reducer(nn.Module):
             threshold = torch.tensor([config.threshold])
             self.register_buffer('threshold', threshold)
 
-        if not config.no_sep_his:
+        if config.sep_his:
             config.term_num += (self.his_size - 1)
             self.sep_embedding = nn.Parameter(torch.randn(1, 1, 1, config.embedding_dim))
             self.register_buffer('extra_sep_mask', torch.ones(1, 1, 1), persistent=False)

@@ -82,7 +82,6 @@ def main(rank, manager, dist=False):
 
 if __name__ == "__main__":
     manager = load_manager()
-    manager.hidden_dim = 768
     if manager.world_size > 1:
         mp.spawn(
             main,

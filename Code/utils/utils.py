@@ -72,12 +72,12 @@ def convert_tokens_to_words_deberta(tokens):
         words: list of words, without [PAD]
     """
     words = []
-    for tok in tokens:
+    for i,tok in enumerate(tokens):
         # the beginning of a word
-        if tok == "[PAD]":
-            break
-        elif tok == "[CLS]":
+        if i == 0:
             words.append(tok)
+        elif tok == "[PAD]":
+            break
         elif tok.startswith("Ġ"):
             words.append(tok[1:])
         else:
@@ -97,12 +97,12 @@ def convert_tokens_to_words_deberta_punctuation(tokens):
         words: list of words, without [PAD]
     """
     words = []
-    for tok in tokens:
+    for i,tok in enumerate(tokens):
         # the beginning of a word
-        if tok == "[PAD]":
-            break
-        elif tok == "[CLS]":
+        if i == 0:
             words.append(tok)
+        elif tok == "[PAD]":
+            break
         elif tok.startswith("Ġ"):
             words.append(tok[1:])
         elif tok in r"[.&*()+=/\<>,!?;:~`@#$%^]":
@@ -299,10 +299,11 @@ def load_manager():
 
     parser.add_argument("--ascend_history", dest="ascend_history", help="whether to order history by time in ascending", action="store_true", default=False)
     parser.add_argument("--save_pos", dest="sive_pos", help="whether to save token positions", action="store_true", default=False)
+    parser.add_argument("--sep_his", dest="sep_his", help="whether to separate personalized terms from different news with an extra token", action="store_true", default=False)
     parser.add_argument("--no_dedup", dest="no_dedup", help="whether to deduplicate tokens", action="store_true", default=False)
     parser.add_argument("--no_rm_punc", dest="no_rm_punc", help="whether to mask punctuations when selecting", action="store_true", default=False)
-    parser.add_argument("--no_sep_his", dest="no_sep_his", help="whether to separate personalized terms from different news with an extra token", action="store_true", default=False)
     parser.add_argument("--no_order_embed", dest="no_order_embed", help="whether to add an extra embedding to ps terms from the same historical news", action="store_true", default=False)
+    parser.add_argument("--no_debias", dest="no_debias", help="whether to add a learnable bias to each candidate news' score", action="store_true", default=False)
 
     parser.add_argument("--num_workers", dest="num_workers", help="worker number of a dataloader", type=int, default=0)
     parser.add_argument("--shuffle", dest="shuffle", help="whether to shuffle the indices", action="store_true", default=False)

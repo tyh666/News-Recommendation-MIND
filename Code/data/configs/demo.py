@@ -40,12 +40,15 @@ class config:
     seeds = 42
     interval = 10
 
-    ascend_history = False
-    no_dedup = False
-    diversify = False
     granularity = 'avg'
-    no_sep_his = False
+    ascend_history = False
+    save_pos = False
+    sep_his = False
+    diversify = False
+    no_dedup = False
     no_order_embed = False
+    no_rm_punc = False
+    no_debias = False
 
     scheduler = 'linear'
     warmup = 100

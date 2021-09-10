@@ -31,10 +31,17 @@ class TTMS(nn.Module):
             else:
                 self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, config.signal_length * config.signal_length)), persistent=False)
 
-        self.userProject = nn.Sequential(
+        self.newsUserProject = nn.Sequential(
             nn.Linear(self.bert.hidden_dim, self.bert.hidden_dim),
             nn.Tanh()
         )
+
+        if not config.no_debias:
+            self.newsDebias = nn.Sequential(
+                nn.Linear(self.bert.hidden_dim, self.bert.hidden_dim // 2),
+                nn.Tanh(),
+                nn.Linear(self.bert.hidden_dim // 2, 1)
+            )
 
         self.register_buffer('extra_cls_mask', torch.ones(1,1), persistent=False)
 
@@ -54,6 +61,9 @@ class TTMS(nn.Module):
         # print(user_repr.mean(), cdd_news_repr.mean(), user_repr.max(), cdd_news_repr.max(), user_repr.sum(), cdd_news_repr.sum())
         # score = F.normalize(cdd_news_repr, dim=-1).matmul(F.normalize(user_repr, dim=-1).transpose(-2,-1)).squeeze(-1)
         score = cdd_news_repr.matmul(user_repr.transpose(-2,-1)).squeeze(-1)/math.sqrt(self.embedding.embedding_dim)
+
+        if hasattr(self, 'newsDebias'):
+            score += self.newsDebias(cdd_news_repr).squeeze(-1)
         return score
 
     def _forward(self,x):
@@ -114,6 +124,7 @@ class TTMS(nn.Module):
         _, cdd_news_repr = self.bert(
             self.embedding(cdd_news, cdd_subword_prefix), cdd_attn_mask
         )
+        cdd_news_repr = self.newsUserProject(cdd_news_repr)
 
         his_news = x["his_encoded_index"].long().to(self.device)
         his_news_embedding = self.embedding(his_news, his_subword_prefix)
@@ -133,7 +144,7 @@ class TTMS(nn.Module):
         ps_terms = torch.cat([his_news_embedding[:, 0, 0].unsqueeze(1), ps_terms], dim=-2)
         ps_term_mask = torch.cat([self.extra_cls_mask.expand(batch_size, 1), ps_term_mask], dim=-1)
         _, user_cls = self.bert(ps_terms.unsqueeze(1), ps_term_mask.unsqueeze(1))
-        user_repr = self.userProject(user_cls)
+        user_repr = self.newsUserProject(user_cls)
 
         return self.clickPredictor(cdd_news_repr, user_repr), kid
 
