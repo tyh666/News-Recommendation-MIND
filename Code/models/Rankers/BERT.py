@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from transformers import BertModel,BertConfig
-
+from ..Modules.Attention import get_attn_mask
 
 class BERT_Original_Ranker(nn.Module):
     """
@@ -39,7 +39,6 @@ class BERT_Original_Ranker(nn.Module):
 
         self.order_embedding = nn.Parameter(torch.randn(config.his_size, 1, config.embedding_dim))
         nn.init.xavier_normal_(self.order_embedding)
-
         nn.init.xavier_normal_(self.pooler[0].weight)
 
     def forward(self, cdd_news_embedding, his_seq, cdd_attn_mask, his_seq_attn_mask):
@@ -86,7 +85,8 @@ class BERT_Original_Ranker(nn.Module):
         bert_input = torch.cat([cdd_news_embedding, his_seq], dim=-2)
 
         # [bs, cs*sl]
-        attn_mask = torch.cat([cdd_attn_mask.view(bs, -1), his_seq_attn_mask], dim=-1).view(bs, 1, 1, -1)
+        attn_mask = torch.cat([cdd_attn_mask.view(bs, -1), his_seq_attn_mask], dim=-1)
+        attn_mask = get_attn_mask(attn_mask)
         attn_mask = (1.0 - attn_mask) * -10000.0
 
         bert_output = self.bert(bert_input, attention_mask=attn_mask).last_hidden_state[:, 0].view(batch_size, cdd_size, self.embedding_dim)
@@ -121,6 +121,8 @@ class BERT_Onepass_Ranker(nn.Module):
         bert_config.signal_length = self.signal_length
         bert_config.term_num = config.term_num + 1
         bert_config.cdd_size = config.cdd_size
+        bert_config.impr_size = config.impr_size
+        bert_config.full_attn = config.full_attn
         for l in prim_bert.layer:
             l.attention.self = BertSelfAttention(bert_config)
 
@@ -135,9 +137,12 @@ class BERT_Onepass_Ranker(nn.Module):
             nn.Linear(self.embedding_dim, self.final_dim),
             nn.Tanh()
         )
+        nn.init.xavier_normal_(self.pooler[0].weight)
 
         # [2, embedding_dim]
-        self.token_type_embedding = nn.Parameter(bert.embeddings.token_type_embeddings.weight)
+        self.token_type_embedding = nn.Parameter(torch.randn(2, self.embedding_dim))
+        nn.init.xavier_normal_(self.token_type_embedding)
+
         # [SEP] token
         if config.embedding == 'bert':
             self.sep_embedding = nn.Parameter(bert.embeddings.word_embeddings(torch.tensor([102])).clone().detach().requires_grad_(True).view(1,1,self.embedding_dim))
@@ -147,7 +152,7 @@ class BERT_Onepass_Ranker(nn.Module):
             self.sep_embedding = nn.Parameter(torch.randn(1,1,self.embedding_dim))
             nn.init.xavier_normal_(self.sep_embedding)
 
-        nn.init.xavier_normal_(self.pooler[0].weight)
+        self.register_buffer('sep_attn_mask', torch.ones(1, 1), persistent=False)
 
     def forward(self, cdd_news_embedding, ps_terms, cdd_attn_mask, ps_term_mask):
         """
@@ -166,17 +171,21 @@ class BERT_Onepass_Ranker(nn.Module):
         cdd_size = cdd_news_embedding.size(1)
 
         # [bs,tn,hd]
-        ps_terms[:,0] += self.token_type_embedding[0]
-        ps_terms[:,1:] += self.token_type_embedding[1]
+        ps_terms += self.token_type_embedding[1]
 
         # [bs, cs*sl, hd]
-        cdd_news_embedding = (cdd_news_embedding + self.token_type_embedding[0]).view(batch_size, -1, self.embedding_dim)
+        cdd_news_embedding = cdd_news_embedding.view(batch_size, -1, self.embedding_dim)
 
         bert_input = torch.cat([cdd_news_embedding, self.sep_embedding.expand(batch_size, 1, self.embedding_dim), ps_terms], dim=-2)
+        bert_input[:, :cdd_news_embedding.size(1) + 1] += self.token_type_embedding[0]
 
         # [bs, cs*sl]
         attn_mask = cdd_attn_mask.view(batch_size, -1)
-        attn_mask = torch.cat([attn_mask, torch.ones(batch_size, 1, device=cdd_attn_mask.device), ps_term_mask], dim=-1).reshape(batch_size, 1, 1, -1)
+        cdd_length = attn_mask.size(-1)
+
+        attn_mask = torch.cat([attn_mask, self.sep_attn_mask.expand(batch_size, 1), ps_term_mask], dim=-1)
+        attn_mask = get_attn_mask(attn_mask, query_length=cdd_length)
+        attn_mask = (1.0 - attn_mask) * -10000.0
 
         bert_output = self.bert(bert_input, attention_mask=attn_mask).last_hidden_state[:, 0 : cdd_size * (self.signal_length) : self.signal_length].view(batch_size, cdd_size, self.embedding_dim)
         bert_output = self.pooler(bert_output)

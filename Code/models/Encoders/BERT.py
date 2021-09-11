@@ -1,5 +1,6 @@
 import torch.nn as nn
 from transformers import AutoModel
+from ..Modules.Attention import get_attn_mask
 
 class BERT_Encoder(nn.Module):
     """
@@ -24,26 +25,6 @@ class BERT_Encoder(nn.Module):
         self.bert = bert.encoder
 
 
-    def get_attn_mask(self, attn_mask):
-        """
-        extend the attention mask
-
-        Args:
-            attn_mask: [batch_size, *]
-
-        Returns:
-            attn_mask: [batch_size, 1, *, *]
-        """
-        if attn_mask.dim() == 3:
-            attn_mask = attn_mask.view(-1, attn_mask.size(-1))
-
-        extended_attn_mask = attn_mask.unsqueeze(1).unsqueeze(2)
-        attn_mask = extended_attn_mask * extended_attn_mask.squeeze(-2).unsqueeze(-1)
-        attn_mask = attn_mask.byte()
-
-        return attn_mask
-
-
     def forward(self, news_embedding, attn_mask):
         """ encode news with bert
 
@@ -59,7 +40,7 @@ class BERT_Encoder(nn.Module):
         signal_length = news_embedding.size(2)
 
         bert_input = news_embedding.view(-1, signal_length, self.hidden_dim)
-        attn_mask = self.get_attn_mask(attn_mask)
+        attn_mask = get_attn_mask(attn_mask)
 
         if self.name == 'bert':
             attn_mask = (1.0 - attn_mask) * -10000.0

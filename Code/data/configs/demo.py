@@ -28,7 +28,7 @@ class config:
     encoderU = 'rnn'
     selector = 'sfi'
     reducer = 'matching'
-    interactor = 'onepass'
+    ranker = 'onepass'
 
     embedding_dim = 768
     hidden_dim = 384

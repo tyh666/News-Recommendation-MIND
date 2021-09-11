@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from ..Modules.Attention import ScaledDpAttention, MultiheadAttention
+from ..Modules.Attention import scaled_dp_attention, MultiheadAttention
 
 class MHA_Encoder(nn.Module):
     def __init__(self, config):
@@ -35,7 +35,7 @@ class MHA_Encoder(nn.Module):
         signal_length = news_embedding.size(-2)
         encoded_embedding = self.mha(news_embedding.view(-1, signal_length, self.embedding_dim))
         encoded_embedding = self.dropOut(self.layerNorm(encoded_embedding)).view(batch_size, -1, signal_length, self.hidden_dim)
-        news_repr = ScaledDpAttention(self.query_words, encoded_embedding, encoded_embedding).squeeze(-2)
+        news_repr = scaled_dp_attention(self.query_words, encoded_embedding, encoded_embedding).squeeze(-2)
         return encoded_embedding, news_repr
 
 
@@ -65,5 +65,5 @@ class MHA_User_Encoder(nn.Module):
             user_repr: user representation (coarse), [batch_size, 1, hidden_dim]
         """
         news_reprs = self.mha(news_reprs)
-        user_repr = ScaledDpAttention(self.query_news, news_reprs, news_reprs)
+        user_repr = scaled_dp_attention(self.query_news, news_reprs, news_reprs)
         return user_repr

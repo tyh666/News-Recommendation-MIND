@@ -2,7 +2,7 @@ import math
 import torch
 import torch.nn as nn
 
-def ScaledDpAttention(query, key, value):
+def scaled_dp_attention(query, key, value):
     """ calculate scaled attended output of values
 
     Args:
@@ -23,6 +23,31 @@ def ScaledDpAttention(query, key, value):
 
     attn_output = torch.matmul(attn_weights, value)
     return attn_output
+
+
+def get_attn_mask(attn_mask, query_length=None):
+    """
+    extend the attention mask
+
+    Args:
+        attn_mask: [batch_size, *]
+
+    Returns:
+        attn_mask: [batch_size, 1, *, *]
+    """
+    if attn_mask.dim() == 3:
+        attn_mask = attn_mask.view(-1, attn_mask.size(-1))
+
+    extended_attn_mask = attn_mask.unsqueeze(1).unsqueeze(2)
+    if query_length is not None:
+        extended_attn_mask2 = extended_attn_mask.squeeze(-2).unsqueeze(-1)[:, :, :query_length]
+    else:
+        extended_attn_mask2 = extended_attn_mask.squeeze(-2).unsqueeze(-1)
+
+    attn_mask = extended_attn_mask * extended_attn_mask2
+    attn_mask = attn_mask.byte()
+
+    return attn_mask
 
 
 class MultiheadAttention(nn.Module):

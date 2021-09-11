@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class ESM(nn.Module):
-    def __init__(self, config, embedding, encoderN, encoderU, reducer, fuser, ranker):
+    def __init__(self, config, embedding, encoderN, encoderU, reducer, ranker):
         super().__init__()
 
         self.scale = config.scale
@@ -20,7 +20,6 @@ class ESM(nn.Module):
         self.encoderN = encoderN
         self.encoderU = encoderU
         self.reducer = reducer
-        self.fuser = fuser
         self.ranker = ranker
 
         self.final_dim = ranker.final_dim
@@ -39,6 +38,15 @@ class ESM(nn.Module):
             else:
                 self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, config.signal_length * config.signal_length)), persistent=False)
 
+        if not config.no_debias:
+            self.newsDebias = nn.Sequential(
+                nn.Linear(self.encoderN.hidden_dim, self.encoderN.hidden_dim // 2),
+                nn.Tanh(),
+                nn.Linear(self.encoderN.hidden_dim // 2, 1)
+            )
+            nn.init.xavier_normal_(self.newsDebias[0].weight)
+            nn.init.xavier_normal_(self.newsDebias[2].weight)
+
         config.name = '__'.join(['esm', config.embedding, config.encoderN, config.encoderU, config.reducer, config.ranker, config.granularity])
 
 
@@ -56,9 +64,13 @@ class ESM(nn.Module):
 
         # print(user_repr.mean(), cdd_news_repr.mean(), user_repr.max(), cdd_news_repr.max(), user_repr.sum(), cdd_news_repr.sum())
         score_coarse = cdd_news_repr.matmul(user_repr.transpose(-2,-1))
-        score = torch.cat([reduced_tensor, score_coarse], dim=-1)
+        if hasattr(self, 'newsDebias'):
+            score_coarse += self.newsDebias(cdd_news_repr)
 
-        return self.learningToRank(score).squeeze(dim=-1)
+        score = torch.cat([reduced_tensor, score_coarse], dim=-1)
+        score = self.learningToRank(score).squeeze(dim=-1)
+
+        return score
 
     def _forward(self,x):
         if self.granularity != 'token':

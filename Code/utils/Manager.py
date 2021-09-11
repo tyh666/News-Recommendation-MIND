@@ -26,103 +26,107 @@ class Manager():
     """
     wrap training/evaluating processes
     """
-    def __init__(self):
+    def __init__(self, config=None):
         """
             customize hyper parameters in command line
         """
-        parser = argparse.ArgumentParser()
-        parser.add_argument("-s", "--scale", dest="scale", help="data scale",
-                            choices=["demo", "small", "large", "whole"], required=True)
-        parser.add_argument("-m", "--mode", dest="mode", help="train or test",
-                            choices=["train", "dev", "test", "tune", "encode", "inspect"], default="tune")
-        parser.add_argument("-e", "--epochs", dest="epochs",
-                            help="epochs to train the model", type=int, default=10)
-        parser.add_argument("-d","--device", dest="device",
-                            help="device to run on, -1 means cpu", choices=[i for i in range(-1,10)], type=int, default=0)
-        parser.add_argument("-p", "--path", dest="path", type=str, default="../../../Data/", help="root path for large-scale reusable data")
+        if config is None:
+            parser = argparse.ArgumentParser()
+            parser.add_argument("-s", "--scale", dest="scale", help="data scale",
+                                choices=["demo", "small", "large", "whole"], required=True)
+            parser.add_argument("-m", "--mode", dest="mode", help="train or test",
+                                choices=["train", "dev", "test", "tune", "encode", "inspect"], default="tune")
+            parser.add_argument("-e", "--epochs", dest="epochs",
+                                help="epochs to train the model", type=int, default=10)
+            parser.add_argument("-d","--device", dest="device",
+                                help="device to run on, -1 means cpu", choices=[i for i in range(-1,10)], type=int, default=0)
+            parser.add_argument("-p", "--path", dest="path", type=str, default="../../../Data/", help="root path for large-scale reusable data")
 
-        parser.add_argument("-bs", "--batch_size", dest="batch_size",
-                            help="batch size", type=int, default=25)
-        parser.add_argument("-hs", "--his_size", dest="his_size",
-                            help="history size", type=int, default=50)
-        parser.add_argument("-is", "--impr_size", dest="impr_size",
-                            help="impression size for evaluating", type=int, default=50)
-        parser.add_argument("-tl", "--title_length", dest="title_length",
-                            help="news title size", type=int, default=20)
-        parser.add_argument("-as", "--abs_length", dest="abs_length",
-                            help="news abstract length", type=int, default=40)
-        parser.add_argument("-sl", "--signal_length", dest="signal_length",
-                        help="length of the bert tokenized tokens", type=int, default=100)
+            parser.add_argument("-bs", "--batch_size", dest="batch_size",
+                                help="batch size", type=int, default=25)
+            parser.add_argument("-hs", "--his_size", dest="his_size",
+                                help="history size", type=int, default=50)
+            parser.add_argument("-is", "--impr_size", dest="impr_size",
+                                help="impression size for evaluating", type=int, default=50)
+            parser.add_argument("-tl", "--title_length", dest="title_length",
+                                help="news title size", type=int, default=20)
+            parser.add_argument("-as", "--abs_length", dest="abs_length",
+                                help="news abstract length", type=int, default=40)
+            parser.add_argument("-sl", "--signal_length", dest="signal_length",
+                            help="length of the bert tokenized tokens", type=int, default=100)
 
-        parser.add_argument("-hd", "--hidden_dim", dest="hidden_dim",
-                        help="number of hidden states", type=int, default=384)
-        parser.add_argument("-dp", "--dropout_p", dest="dropout_p",
-                        help="dropout probability", type=float, default=0.2)
+            parser.add_argument("-hd", "--hidden_dim", dest="hidden_dim",
+                            help="number of hidden states", type=int, default=384)
+            parser.add_argument("-dp", "--dropout_p", dest="dropout_p",
+                            help="dropout probability", type=float, default=0.2)
 
-        parser.add_argument("-st","--step", dest="step",
-                            help="save/evaluate the model every step", type=int, default=10000)
-        parser.add_argument("-ck","--checkpoint", dest="checkpoint",
-                            help="load the model from checkpoint before training/evaluating", type=int, default=0)
+            parser.add_argument("-st","--step", dest="step",
+                                help="save/evaluate the model every step", type=int, default=10000)
+            parser.add_argument("-ck","--checkpoint", dest="checkpoint",
+                                help="load the model from checkpoint before training/evaluating", type=int, default=0)
 
-        parser.add_argument("-lr", dest="lr",
-                            help="learning rate of non-bert modules", type=float, default=1e-4)
-        parser.add_argument("-blr", "--bert_lr", dest="bert_lr",
-                            help="learning rate of bert based modules", type=float, default=3e-5)
-        parser.add_argument("-sm", "--smoothing", dest="smoothing", help="smoothing factor of tqdm", type=float, default=0.3)
+            parser.add_argument("-lr", dest="lr",
+                                help="learning rate of non-bert modules", type=float, default=1e-4)
+            parser.add_argument("-blr", "--bert_lr", dest="bert_lr",
+                                help="learning rate of bert based modules", type=float, default=3e-5)
+            parser.add_argument("-sm", "--smoothing", dest="smoothing", help="smoothing factor of tqdm", type=float, default=0.3)
 
-        parser.add_argument("--ascend_history", dest="ascend_history", help="whether to order history by time in ascending", action="store_true", default=False)
-        parser.add_argument("--save_pos", dest="sive_pos", help="whether to save token positions", action="store_true", default=False)
-        parser.add_argument("--sep_his", dest="sep_his", help="whether to separate personalized terms from different news with an extra token", action="store_true", default=False)
-        parser.add_argument("--no_dedup", dest="no_dedup", help="whether to deduplicate tokens", action="store_true", default=False)
-        parser.add_argument("--no_rm_punc", dest="no_rm_punc", help="whether to mask punctuations when selecting", action="store_true", default=False)
-        parser.add_argument("--no_order_embed", dest="no_order_embed", help="whether to add an extra embedding to ps terms from the same historical news", action="store_true", default=False)
-        parser.add_argument("--no_debias", dest="no_debias", help="whether to add a learnable bias to each candidate news' score", action="store_true", default=False)
+            parser.add_argument("--ascend_history", dest="ascend_history", help="whether to order history by time in ascending", action="store_true", default=False)
+            parser.add_argument("--save_pos", dest="sive_pos", help="whether to save token positions", action="store_true", default=False)
+            parser.add_argument("--sep_his", dest="sep_his", help="whether to separate personalized terms from different news with an extra token", action="store_true", default=False)
+            parser.add_argument("--full_attn", dest="full_attn", help="whether to interact among personalized terms (only in one-pass bert models)", action="store_true", default=False)
+            parser.add_argument("--no_dedup", dest="no_dedup", help="whether to deduplicate tokens", action="store_true", default=False)
+            parser.add_argument("--no_rm_punc", dest="no_rm_punc", help="whether to mask punctuations when selecting", action="store_true", default=False)
+            parser.add_argument("--no_order_embed", dest="no_order_embed", help="whether to add an extra embedding to ps terms from the same historical news", action="store_true", default=False)
+            parser.add_argument("--no_debias", dest="no_debias", help="whether to add a learnable bias to each candidate news' score", action="store_true", default=False)
 
-        parser.add_argument("--num_workers", dest="num_workers", help="worker number of a dataloader", type=int, default=0)
-        parser.add_argument("--shuffle", dest="shuffle", help="whether to shuffle the indices", action="store_true", default=False)
-        parser.add_argument("--pin_memory", dest="pin_memory", help="whether to pin memory to speed up tensor transfer", default=True)
-        parser.add_argument("--scheduler", dest="scheduler", help="choose schedule scheme for optimizer", choices=["linear"], default="linear")
-        parser.add_argument("--warmup", dest="warmup", help="warmup steps of scheduler", type=int, default=10000)
-        parser.add_argument("--interval", dest="interval", help="the step interval to update processing bar", default=10, type=int)
+            parser.add_argument("--num_workers", dest="num_workers", help="worker number of a dataloader", type=int, default=0)
+            parser.add_argument("--shuffle", dest="shuffle", help="whether to shuffle the indices", action="store_true", default=False)
+            parser.add_argument("--pin_memory", dest="pin_memory", help="whether to pin memory to speed up tensor transfer", default=True)
+            parser.add_argument("--scheduler", dest="scheduler", help="choose schedule scheme for optimizer", choices=["linear"], default="linear")
+            parser.add_argument("--warmup", dest="warmup", help="warmup steps of scheduler", type=int, default=10000)
+            parser.add_argument("--interval", dest="interval", help="the step interval to update processing bar", default=10, type=int)
 
-        parser.add_argument("--npratio", dest="npratio", help="the number of unclicked news to sample when training", type=int, default=4)
-        parser.add_argument("--metrics", dest="metrics", help="metrics for evaluating the model", type=str, default="")
+            parser.add_argument("--npratio", dest="npratio", help="the number of unclicked news to sample when training", type=int, default=4)
+            parser.add_argument("--metrics", dest="metrics", help="metrics for evaluating the model", type=str, default="")
 
-        parser.add_argument("-g", "--granularity", dest="granularity", help="the granularity for reduction", choices=["token", "avg", "first", "sum"], default="avg")
-        parser.add_argument("-emb", "--embedding", dest="embedding", help="choose embedding", choices=["bert","random","deberta"], default="bert")
-        parser.add_argument("-encn", "--encoderN", dest="encoderN", help="choose news encoder", choices=["cnn","rnn","npa","fim","mha","bert"], default="cnn")
-        parser.add_argument("-encu", "--encoderU", dest="encoderU", help="choose user encoder", choices=["avg","attn","cnn","rnn","lstur","mha"], default="rnn")
-        parser.add_argument("-slc", "--selector", dest="selector", help="choose history selector", choices=["recent","sfi"], default="sfi")
-        parser.add_argument("-red", "--reducer", dest="reducer", help="choose document reducer", choices=["bm25","matching","bow","entity","first"], default="matching")
-        parser.add_argument("-fus", "--fuser", dest="fuser", help="choose term fuser", choices=["union"], default="union")
-        parser.add_argument("-rk", "--ranker", dest="ranker", help="choose ranker", choices=["onepass","original","cnn","knrm"], default="onepass")
-        parser.add_argument("-agg", "--aggregator", dest="aggregator", help="choose history aggregator, only used in TTMS", choices=["avg","attn","cnn","rnn","lstur","mha"], default=None)
-        parser.add_argument("-div", "--diversify", dest="diversify", help="whether to diversify selection with news representation", action="store_true", default=False)
+            parser.add_argument("-g", "--granularity", dest="granularity", help="the granularity for reduction", choices=["token", "avg", "first", "sum"], default="avg")
+            parser.add_argument("-emb", "--embedding", dest="embedding", help="choose embedding", choices=["bert","random","deberta"], default="bert")
+            parser.add_argument("-encn", "--encoderN", dest="encoderN", help="choose news encoder", choices=["cnn","rnn","npa","fim","mha","bert"], default="cnn")
+            parser.add_argument("-encu", "--encoderU", dest="encoderU", help="choose user encoder", choices=["avg","attn","cnn","rnn","lstur","mha"], default="rnn")
+            parser.add_argument("-slc", "--selector", dest="selector", help="choose history selector", choices=["recent","sfi"], default="sfi")
+            parser.add_argument("-red", "--reducer", dest="reducer", help="choose document reducer", choices=["bm25","matching","bow","entity","first"], default="matching")
+            parser.add_argument("-fus", "--fuser", dest="fuser", help="choose term fuser", choices=["union"], default="union")
+            parser.add_argument("-rk", "--ranker", dest="ranker", help="choose ranker", choices=["onepass","original","cnn","knrm"], default="onepass")
+            parser.add_argument("-agg", "--aggregator", dest="aggregator", help="choose history aggregator, only used in TTMS", choices=["avg","attn","cnn","rnn","lstur","mha"], default=None)
+            parser.add_argument("-div", "--diversify", dest="diversify", help="whether to diversify selection with news representation", action="store_true", default=False)
 
-        parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=5)
-        parser.add_argument("-thr", "--threshold", dest="threshold", help="threshold to mask terms", default=-float("inf"), type=float)
-        parser.add_argument("--bert", dest="bert", help="choose bert model", choices=["bert-base-uncased"], default="bert-base-uncased")
+            parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=5)
+            parser.add_argument("-thr", "--threshold", dest="threshold", help="threshold to mask terms", default=-float("inf"), type=float)
+            parser.add_argument("--bert", dest="bert", help="choose bert model", choices=["bert-base-uncased"], default="bert-base-uncased")
 
-        parser.add_argument("--tb", dest="tb", action="store_true", default=False)
-        parser.add_argument("--seeds", dest="seeds", default=None, type=int)
+            parser.add_argument("--tb", dest="tb", action="store_true", default=False)
+            parser.add_argument("--seeds", dest="seeds", default=None, type=int)
 
-        parser.add_argument("-hn", "--head_num", dest="head_num", help="number of multi-heads", type=int, default=12)
-        parser.add_argument("-ws", "--world_size", dest="world_size", help="total number of gpus", default=0, type=int)
+            parser.add_argument("-hn", "--head_num", dest="head_num", help="number of multi-heads", type=int, default=12)
+            parser.add_argument("-ws", "--world_size", dest="world_size", help="total number of gpus", default=0, type=int)
 
-        args = parser.parse_args()
+            args = parser.parse_args()
 
-        args.cdd_size = args.npratio + 1
-        args.metrics = "auc,mean_mrr,ndcg@5,ndcg@10".split(",") + [i for i in args.metrics.split(",") if i]
-        if args.device == -1:
-            args.device = "cpu"
-            args.pin_memory = False
+            args.cdd_size = args.npratio + 1
+            args.metrics = "auc,mean_mrr,ndcg@5,ndcg@10".split(",") + [i for i in args.metrics.split(",") if i]
+            if args.device == -1:
+                args.device = "cpu"
+                args.pin_memory = False
 
-        if args.embedding == 'deberta':
-            args.bert = 'microsoft/deberta-base'
+            if args.embedding == 'deberta':
+                args.bert = 'microsoft/deberta-base'
 
-        if args.seeds is not None:
-            from .utils import manual_seed
-            manual_seed(args.seeds)
+            if args.seeds is not None:
+                from .utils import manual_seed
+                manual_seed(args.seeds)
+        else:
+            args = config
 
         for k,v in vars(args).items():
             if not k.startswith("__"):
@@ -320,7 +324,7 @@ class Manager():
 
         model(max_input)
 
-        for x in tqdm(dataloader, smoothing=self.smoothing, ncols=150, leave=False):
+        for x in tqdm(dataloader, smoothing=self.smoothing, ncols=150, leave=True):
             impr_indexes.extend(x["impr_index"].tolist())
             preds.extend(model(x)[0].tolist())
             labels.extend(x["label"].tolist())
@@ -379,7 +383,7 @@ class Manager():
         if self.rank in [0, -1]:
             res = cal_metric(labels, preds, self.metrics)
 
-            logger.info("evaluation result of {} is {}".format(self.name, res))
+            logger.info("\nevaluation result of {} is {}".format(self.name, res))
 
             if log and self.rank in [0, -1]:
                 res["epoch"] = self.epochs
@@ -420,7 +424,7 @@ class Manager():
             epoch_loss = 0
             if distributed:
                 dataloader.sampler.set_epoch(epoch)
-            tqdm_ = tqdm(dataloader, smoothing=self.smoothing, ncols=150, leave=False)
+            tqdm_ = tqdm(dataloader, smoothing=self.smoothing, ncols=150, leave=True)
 
             for step, x in enumerate(tqdm_):
 
@@ -516,7 +520,7 @@ class Manager():
             epoch_loss = 0
             if distributed:
                 loaders[0].sampler.set_epoch(epoch)
-            tqdm_ = tqdm(loaders[0], smoothing=self.smoothing, ncols=150, leave=False)
+            tqdm_ = tqdm(loaders[0], smoothing=self.smoothing, ncols=150, leave=True)
 
             for step, x in enumerate(tqdm_):
 
@@ -636,7 +640,7 @@ class Manager():
 
         impr_indexes = []
         preds = []
-        for x in tqdm(loader_test, smoothing=self.smoothing, ncols=150, leave=False):
+        for x in tqdm(loader_test, smoothing=self.smoothing, ncols=150, leave=True):
             impr_indexes.extend(x["impr_index"].tolist())
             preds.extend(model(x)[0].tolist())
 
@@ -708,7 +712,7 @@ class Manager():
             (news_num + 1, model.signal_length, model.embedding_dim))
 
         start_pos = 0
-        for x in tqdm(loader, ncols=150, leave=False):
+        for x in tqdm(loader, ncols=150, leave=True):
             news = x["cdd_encoded_index"].long()
             news_embedding = model.embedding(news)
             news_repr,_ = model.encoder(news_embedding)

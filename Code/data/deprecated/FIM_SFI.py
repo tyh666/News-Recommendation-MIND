@@ -82,9 +82,9 @@ class FIM_Encoder(nn.Module):
         signal_length = news_embedding.size(2)
         news_embedding = news_embedding.view(-1, signal_length, self.embedding_dim)
         news_embedding = self._HDC(news_embedding).view(batch_size, news_num, signal_length, self.level, self.hidden_dim)
-        news_embedding_attn = Attention.ScaledDpAttention(
+        news_embedding_attn = Attention.scaled_dp_attention(
             self.query_levels, news_embedding, news_embedding).squeeze(dim=-2)
-        news_repr = Attention.ScaledDpAttention(self.query_words, news_embedding_attn, news_embedding_attn).squeeze(
+        news_repr = Attention.scaled_dp_attention(self.query_words, news_embedding_attn, news_embedding_attn).squeeze(
             dim=-2).view(batch_size, news_num, self.hidden_dim)
 
         return news_embedding, news_repr

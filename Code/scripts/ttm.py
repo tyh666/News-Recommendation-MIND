@@ -1,8 +1,8 @@
-from Code.utils.Manager import Manager
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from utils.utils import prepare, setup, cleanup
+from utils.Manager import Manager
 from models.TTM import TTM
 
 def main(rank, manager, dist=False):

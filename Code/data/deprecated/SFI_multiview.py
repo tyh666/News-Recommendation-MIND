@@ -161,7 +161,7 @@
 
 #         # [bs, cs, 2, hd]
 #         fusion_tensors = torch.tanh(torch.stack([self.title2view(fusion_tensors_title), self.abs2view(fusion_tensors_abs)], dim=-2))
-#         fusion_tensor = Attention.ScaledDpAttention(self.viewQuery, fusion_tensors, fusion_tensors).squeeze(dim=-2)
+#         fusion_tensor = Attention.scaled_dp_attention(self.viewQuery, fusion_tensors, fusion_tensors).squeeze(dim=-2)
 #         return self._click_predictor(fusion_tensor)
 
 #     def forward(self, x):

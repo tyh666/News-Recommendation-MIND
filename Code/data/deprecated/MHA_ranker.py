@@ -55,10 +55,10 @@ class MHA_Ranker(nn.Module):
         fusion_tensors = fusion_tensors.transpose(0,1).view(shape[0:-1] + (self.hidden_dim,))
 
         key = torch.tanh(self.keyProject(fusion_tensors))
-        fusion_tensor = Attention.ScaledDpAttention(
+        fusion_tensor = Attention.scaled_dp_attention(
             self.query_words, key, fusion_tensors).squeeze(dim=-2)
 
-        fusion_tensor = Attention.ScaledDpAttention(
+        fusion_tensor = Attention.scaled_dp_attention(
             self.query_news, fusion_tensor, fusion_tensor).squeeze(dim=-2)
 
         return fusion_tensor

@@ -42,6 +42,8 @@ class TTMS(nn.Module):
                 nn.Tanh(),
                 nn.Linear(self.bert.hidden_dim // 2, 1)
             )
+            nn.init.xavier_normal_(self.newsDebias[0].weight)
+            nn.init.xavier_normal_(self.newsDebias[2].weight)
 
         self.register_buffer('extra_cls_mask', torch.ones(1,1), persistent=False)
 

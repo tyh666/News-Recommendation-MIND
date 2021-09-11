@@ -1,9 +1,9 @@
-from Code.utils.Manager import Manager
 import torch.multiprocessing as mp
 from torch.nn.modules.rnn import RNN
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from utils.utils import prepare, setup, cleanup
+from utils.Manager import Manager
 from models.ESM import ESM
 
 def main(rank, manager, dist=False):
@@ -49,11 +49,6 @@ def main(rank, manager, dist=False):
         from models.Modules.DRM import Slicing_Reducer
         reducer = Slicing_Reducer(manager)
 
-
-    # if manager.fuser == 'union':
-    #     from models.Modules.TFM import Union_Fuser
-    #     termFuser = Union_Fuser(manager)
-
     if manager.ranker == 'onepass':
         from models.Rankers.BERT import BERT_Onepass_Ranker
         ranker = BERT_Onepass_Ranker(manager)
@@ -64,7 +59,7 @@ def main(rank, manager, dist=False):
         from models.Rankers.CNN import CNN_Ranker
         ranker = CNN_Ranker(manager)
 
-    esm = ESM(manager, embedding, encoderN, encoderU, reducer, None, ranker).to(rank)
+    esm = ESM(manager, embedding, encoderN, encoderU, reducer, ranker).to(rank)
 
     if dist:
         esm = DDP(esm, device_ids=[rank], output_device=rank, find_unused_parameters=False)

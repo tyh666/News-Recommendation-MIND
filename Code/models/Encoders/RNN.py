@@ -42,6 +42,10 @@ class RNN_User_Encoder(nn.Module):
         self.hidden_dim = config.hidden_dim
         self.lstm = nn.LSTM(self.hidden_dim, self.hidden_dim, batch_first=True)
 
+        for name, param in self.lstm.named_parameters():
+            if 'weight' in name:
+                nn.init.orthogonal_(param)
+
     def forward(self, news_reprs):
         """
         encode user history into a representation vector

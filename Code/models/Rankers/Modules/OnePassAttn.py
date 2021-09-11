@@ -1,6 +1,5 @@
 import math
 import torch
-from torch._C import device
 import torch.nn as nn
 
 class BertSelfAttention(nn.Module):
@@ -24,14 +23,16 @@ class BertSelfAttention(nn.Module):
         self.signal_length = config.signal_length
         self.all_length = config.cdd_size * self.signal_length
         self.term_num = config.term_num
+        self.full_attn = config.full_attn
 
         # default to term_num = his_size * k + 1
         self.register_buffer('one_pass_attn_mask_train', torch.cat([torch.eye(config.cdd_size).repeat_interleave(repeats=self.signal_length, dim=-1).repeat_interleave(repeats=self.signal_length, dim=0), torch.ones(config.cdd_size * self.signal_length, config.term_num)], dim=-1).unsqueeze(0).unsqueeze(0), persistent=False)
-        # self.position_embedding_type = getattr(config, "position_embedding_type", "absolute")
-        # if self.position_embedding_type == "relative_key" or self.position_embedding_type == "relative_key_query":
-        #     self.max_position_embeddings = config.max_position_embeddings
-        #     self.distance_embedding = nn.Embedding(2 * config.max_position_embeddings - 1, self.attention_head_size)
+        self.one_pass_attn_mask_train = (1 - self.one_pass_attn_mask_train) * -10000
 
+        self.register_buffer('one_pass_attn_mask_eval', torch.eye(config.impr_size).repeat_interleave(repeats=self.signal_length, dim=-1), persistent=False)
+        self.register_buffer('ps_term_mask', torch.ones(1,self.term_num), persistent=False)
+        self.one_pass_attn_mask_eval = (1 - self.one_pass_attn_mask_eval) * -10000
+        self.ps_term_mask = (1 - self.ps_term_mask) * -10000
 
     def transpose_for_scores(self, x):
         """
@@ -63,7 +64,7 @@ class BertSelfAttention(nn.Module):
         else:
             attn_field_length = hidden_states.size(1) - self.term_num
             cdd_size = attn_field_length // self.signal_length
-            one_pass_mask = torch.cat([torch.eye(cdd_size, device=hidden_states.device).repeat_interleave(repeats=self.signal_length, dim=-1).repeat_interleave(repeats=self.signal_length, dim=0), torch.ones(attn_field_length, self.term_num, device=hidden_states.device)], dim=-1).unsqueeze(0).unsqueeze(0)
+            one_pass_mask = torch.cat([(self.one_pass_attn_mask_eval[:cdd_size, :cdd_size * self.signal_length]).repeat_interleave(repeats=self.signal_length, dim=0), self.ps_term_mask.expand(attn_field_length, self.term_num)], dim=-1).unsqueeze(0).unsqueeze(0)
 
         attn_field = hidden_states[:, :-self.term_num]
 
@@ -74,22 +75,25 @@ class BertSelfAttention(nn.Module):
         # Take the dot product between "query" and "key" to get the raw attention scores.
         attention_scores = torch.matmul(cdd_layer, key_layer.transpose(-1, -2))
         # [bs, hn, cdd_length, *]
-        attention_scores = (attention_scores / math.sqrt(self.attention_head_size)) * one_pass_mask
-        attention_scores = attention_scores * attention_mask
+        attention_scores = (attention_scores / math.sqrt(self.attention_head_size)) + one_pass_mask
+        attention_scores = attention_scores + attention_mask
         # Normalize the attention scores to probabilities.
         attention_probs = self.softmax(attention_scores)
         attention_probs = self.dropout(attention_probs)
 
         # full attention
-        # pst_layer = self.transpose_for_scores(self.query(hidden_states[:, -self.term_num:]))
-        # attention_scores_pst = torch.matmul(pst_layer, pst_layer.transpose(-1, -2))
-        # attention_scores_pst = attention_scores_pst / math.sqrt(self.attention_head_size)
-        # attention_scores_pst = attention_scores_pst * attention_mask[:, :, -self.term_num:, -self.term_num:]
-        # attention_probs_pst = self.softmax(attention_scores_pst)
-        # attention_probs_pst = self.dropout(attention_probs_pst)
-        # context_layer = torch.cat([torch.matmul(attention_probs, value_layer), torch.matmul(attention_probs_pst, value_layer[:, :, -self.term_num:])], dim=-2)
+        if self.full_attn:
+            pst_layer = self.transpose_for_scores(self.query(hidden_states[:, -self.term_num:]))
+            attention_scores_pst = torch.matmul(pst_layer, pst_layer.transpose(-1, -2))
+            attention_scores_pst = attention_scores_pst / math.sqrt(self.attention_head_size)
+            attention_scores_pst = attention_scores_pst + attention_mask[:, :, -self.term_num:, -self.term_num:]
+            attention_probs_pst = self.softmax(attention_scores_pst)
+            attention_probs_pst = self.dropout(attention_probs_pst)
+            context_layer = torch.cat([torch.matmul(attention_probs, value_layer), torch.matmul(attention_probs_pst, value_layer[:, :, -self.term_num:])], dim=-2)
 
-        context_layer = torch.cat([torch.matmul(attention_probs, value_layer), value_layer[:, :, -self.term_num:]], dim=-2)
+        # partial attention, where ps_terms do not interact with each other
+        else:
+            context_layer = torch.cat([torch.matmul(attention_probs, value_layer), value_layer[:, :, -self.term_num:]], dim=-2)
 
         # [batch_size, signal_length, head_num, head_dim]
         context_layer = context_layer.permute(0, 2, 1, 3).contiguous()

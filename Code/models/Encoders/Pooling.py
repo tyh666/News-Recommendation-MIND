@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from ..Modules.Attention import ScaledDpAttention
+from ..Modules.Attention import scaled_dp_attention
 
 class Attention_Pooling(nn.Module):
     def __init__(self, config):
@@ -20,7 +20,7 @@ class Attention_Pooling(nn.Module):
         Returns:
             user_repr: user representation (coarse), [batch_size, 1, hidden_dim]
         """
-        user_repr = ScaledDpAttention(self.query_news, news_reprs, news_reprs)
+        user_repr = scaled_dp_attention(self.query_news, news_reprs, news_reprs)
         return user_repr
 
 class Average_Pooling(nn.Module):
@@ -97,6 +97,6 @@ class Average_Pooling(nn.Module):
 #         news_embedding = self.RELU(self.CNN(
 #             news_embedding_pretrained)).transpose(-2, -1).view(news_batch.shape + (self.hidden_dim,))
 
-#         news_repr = Attention.ScaledDpAttention(word_query.view(
+#         news_repr = Attention.scaled_dp_attention(word_query.view(
 #             word_query.shape[0], 1, 1, word_query.shape[-1]), news_embedding, news_embedding).squeeze(dim=-2)
 #         return news_embedding.view(news_batch.shape + (self.level, self.hidden_dim)), news_repr
