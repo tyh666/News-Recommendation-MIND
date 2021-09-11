@@ -76,7 +76,7 @@ class BertSelfAttention(nn.Module):
         attention_scores = torch.matmul(cdd_layer, key_layer.transpose(-1, -2))
         # [bs, hn, cdd_length, *]
         attention_scores = (attention_scores / math.sqrt(self.attention_head_size)) + one_pass_mask
-        attention_scores = attention_scores + attention_mask
+        attention_scores = attention_scores + (attention_mask[:, :, :-self.term_num])
         # Normalize the attention scores to probabilities.
         attention_probs = self.softmax(attention_scores)
         attention_probs = self.dropout(attention_probs)

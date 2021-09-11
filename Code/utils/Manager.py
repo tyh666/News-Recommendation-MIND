@@ -3,6 +3,7 @@ import re
 import os
 import logging
 import argparse
+import json
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
@@ -19,7 +20,7 @@ import torch.distributed as dist
 
 logger = logging.getLogger(__name__)
 
-hparam_list = ["name", "scale", "batch_size", "his_size", "impr_size", "world_size", "signal_length", "hidden_dim", "k", "threshold", "granularity", "bert", "step", "lr", "bert_lr", "diversify", "no_dedup", "ascend_history", "no_sep_his", "no_order_embed"]
+hparam_list = ["epochs", "device", "path", "title_length", "step", "checkpoint", "smoothing", "num_workers", "pin_memory", "interval", "npratio", "metrics", "aggregator", "head_num", "rank"]
 
 
 class Manager():
@@ -48,10 +49,10 @@ class Manager():
                                 help="history size", type=int, default=50)
             parser.add_argument("-is", "--impr_size", dest="impr_size",
                                 help="impression size for evaluating", type=int, default=50)
-            parser.add_argument("-tl", "--title_length", dest="title_length",
-                                help="news title size", type=int, default=20)
-            parser.add_argument("-as", "--abs_length", dest="abs_length",
-                                help="news abstract length", type=int, default=40)
+            # parser.add_argument("-tl", "--title_length", dest="title_length",
+            #                     help="news title size", type=int, default=20)
+            # parser.add_argument("-as", "--abs_length", dest="abs_length",
+            #                     help="news abstract length", type=int, default=40)
             parser.add_argument("-sl", "--signal_length", dest="signal_length",
                             help="length of the bert tokenized tokens", type=int, default=100)
 
@@ -71,6 +72,7 @@ class Manager():
                                 help="learning rate of bert based modules", type=float, default=3e-5)
             parser.add_argument("-sm", "--smoothing", dest="smoothing", help="smoothing factor of tqdm", type=float, default=0.3)
 
+            parser.add_argument("-div", "--diversify", dest="diversify", help="whether to diversify selection with news representation", action="store_true", default=False)
             parser.add_argument("--ascend_history", dest="ascend_history", help="whether to order history by time in ascending", action="store_true", default=False)
             parser.add_argument("--save_pos", dest="sive_pos", help="whether to save token positions", action="store_true", default=False)
             parser.add_argument("--sep_his", dest="sep_his", help="whether to separate personalized terms from different news with an extra token", action="store_true", default=False)
@@ -99,7 +101,6 @@ class Manager():
             parser.add_argument("-fus", "--fuser", dest="fuser", help="choose term fuser", choices=["union"], default="union")
             parser.add_argument("-rk", "--ranker", dest="ranker", help="choose ranker", choices=["onepass","original","cnn","knrm"], default="onepass")
             parser.add_argument("-agg", "--aggregator", dest="aggregator", help="choose history aggregator, only used in TTMS", choices=["avg","attn","cnn","rnn","lstur","mha"], default=None)
-            parser.add_argument("-div", "--diversify", dest="diversify", help="whether to diversify selection with news representation", action="store_true", default=False)
 
             parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=5)
             parser.add_argument("-thr", "--threshold", dest="threshold", help="threshold to mask terms", default=-float("inf"), type=float)
@@ -134,7 +135,7 @@ class Manager():
 
 
     def __str__(self):
-        return "\n" + "\n".join(["{}:{}".format(k,v) for k,v in vars(self).items() if k in hparam_list])
+        return "\n" + json.dumps({k:v for k,v in vars(self).items() if k not in hparam_list}, sort_keys=False, indent=4)
 
 
     def save(self, model, step, optimizer=None):
@@ -202,7 +203,7 @@ class Manager():
         with open("performance.log", "a+") as f:
             d = {"name": self.name}
             for k, v in vars(self).items():
-                if k in hparam_list:
+                if k not in hparam_list:
                     d[k] = v
 
             f.write(str(d)+"\n")

@@ -41,6 +41,7 @@ class config:
     interval = 10
 
     granularity = 'avg'
+    full_attn = False
     ascend_history = False
     save_pos = False
     sep_his = False
