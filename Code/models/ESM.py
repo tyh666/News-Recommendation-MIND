@@ -128,15 +128,12 @@ class ESM(nn.Module):
 
         cdd_news = x["cdd_encoded_index"].long().to(self.device)
         cdd_news_embedding = self.embedding(cdd_news, cdd_subword_prefix)
-        _, cdd_news_repr = self.encoderN(
-            cdd_news_embedding
-        )
+        _, cdd_news_repr = self.encoderN(cdd_news_embedding)
 
         his_news = x["his_encoded_index"].long().to(self.device)
         his_news_embedding = self.embedding(his_news, his_subword_prefix)
-        his_news_encoded_embedding, his_news_repr = self.encoderN(
-            his_news_embedding
-        )
+        his_news_encoded_embedding, his_news_repr = self.encoderN(his_news_embedding)
+        
         user_repr = self.encoderU(his_news_repr)
 
         ps_terms, ps_term_mask, kid = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, his_attn_mask, his_refined_mask)
@@ -159,4 +156,4 @@ class ESM(nn.Module):
         else:
             prob = torch.sigmoid(score)
 
-        return (prob, kid)
+        return prob, kid

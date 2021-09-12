@@ -140,8 +140,7 @@ class BERT_Onepass_Ranker(nn.Module):
         nn.init.xavier_normal_(self.pooler[0].weight)
 
         # [2, embedding_dim]
-        self.token_type_embedding = nn.Parameter(torch.randn(2, self.embedding_dim))
-        nn.init.xavier_normal_(self.token_type_embedding)
+        self.token_type_embedding = nn.Parameter(bert.embeddings.token_type_embeddings.weight)
 
         # [SEP] token
         if config.embedding == 'bert':

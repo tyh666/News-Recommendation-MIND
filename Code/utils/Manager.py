@@ -764,6 +764,7 @@ class Manager():
                 his_encoded_index = his_encoded_index[:, :, :, 0]
             his_id = x["his_id"]
 
+            # strip [CLS]
             encoded_ids = his_encoded_index[:, :, 1:]
 
             for i,batch in enumerate(encoded_ids):
