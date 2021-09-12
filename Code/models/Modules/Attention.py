@@ -1,6 +1,6 @@
 import math
 import torch
-import torch.nn as nn
+from torch import _softmax_backward_data, nn
 
 def scaled_dp_attention(query, key, value):
     """ calculate scaled attended output of values
@@ -45,9 +45,36 @@ def get_attn_mask(attn_mask, query_length=None):
         extended_attn_mask2 = extended_attn_mask.squeeze(-2).unsqueeze(-1)
 
     attn_mask = extended_attn_mask * extended_attn_mask2
-    attn_mask = attn_mask.byte()
 
     return attn_mask
+
+
+class XSoftmax(torch.autograd.Function):
+    """
+    Masked Softmax which is optimized for saving memory
+
+    Args:
+        input (:obj:`torch.tensor`): The input tensor that will apply softmax.
+        mask (:obj:`torch.IntTensor`): The mask matrix where 0 indicate that element will be ignored in the softmax calculation.
+        dim (int): The dimension that will apply softmax
+    """
+
+    @staticmethod
+    def forward(self, input, mask, dim):
+        self.dim = dim
+        rmask = ~(mask.bool())
+
+        output = input.masked_fill(rmask, float("-inf"))
+        output = torch.softmax(output, self.dim)
+        output.masked_fill_(rmask, 0)
+        self.save_for_backward(output)
+        return output
+
+    @staticmethod
+    def backward(self, grad_output):
+        (output,) = self.saved_tensors
+        inputGrad = _softmax_backward_data(grad_output, output, self.dim, output)
+        return inputGrad, None, None
 
 
 class MultiheadAttention(nn.Module):

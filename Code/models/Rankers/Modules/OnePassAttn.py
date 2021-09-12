@@ -1,6 +1,7 @@
 import math
 import torch
 import torch.nn as nn
+from models.Modules.Attention import XSoftmax
 
 class BertSelfAttention(nn.Module):
     def __init__(self, config):
@@ -18,7 +19,6 @@ class BertSelfAttention(nn.Module):
         self.value = nn.Linear(config.hidden_size, self.all_head_size)
 
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
-        self.softmax = nn.Softmax(dim=-1)
 
         self.signal_length = config.signal_length
         self.all_length = config.cdd_size * self.signal_length
@@ -27,12 +27,8 @@ class BertSelfAttention(nn.Module):
 
         # default to term_num = his_size * k + 1
         self.register_buffer('one_pass_attn_mask_train', torch.cat([torch.eye(config.cdd_size).repeat_interleave(repeats=self.signal_length, dim=-1).repeat_interleave(repeats=self.signal_length, dim=0), torch.ones(config.cdd_size * self.signal_length, config.term_num)], dim=-1).unsqueeze(0).unsqueeze(0), persistent=False)
-        self.one_pass_attn_mask_train = (1 - self.one_pass_attn_mask_train) * -10000
-
         self.register_buffer('one_pass_attn_mask_eval', torch.eye(config.impr_size).repeat_interleave(repeats=self.signal_length, dim=-1), persistent=False)
         self.register_buffer('ps_term_mask', torch.ones(1,self.term_num), persistent=False)
-        self.one_pass_attn_mask_eval = (1 - self.one_pass_attn_mask_eval) * -10000
-        self.ps_term_mask = (1 - self.ps_term_mask) * -10000
 
     def transpose_for_scores(self, x):
         """
@@ -75,10 +71,10 @@ class BertSelfAttention(nn.Module):
         # Take the dot product between "query" and "key" to get the raw attention scores.
         attention_scores = torch.matmul(cdd_layer, key_layer.transpose(-1, -2))
         # [bs, hn, cdd_length, *]
-        attention_scores = (attention_scores / math.sqrt(self.attention_head_size)) + one_pass_mask
-        attention_scores = attention_scores + (attention_mask[:, :, :-self.term_num])
+        attention_scores = (attention_scores / math.sqrt(self.attention_head_size))
+        attention_mask_query = one_pass_mask * attention_mask[:, :, :-self.term_num]
         # Normalize the attention scores to probabilities.
-        attention_probs = self.softmax(attention_scores)
+        attention_probs = XSoftmax.apply(attention_scores, attention_mask_query, -1)
         attention_probs = self.dropout(attention_probs)
 
         # full attention
@@ -86,8 +82,8 @@ class BertSelfAttention(nn.Module):
             pst_layer = self.transpose_for_scores(self.query(hidden_states[:, -self.term_num:]))
             attention_scores_pst = torch.matmul(pst_layer, pst_layer.transpose(-1, -2))
             attention_scores_pst = attention_scores_pst / math.sqrt(self.attention_head_size)
-            attention_scores_pst = attention_scores_pst + attention_mask[:, :, -self.term_num:, -self.term_num:]
-            attention_probs_pst = self.softmax(attention_scores_pst)
+            attention_mask_pst = attention_mask[:, :, -self.term_num:, -self.term_num:]
+            attention_probs_pst = XSoftmax.apply(attention_scores_pst, attention_mask_pst, -1)
             attention_probs_pst = self.dropout(attention_probs_pst)
             context_layer = torch.cat([torch.matmul(attention_probs, value_layer), torch.matmul(attention_probs_pst, value_layer[:, :, -self.term_num:])], dim=-2)
 

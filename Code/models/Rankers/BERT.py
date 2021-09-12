@@ -185,7 +185,6 @@ class BERT_Onepass_Ranker(nn.Module):
 
         attn_mask = torch.cat([attn_mask, self.sep_attn_mask.expand(batch_size, 1), ps_term_mask], dim=-1)
         attn_mask = get_attn_mask(attn_mask)
-        attn_mask = (1.0 - attn_mask) * -10000.0
 
         bert_output = self.bert(bert_input, attention_mask=attn_mask).last_hidden_state[:, 0 : cdd_size * (self.signal_length) : self.signal_length].view(batch_size, cdd_size, self.embedding_dim)
         bert_output = self.pooler(bert_output)
