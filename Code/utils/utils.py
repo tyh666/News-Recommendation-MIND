@@ -598,12 +598,10 @@ class DeDuplicate(object):
         for i, document in enumerate(documents):
             tokens = set()
             duplicated = []
-            # ignore [CLS]
-            for j, token in enumerate(document[1:]):
+            for j, token in enumerate(document):
                 if token in tokens or token in self.punctuations:
                     # if the term duplicates
-                    # [CLS] token always stands ahead
-                    duplicated.append(j + 1)
+                    duplicated.append(j)
                 else:
                     tokens.add(token)
 

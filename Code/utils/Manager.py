@@ -763,10 +763,7 @@ class Manager():
                 his_encoded_index = his_encoded_index[:, :, :, 0]
             his_id = x["his_id"]
 
-            # strip [CLS]
-            encoded_ids = his_encoded_index[:, :, 1:]
-
-            for i,batch in enumerate(encoded_ids):
+            for i,batch in enumerate(his_encoded_index):
                 for j,his_token_ids in enumerate(batch):
                     print("*******************************************************")
                     tokens = t.convert_ids_to_tokens(his_token_ids)
