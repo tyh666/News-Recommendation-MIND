@@ -189,12 +189,12 @@ class MIND(Dataset):
                 tokens = tokenizer.tokenize(text)
 
                 # maintain subword entry
-                subword_all = [[0,0]]
+                subword_all = []
                 # mask subword entry
-                subword_first = [[0,0]]
+                subword_first = []
 
-                i = 0
-                j = 0
+                i = -1
+                j = -1
                 for token in tokens:
                     if token.startswith("##"):
                         j += 1
@@ -208,7 +208,7 @@ class MIND(Dataset):
                         subword_all.append([i,j])
                         subword_first.append([i,j])
 
-                token_ids = tokenizer.convert_tokens_to_ids(["[CLS]"]) + tokenizer.convert_tokens_to_ids(tokens[:max_length - 1])
+                token_ids = tokenizer.convert_tokens_to_ids(tokens[:max_length])
                 pad_length = max_length - len(token_ids)
 
                 text_toks.append(token_ids + [0] * pad_length)
@@ -249,12 +249,12 @@ class MIND(Dataset):
                 tokens = tokenizer.tokenize(text)
 
                 # maintain subword entry
-                subword_all = [[0,0]]
+                subword_all = []
                 # mask subword entry
-                subword_first = [[0,0]]
+                subword_first = []
 
-                i = 0
-                j = 0
+                i = -1
+                j = -1
                 for index,token in enumerate(tokens):
                     # not subword
                     if index == 0 or token.startswith("Ġ") or token in r"[.&*()+=/\<>,!?;:~`@#$%^]":
@@ -270,7 +270,7 @@ class MIND(Dataset):
                         subword_all.append([i,j])
                         subword_first.append([0,0])
 
-                token_ids = tokenizer.convert_tokens_to_ids(["[CLS]"]) + tokenizer.convert_tokens_to_ids(tokens[:max_length - 1])
+                token_ids = tokenizer.convert_tokens_to_ids(tokens[:max_length])
                 pad_length = max_length - len(token_ids)
 
                 text_toks.append(token_ids + [0] * pad_length)

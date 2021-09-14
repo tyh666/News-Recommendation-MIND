@@ -510,7 +510,7 @@ class BM25(object):
             tf = defaultdict(int)
             words = document.split()
             # ignore [CLS]
-            for word in words[1:]:
+            for word in words:
                 tf[word] += 1
                 df[word] += 1
             tfs.append(tf)
@@ -555,7 +555,7 @@ class BM25(object):
                 # the first article is empty
                 sorted_documents.append("")
             else:
-                sorted_documents.append(" ".join(["[CLS]"] + list(bm25.keys())))
+                sorted_documents.append(" ".join(list(bm25.keys())))
 
         return sorted_documents
 

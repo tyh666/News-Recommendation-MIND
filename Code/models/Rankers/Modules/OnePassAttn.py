@@ -54,12 +54,12 @@ class BertSelfAttention(nn.Module):
             hidden_states: normally encoded candidate news, [batch_size, signal_length, hidden_dim]
             references: normally personalized terms, [batch_size, term_num, hidden_dim]
         """
-        # [CLS] + signal_length
         if self.training:
             one_pass_mask = self.one_pass_attn_mask_train
         else:
             attn_field_length = hidden_states.size(1) - self.term_num
-            cdd_size = attn_field_length // self.signal_length
+            cdd_size, extra = divmod(attn_field_length, self.signal_length)
+            assert extra == 0
             one_pass_mask = torch.cat([(self.one_pass_attn_mask_eval[:cdd_size, :cdd_size * self.signal_length]).repeat_interleave(repeats=self.signal_length, dim=0), self.ps_term_mask.expand(attn_field_length, self.term_num)], dim=-1).unsqueeze(0).unsqueeze(0)
 
         attn_field = hidden_states[:, :-self.term_num]
@@ -73,6 +73,7 @@ class BertSelfAttention(nn.Module):
         # [bs, hn, cdd_length, *]
         attention_scores = (attention_scores / math.sqrt(self.attention_head_size))
         attention_mask_query = one_pass_mask * attention_mask[:, :, :-self.term_num]
+
         # Normalize the attention scores to probabilities.
         attention_probs = XSoftmax.apply(attention_scores, attention_mask_query, -1)
         attention_probs = self.dropout(attention_probs)

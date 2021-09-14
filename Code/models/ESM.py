@@ -22,13 +22,15 @@ class ESM(nn.Module):
         self.reducer = reducer
         self.ranker = ranker
 
-        self.final_dim = ranker.final_dim
+        self.final_dim = ranker.hidden_dim
 
         self.learningToRank = nn.Sequential(
             nn.Linear(self.final_dim + 1, int(self.final_dim/2)),
-            nn.ReLU(),
+            nn.Tanh(),
             nn.Linear(int(self.final_dim/2),1)
         )
+        nn.init.xavier_normal_(self.learningToRank[0].weight)
+        nn.init.xavier_normal_(self.learningToRank[2].weight)
 
         self.granularity = config.granularity
         if self.granularity != 'token':
@@ -38,7 +40,7 @@ class ESM(nn.Module):
             else:
                 self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, config.signal_length * config.signal_length)), persistent=False)
 
-        if not config.no_debias:
+        if config.debias:
             self.newsDebias = nn.Sequential(
                 nn.Linear(self.encoderN.hidden_dim, self.encoderN.hidden_dim // 2),
                 nn.Tanh(),
@@ -47,7 +49,7 @@ class ESM(nn.Module):
             nn.init.xavier_normal_(self.newsDebias[0].weight)
             nn.init.xavier_normal_(self.newsDebias[2].weight)
 
-        config.name = '__'.join(['esm', config.embedding, config.encoderN, config.encoderU, config.reducer, config.ranker, config.granularity])
+        config.name = '__'.join(['esm', config.embedding, config.encoderN, config.encoderU, config.reducer, config.ranker, config.granularity, "full" if config.full_attn else "partial"])
 
 
     def clickPredictor(self, reduced_tensor, cdd_news_repr, user_repr):
@@ -133,15 +135,12 @@ class ESM(nn.Module):
         his_news = x["his_encoded_index"].long().to(self.device)
         his_news_embedding = self.embedding(his_news, his_subword_prefix)
         his_news_encoded_embedding, his_news_repr = self.encoderN(his_news_embedding)
-        
+
         user_repr = self.encoderU(his_news_repr)
 
         ps_terms, ps_term_mask, kid = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, his_attn_mask, his_refined_mask)
 
-        # reduced_tensor = self.ranker(torch.cat([cdd_news_repr.unsqueeze(-2), cdd_news_embedding], dim=-2), torch.cat([user_repr, ps_terms], dim=-2))
-
         reduced_tensor = self.ranker(cdd_news_embedding, ps_terms, cdd_attn_mask, ps_term_mask)
-        # reduced_tensor = self.ranker(cdd_news_embedding, ps_terms, x['cdd_attn_mask'].to(self.device), ps_term_mask)
 
         return self.clickPredictor(reduced_tensor, cdd_news_repr, user_repr), kid
 

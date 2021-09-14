@@ -4,7 +4,10 @@ import torch.nn.functional as F
 
 class Matching_Reducer(nn.Module):
     """
-    basic document reducer: topk of each historical article
+    select top k terms from each historical news with max cosine similarity
+
+    1. keep the first K terms unmasked
+    2. add order embedding to terms from different historical news
     """
     def __init__(self, config):
         super().__init__()
@@ -19,7 +22,7 @@ class Matching_Reducer(nn.Module):
         config.term_num = config.k * config.his_size
 
         keep_k_modifier = torch.zeros(1, config.signal_length)
-        keep_k_modifier[:, :self.k+1] = 1
+        keep_k_modifier[:, :self.k] = 1
         self.register_buffer('keep_k_modifier', keep_k_modifier, persistent=False)
 
         if self.diversify:
@@ -58,9 +61,6 @@ class Matching_Reducer(nn.Module):
         """
         batch_size = news_embedding.size(0)
 
-        # strip off [CLS]
-        news_selection_embedding = news_selection_embedding[:, :, 1:]
-        news_embedding = news_embedding[:, :, 1:]
         if self.diversify:
             news_user_repr = torch.cat([user_repr.expand(news_repr.size()), news_repr], dim=-1)
             selection_query = self.newsUserAlign(news_user_repr).unsqueeze(-1)
@@ -70,7 +70,7 @@ class Matching_Reducer(nn.Module):
         # [bs, hs, sl - 1]
         scores = F.normalize(news_selection_embedding, dim=-1).matmul(F.normalize(selection_query, dim=-2)).squeeze(-1)
         # print(scores[0])
-        pad_pos = ~(((his_refined_mask + self.keep_k_modifier)[:, :, 1:]).bool())
+        pad_pos = ~((his_refined_mask + self.keep_k_modifier).bool())
         # mask the padded term
         scores = scores.masked_fill(pad_pos, -float('inf'))
 
@@ -78,17 +78,16 @@ class Matching_Reducer(nn.Module):
 
         ps_terms = news_embedding.gather(dim=-2,index=score_kid.unsqueeze(-1).expand(score_kid.size() + (news_embedding.size(-1),)))
         # [bs, hs, k]
-        ps_term_mask = his_attn_mask[:, :, 1:].gather(dim=-1, index=score_kid)
+        ps_term_mask = his_attn_mask.gather(dim=-1, index=score_kid)
 
         if hasattr(self, 'threshold'):
             mask_pos = score_k < self.threshold
             # ps_terms = personalized_terms * (nn.functional.softmax(score_k.masked_fill(score_k < self.threshold, 0), dim=-1).unsqueeze(-1))
             ps_terms = ps_terms * (score_k.masked_fill(mask_pos, 0).unsqueeze(-1))
             ps_term_mask = ps_term_mask * (~mask_pos)
-
         else:
             ps_terms = ps_terms * (F.softmax(score_k, dim=-1).unsqueeze(-1))
-            # ps_terms = ps_terms * (score_k.unsqueeze(-1))
+
         if hasattr(self, 'order_embedding'):
             ps_terms += self.order_embedding
 

@@ -6,6 +6,13 @@ import torch.nn.functional as F
 from .Encoders.BERT import BERT_Encoder
 
 class TTMS(nn.Module):
+    """
+    Tow tower model with selection
+
+    1. encode candidate news with bert
+    2. encode ps terms with the same bert, using [CLS] embedding as user representation
+    3. predict by scaled dot product
+    """
     def __init__(self, config, embedding, encoderN, encoderU, reducer):
         super().__init__()
 
@@ -36,7 +43,7 @@ class TTMS(nn.Module):
             nn.Tanh()
         )
 
-        if not config.no_debias:
+        if config.debias:
             self.newsDebias = nn.Sequential(
                 nn.Linear(self.bert.hidden_dim, self.bert.hidden_dim // 2),
                 nn.Tanh(),
@@ -60,8 +67,6 @@ class TTMS(nn.Module):
         Returns:
             score of each candidate news, [batch_size, cdd_size]
         """
-        # print(user_repr.mean(), cdd_news_repr.mean(), user_repr.max(), cdd_news_repr.max(), user_repr.sum(), cdd_news_repr.sum())
-        # score = F.normalize(cdd_news_repr, dim=-1).matmul(F.normalize(user_repr, dim=-1).transpose(-2,-1)).squeeze(-1)
         score = cdd_news_repr.matmul(user_repr.transpose(-2,-1)).squeeze(-1)/math.sqrt(self.embedding.embedding_dim)
 
         if hasattr(self, 'newsDebias'):
@@ -141,11 +146,7 @@ class TTMS(nn.Module):
 
         ps_terms, ps_term_mask, kid = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, his_attn_mask, his_refined_mask)
 
-        # append CLS to the entire browsing history, directly deriving user repr
-        batch_size = ps_terms.size(0)
-        ps_terms = torch.cat([his_news_embedding[:, 0, 0].unsqueeze(1), ps_terms], dim=-2)
-        ps_term_mask = torch.cat([self.extra_cls_mask.expand(batch_size, 1), ps_term_mask], dim=-1)
-        _, user_cls = self.bert(ps_terms.unsqueeze(1), ps_term_mask.unsqueeze(1))
+        _, user_cls = self.bert(ps_terms, ps_term_mask)
         user_repr = self.newsUserProject(user_cls)
 
         return self.clickPredictor(cdd_news_repr, user_repr), kid

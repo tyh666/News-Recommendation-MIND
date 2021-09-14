@@ -22,7 +22,6 @@ logger = logging.getLogger(__name__)
 
 hparam_list = ["epochs", "device", "path", "title_length", "step", "checkpoint", "smoothing", "num_workers", "pin_memory", "interval", "npratio", "metrics", "aggregator", "head_num", "rank"]
 
-
 class Manager():
     """
     wrap training/evaluating processes
@@ -77,10 +76,10 @@ class Manager():
             parser.add_argument("--save_pos", dest="save_pos", help="whether to save token positions", action="store_true", default=False)
             parser.add_argument("--sep_his", dest="sep_his", help="whether to separate personalized terms from different news with an extra token", action="store_true", default=False)
             parser.add_argument("--full_attn", dest="full_attn", help="whether to interact among personalized terms (only in one-pass bert models)", action="store_true", default=False)
+            parser.add_argument("--debias", dest="debias", help="whether to add a learnable bias to each candidate news's score", action="store_true", default=False)
             parser.add_argument("--no_dedup", dest="no_dedup", help="whether to deduplicate tokens", action="store_true", default=False)
             parser.add_argument("--no_rm_punc", dest="no_rm_punc", help="whether to mask punctuations when selecting", action="store_true", default=False)
             parser.add_argument("--no_order_embed", dest="no_order_embed", help="whether to add an extra embedding to ps terms from the same historical news", action="store_true", default=False)
-            parser.add_argument("--no_debias", dest="no_debias", help="whether to add a learnable bias to each candidate news' score", action="store_true", default=False)
 
             parser.add_argument("--num_workers", dest="num_workers", help="worker number of a dataloader", type=int, default=0)
             parser.add_argument("--shuffle", dest="shuffle", help="whether to shuffle the indices", action="store_true", default=False)
@@ -821,6 +820,20 @@ class Manager():
             else:
                 from utils.utils import convert_tokens_to_words_deberta
                 return convert_tokens_to_words_deberta(tokens)
+
+
+    def get_special_token_id(self, token):
+        special_token_map = {
+            "bert-base-uncased":{
+                "[CLS]": 101,
+                "[SEP]": 102,
+            },
+            "microsoft/deberta-base":{
+                "[CLS]": 1,
+                "[SEP]": 2,
+            }
+        }
+        return special_token_map[self.bert][token]
 
 
     def construct_nid2idx(self, scale=None, mode=None):
