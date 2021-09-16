@@ -31,7 +31,7 @@ class CNN_Encoder(nn.Module):
         nn.init.xavier_normal_(self.query_words)
 
 
-    def forward(self, news_embedding, *args):
+    def forward(self, news_embedding, attn_mask=None):
         """ encode news through 1-d CNN
 
         Args:
@@ -45,7 +45,7 @@ class CNN_Encoder(nn.Module):
         cnn_input = news_embedding.view(-1, signal_length, self.embedding_dim).transpose(-2, -1)
         cnn_output = self.RELU(self.layerNorm(self.cnn(cnn_input).transpose(-2, -1))).view(*news_embedding.shape[:-1], self.hidden_dim)
 
-        news_repr = scaled_dp_attention(self.query_words, self.Tanh(self.wordQueryProject(cnn_output)), cnn_output).squeeze(dim=-2)
+        news_repr = scaled_dp_attention(self.query_words, self.Tanh(self.wordQueryProject(cnn_output)), cnn_output, attn_mask.unsqueeze(-2)).squeeze(dim=-2)
         return cnn_output, news_repr
 
 

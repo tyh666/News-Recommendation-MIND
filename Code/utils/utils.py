@@ -440,39 +440,6 @@ def analyse(config):
         avg_title_length, avg_abstract_length, avg_his_length, avg_imp_length, cnt_his_lg_50, cnt_his_eq_0, cnt_imp_multi))
 
 
-def setup(rank, manager):
-    """
-    set up distributed training and fix seeds
-    """
-    if manager.world_size > 1:
-        os.environ["MASTER_ADDR"] = "localhost"
-        os.environ["MASTER_PORT"] = "12355"
-
-        # initialize the process group
-        dist.init_process_group("nccl", rank=rank, world_size=manager.world_size)
-
-        os.environ["TOKENIZERS_PARALLELISM"] = "True"
-        # manager.rank will be invoked in creating DistributedSampler
-        manager.rank = rank
-        # manager.device will be invoked in the model
-        manager.device = rank
-
-    else:
-        # one-gpu
-        manager.rank = -1
-
-    if rank != "cpu":
-        torch.cuda.set_device(rank)
-        os.environ["CUDA_VISIBLE_DEVICES"] = str(rank)
-
-
-def cleanup():
-    """
-    shut down the distributed training process
-    """
-    dist.destroy_process_group()
-
-
 class Partition_Sampler():
     def __init__(self, dataset, num_replicas, rank) -> None:
         super().__init__()
@@ -578,7 +545,7 @@ class DeDuplicate(object):
 
         if not config.no_rm_punc:
             punc_map = {
-                'bert':set([1031,1012,1004,1008,1006,1007,1009,1027,1013,1032,1026,1028,1010,999,1029,1025,1024,1066,1036,1030,1001,1002,1003,1034,1033]),
+                'bert':set([1031,1012,1004,1008,1006,1007,1009,1027,1013,1032,1026,1028,1010,999,1029,1025,1024,1066,1036,1030,1001,1002,1003,1034,1033,1011]),
                 "deberta":set([10975,4,947,3226,1640,43,2744,5214,73,37457,41552,15698,6,328,116,131,35,34437,12905,1039,10431,1629,207,35227,742])
             }
             self.punctuations = punc_map[config.embedding]

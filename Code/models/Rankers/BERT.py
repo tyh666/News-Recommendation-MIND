@@ -107,6 +107,7 @@ class BERT_Onepass_Ranker(nn.Module):
 
         self.name = 'onepass-bert'
         self.signal_length = config.signal_length
+        self.term_num = config.term_num + 2
         self.hidden_dim = 768
 
         bert_config = BertConfig()
@@ -137,6 +138,11 @@ class BERT_Onepass_Ranker(nn.Module):
         self.cls_embedding = nn.Parameter(word_embedding.weight[config.get_special_token_id('[CLS]')].view(1,1,self.hidden_dim))
         self.sep_embedding = nn.Parameter(word_embedding.weight[config.get_special_token_id('[SEP]')].view(1,1,self.hidden_dim))
 
+        try:
+            self.pos_embedding = nn.Parameter(bert.embeddings.position_embeddings.weight)
+        except:
+            self.pos_embedding = None
+
         self.register_buffer('extra_attn_mask', torch.ones(1, 1), persistent=False)
 
     def forward(self, cdd_news_embedding, ps_terms, cdd_attn_mask, ps_term_mask):
@@ -158,14 +164,23 @@ class BERT_Onepass_Ranker(nn.Module):
         # [bs, cs*sl + cs, hd]
         # add [CLS] token
         cdd_news_embedding = torch.cat([self.cls_embedding.expand(batch_size, cdd_size, 1, self.hidden_dim), cdd_news_embedding], dim=-2)
+
+        if self.pos_embedding is not None:
+            # extra [CLS]
+            cdd_news_embedding += self.pos_embedding[:self.signal_length + 1]
+
         cdd_news_embedding = cdd_news_embedding.view(batch_size, -1, self.hidden_dim)
         cdd_attn_mask = torch.cat([self.extra_attn_mask.expand(batch_size, cdd_size, 1), cdd_attn_mask], dim=-1)
         cdd_attn_mask = cdd_attn_mask.view(batch_size, -1)
 
         bert_input = torch.cat([cdd_news_embedding, self.sep_embedding.expand(batch_size, 1, self.hidden_dim), ps_terms, self.sep_embedding.expand(batch_size, 1, self.hidden_dim)], dim=-2)
-        bert_input[:, :cdd_news_embedding.size(1) + 1] += self.token_type_embedding[0]
-        bert_input[:, cdd_news_embedding.size(1) + 1:] += self.token_type_embedding[1]
 
+        cdd_length = cdd_news_embedding.size(1)
+        bert_input[:, :cdd_length + 1] += self.token_type_embedding[0]
+        bert_input[:, cdd_length + 1:] += self.token_type_embedding[1]
+
+        if self.pos_embedding is not None:
+            bert_input[:, cdd_length:] += self.pos_embedding[self.signal_length + 1: self.signal_length + 1 + self.term_num]
 
         attn_mask = torch.cat([cdd_attn_mask, self.extra_attn_mask.expand(batch_size, 1), ps_term_mask, self.extra_attn_mask.expand(batch_size, 1)], dim=-1)
         attn_mask = get_attn_mask(attn_mask)

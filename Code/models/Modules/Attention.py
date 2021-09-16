@@ -2,7 +2,7 @@ import math
 import torch
 from torch import _softmax_backward_data, nn
 
-def scaled_dp_attention(query, key, value):
+def scaled_dp_attention(query, key, value, attn_mask=None):
     """ calculate scaled attended output of values
 
     Args:
@@ -18,10 +18,13 @@ def scaled_dp_attention(query, key, value):
     assert query.shape[-1] == key.shape[-1]
     key = key.transpose(-2, -1)
 
-    attn_weights = torch.matmul(query, key)/math.sqrt(query.shape[-1])
-    attn_weights = nn.functional.softmax(attn_weights,dim=-1)
+    attn_score = torch.matmul(query, key)/math.sqrt(query.shape[-1])
+    if attn_mask is not None:
+        attn_prob = torch.softmax(attn_score + (1-attn_mask) * -10000, -1)
+    else:
+        attn_prob = torch.softmax(attn_score, -1)
 
-    attn_output = torch.matmul(attn_weights, value)
+    attn_output = torch.matmul(attn_prob, value)
     return attn_output
 
 
@@ -35,6 +38,9 @@ def get_attn_mask(attn_mask):
     Returns:
         attn_mask: [batch_size, 1, *, *]
     """
+    if attn_mask is None:
+        return None
+
     assert attn_mask.dim() == 2
 
     extended_attn_mask = attn_mask.unsqueeze(1).unsqueeze(2)
@@ -52,7 +58,6 @@ class XSoftmax(torch.autograd.Function):
     Args:
         input (:obj:`torch.tensor`): The input tensor that will apply softmax.
         mask (:obj:`torch.IntTensor`): The mask matrix where 0 indicate that element will be ignored in the softmax calculation.
-        dim (int): The dimension that will apply softmax
     """
 
     @staticmethod
@@ -74,13 +79,13 @@ class XSoftmax(torch.autograd.Function):
 
 
 class MultiheadAttention(nn.Module):
-    def __init__(self, embedding_dim, head_num, key_dim=None, value_dim=None):
+    def __init__(self, hidden_dim, head_num, key_dim=None, value_dim=None):
         super().__init__()
         self.head_num = head_num
         if not (key_dim and value_dim):
-            assert embedding_dim % head_num == 0, "embedding_dim {} must divide head_num {}".format(embedding_dim, head_num)
-            head_dim = embedding_dim // head_num
-        self.embedding_dim = embedding_dim
+            assert hidden_dim % head_num == 0, "hidden_dim {} must divide head_num {}".format(hidden_dim, head_num)
+            head_dim = hidden_dim // head_num
+        self.hidden_dim = hidden_dim
 
         if key_dim:
             self.key_dim = key_dim
@@ -91,13 +96,9 @@ class MultiheadAttention(nn.Module):
         else:
             self.value_dim = head_dim
 
-        self.queryProject = nn.Linear(embedding_dim, self.key_dim * head_num)
-        self.keyProject = nn.Linear(embedding_dim, self.key_dim * head_num)
-        self.valueProject = nn.Linear(embedding_dim, self.value_dim * head_num)
+        self.keyProject = nn.Linear(hidden_dim, self.key_dim * head_num)
+        self.valueProject = nn.Linear(hidden_dim, self.value_dim * head_num)
 
-        self.softMax = nn.Softmax(dim=-1)
-
-        nn.init.xavier_normal_(self.queryProject.weight)
         nn.init.xavier_normal_(self.keyProject.weight)
         nn.init.xavier_normal_(self.valueProject.weight)
 
@@ -113,13 +114,13 @@ class MultiheadAttention(nn.Module):
         """ customized bert self attention, attending to the references
 
         Args:
-            hidden_states: normally encoded candidate news, [batch_size, signal_length, embedding_dim]
+            hidden_states: normally encoded candidate news, [batch_size, signal_length, hidden_dim]
 
         Returns:
             attn_output: [batch_size, signal_length, value_dim * num_head]
         """
         # [batch_size, head_num, *, head_dim]
-        query = self.transpose_for_scores(self.queryProject(hidden_states))
+        query = self.transpose_for_scores(self.keyProject(hidden_states))
         key = self.transpose_for_scores(self.keyProject(hidden_states))
         value = self.transpose_for_scores(self.valueProject(hidden_states))
 
@@ -129,10 +130,10 @@ class MultiheadAttention(nn.Module):
         # [bs, hn, sl+1, *]
         attention_scores = (attention_scores / math.sqrt(self.key_dim))
 
-        if attention_mask:
-            attention_scores = attention_scores * attention_mask
-
-        attention_probs = self.softMax(attention_scores)
+        if attention_mask is not None:
+            attention_probs = XSoftmax.apply(attention_scores, attention_mask, -1)
+        else:
+            attention_probs = torch.softmax(attention_scores, -1)
 
         attn_output = torch.matmul(attention_probs, value)
 

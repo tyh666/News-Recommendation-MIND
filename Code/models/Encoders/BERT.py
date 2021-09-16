@@ -57,7 +57,7 @@ class BERT_Encoder(nn.Module):
         cdd_length = bert_input.size(0)
 
         bert_input = torch.cat([self.cls_embedding.expand(cdd_length, 1, self.hidden_dim), bert_input, self.sep_embedding.expand(cdd_length, 1, self.hidden_dim)], dim=-2)
-        if hasattr(self, 'pos_embedding'):
+        if self.pos_embedding is not None:
             bert_input += self.pos_embedding[:bert_input.size(1)]
 
         attn_mask = attn_mask.view(-1, signal_length)

@@ -44,13 +44,8 @@ class TTMS(nn.Module):
         )
 
         if config.debias:
-            self.newsDebias = nn.Sequential(
-                nn.Linear(self.bert.hidden_dim, self.bert.hidden_dim // 2),
-                nn.Tanh(),
-                nn.Linear(self.bert.hidden_dim // 2, 1)
-            )
-            nn.init.xavier_normal_(self.newsDebias[0].weight)
-            nn.init.xavier_normal_(self.newsDebias[2].weight)
+            self.userBias = nn.Parameter(torch.randn(1,self.ranker.hidden_dim))
+            nn.init.xavier_normal_(self.userBias.weight)
 
         self.register_buffer('extra_cls_mask', torch.ones(1,1), persistent=False)
 
@@ -67,10 +62,9 @@ class TTMS(nn.Module):
         Returns:
             score of each candidate news, [batch_size, cdd_size]
         """
-        score = cdd_news_repr.matmul(user_repr.transpose(-2,-1)).squeeze(-1)/math.sqrt(self.embedding.embedding_dim)
-
         if hasattr(self, 'newsDebias'):
-            score += self.newsDebias(cdd_news_repr).squeeze(-1)
+            user_repr += self.userBias
+        score = cdd_news_repr.matmul(user_repr.transpose(-2,-1)).squeeze(-1)/math.sqrt(self.embedding.embedding_dim)
         return score
 
     def _forward(self,x):
@@ -136,7 +130,7 @@ class TTMS(nn.Module):
         his_news = x["his_encoded_index"].long().to(self.device)
         his_news_embedding = self.embedding(his_news, his_subword_prefix)
         his_news_encoded_embedding, his_news_repr = self.encoderN(
-            his_news_embedding
+            his_news_embedding, his_attn_mask
         )
         # no need to calculate this if ps_terms are fixed in advance
         if self.reducer.name == 'matching':

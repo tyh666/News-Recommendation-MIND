@@ -68,7 +68,7 @@ class Manager():
             parser.add_argument("-lr", dest="lr",
                                 help="learning rate of non-bert modules", type=float, default=1e-4)
             parser.add_argument("-blr", "--bert_lr", dest="bert_lr",
-                                help="learning rate of bert based modules", type=float, default=3e-5)
+                                help="learning rate of bert based modules", type=float, default=1e-5)
             parser.add_argument("-sm", "--smoothing", dest="smoothing", help="smoothing factor of tqdm", type=float, default=0.3)
 
             parser.add_argument("-div", "--diversify", dest="diversify", help="whether to diversify selection with news representation", action="store_true", default=False)
@@ -110,6 +110,7 @@ class Manager():
 
             parser.add_argument("-hn", "--head_num", dest="head_num", help="number of multi-heads", type=int, default=12)
             parser.add_argument("-ws", "--world_size", dest="world_size", help="total number of gpus", default=0, type=int)
+            parser.add_argument("-br", "--base_rank", dest="base_rank", help="modify port when launching multiple tasks on one node", default=0, type=int)
 
             args = parser.parse_args()
 
@@ -135,6 +136,40 @@ class Manager():
 
     def __str__(self):
         return "\n" + json.dumps({k:v for k,v in vars(self).items() if k not in hparam_list}, sort_keys=False, indent=4)
+
+
+    def setup(self, rank):
+        """
+        set up distributed training and fix seeds
+        """
+        if self.world_size > 1:
+            os.environ["MASTER_ADDR"] = "localhost"
+            os.environ["MASTER_PORT"] = str(12355 + self.base_rank)
+
+            # initialize the process group
+            dist.init_process_group("nccl", rank=rank, world_size=self.world_size)
+
+            os.environ["TOKENIZERS_PARALLELISM"] = "True"
+            # manager.rank will be invoked in creating DistributedSampler
+            self.rank = rank
+            # manager.device will be invoked in the model
+            self.device = rank
+
+        else:
+            # one-gpu
+            self.rank = -1
+
+        if rank != "cpu":
+            torch.cuda.set_device(rank)
+            os.environ["CUDA_VISIBLE_DEVICES"] = str(rank)
+
+
+    def cleanup(self):
+        """
+        shut down the distributed training process
+        """
+        if self.world_size > 1:
+            dist.destroy_process_group()
 
 
     def save(self, model, step, optimizer=None):

@@ -1,11 +1,11 @@
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-from utils.utils import prepare, setup, cleanup
+from utils.utils import prepare
 from utils.Manager import Manager
 from models.TTMS import TTMS
 
-def main(rank, manager, dist=False):
+def main(rank, manager):
     """ train/dev/test/tune the model (in distributed)
 
     Args:
@@ -13,7 +13,7 @@ def main(rank, manager, dist=False):
         world_size: total gpus
         conig
     """
-    setup(rank, manager)
+    manager.setup(rank)
     loaders = prepare(manager)
 
     from models.Embeddings.BERT import BERT_Embedding
@@ -60,7 +60,7 @@ def main(rank, manager, dist=False):
 
     ttms = TTMS(manager, embedding, encoderN, encoderU, reducer).to(rank)
 
-    if dist:
+    if manager.world_size > 1:
         ttms = DDP(ttms, device_ids=[rank], output_device=rank, find_unused_parameters=False)
 
     if manager.mode == 'dev':
@@ -78,16 +78,16 @@ def main(rank, manager, dist=False):
     elif manager.mode == 'inspect':
         manager.inspect(ttms, loaders[0])
 
-    if dist:
-        cleanup()
+    manager.cleanup()
+
 
 if __name__ == "__main__":
     manager = Manager()
     if manager.world_size > 1:
         mp.spawn(
             main,
-            args=(manager, True),
+            args=(manager,),
             nprocs=manager.world_size
         )
     else:
-        main(manager.device, manager, dist=False)
+        main(manager.device, manager)
