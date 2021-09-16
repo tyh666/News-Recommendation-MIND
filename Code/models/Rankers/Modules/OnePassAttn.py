@@ -20,8 +20,6 @@ class BertSelfAttention(nn.Module):
 
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
 
-        self.softmax = XSoftmax()
-
         self.signal_length = config.signal_length
         self.all_length = config.cdd_size * self.signal_length
         self.term_num = config.term_num
@@ -77,7 +75,7 @@ class BertSelfAttention(nn.Module):
         attention_mask_query = one_pass_mask * attention_mask[:, :, :-self.term_num]
 
         # Normalize the attention scores to probabilities.
-        attention_probs = self.softmax(attention_scores, attention_mask_query)
+        attention_probs = XSoftmax.apply(attention_scores, attention_mask_query, -1)
         attention_probs = self.dropout(attention_probs)
 
         # full attention
@@ -86,7 +84,7 @@ class BertSelfAttention(nn.Module):
             attention_scores_pst = torch.matmul(pst_layer, pst_layer.transpose(-1, -2))
             attention_scores_pst = attention_scores_pst / math.sqrt(self.attention_head_size)
             attention_mask_pst = attention_mask[:, :, -self.term_num:, -self.term_num:]
-            attention_probs_pst = self.softmax(attention_scores_pst, attention_mask_pst)
+            attention_probs_pst = XSoftmax.apply(attention_scores_pst, attention_mask_pst, -1)
             attention_probs_pst = self.dropout(attention_probs_pst)
             context_layer = torch.cat([torch.matmul(attention_probs, value_layer), torch.matmul(attention_probs_pst, value_layer[:, :, -self.term_num:])], dim=-2)
 

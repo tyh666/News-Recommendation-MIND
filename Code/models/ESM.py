@@ -25,7 +25,7 @@ class ESM(nn.Module):
         self.final_dim = ranker.hidden_dim
 
         self.learningToRank = nn.Sequential(
-            nn.Linear(self.final_dim + 1, int(self.final_dim/2)),
+            nn.Linear(self.final_dim, int(self.final_dim/2)),
             nn.Tanh(),
             nn.Linear(int(self.final_dim/2),1)
         )
@@ -43,7 +43,7 @@ class ESM(nn.Module):
         config.name = '__'.join(['esm', config.embedding, config.encoderN, config.encoderU, config.reducer, config.ranker, config.granularity, "full" if config.full_attn else "partial"])
 
 
-    def clickPredictor(self, reduced_tensor, cdd_news_repr, user_repr):
+    def clickPredictor(self, reduced_tensor):
         """ calculate batch of click probabolity
 
         Args:
@@ -56,9 +56,9 @@ class ESM(nn.Module):
         """
 
         # print(user_repr.mean(), cdd_news_repr.mean(), user_repr.max(), cdd_news_repr.max(), user_repr.sum(), cdd_news_repr.sum())
-        score_coarse = cdd_news_repr.matmul(user_repr.transpose(-2,-1))
-        score = torch.cat([reduced_tensor, score_coarse], dim=-1)
-        score = self.learningToRank(score).squeeze(dim=-1)
+        # score_coarse = cdd_news_repr.matmul(user_repr.transpose(-2,-1))
+        # score = torch.cat([reduced_tensor, score_coarse], dim=-1)
+        score = self.learningToRank(reduced_tensor).squeeze(dim=-1)
 
         return score
 
@@ -118,11 +118,11 @@ class ESM(nn.Module):
 
         cdd_news = x["cdd_encoded_index"].long().to(self.device)
         cdd_news_embedding = self.embedding(cdd_news, cdd_subword_prefix)
-        _, cdd_news_repr = self.encoderN(cdd_news_embedding)
+        # _, cdd_news_repr = self.encoderN(cdd_news_embedding)
 
         his_news = x["his_encoded_index"].long().to(self.device)
         his_news_embedding = self.embedding(his_news, his_subword_prefix)
-        his_news_encoded_embedding, his_news_repr = self.encoderN(his_news_embedding)
+        his_news_encoded_embedding, his_news_repr = self.encoderN(his_news_embedding, his_attn_mask)
 
         user_repr = self.encoderU(his_news_repr)
 
@@ -130,7 +130,7 @@ class ESM(nn.Module):
 
         reduced_tensor = self.ranker(cdd_news_embedding, ps_terms, cdd_attn_mask, ps_term_mask)
 
-        return self.clickPredictor(reduced_tensor, cdd_news_repr, user_repr), kid
+        return self.clickPredictor(reduced_tensor), kid
 
     def forward(self,x):
         """

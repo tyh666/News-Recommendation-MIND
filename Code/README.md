@@ -4,7 +4,8 @@ if [ -d /data/v-pezhang/nn/lib/python3.8/site-packages/torch ];
 then
   git config --global user.name 'namespace-Pt'
   git config --global user.email 'zpt@ruc.edu.cn'
-  sudo apt-get install screen
+  sudo apt-get install screen -y
+  sudo apt-get install rsync -y
   conda init
   echo 'alias nn="conda activate /data/v-pezhang/nn"' >> ~/.bashrc
   source ~/.bashrc
@@ -59,7 +60,7 @@ python -m scripts.sfi -m tune -s demo -k=5 -sl=20 -bs=10 -is=10 --no_dedup
 
 python -m scripts.ttms -m inspect -s large -ck=60000 -d=-1
 
-python -m scripts.ttms -m test -s large -is=200 -ck=589
+python -m scripts.ttms -m test -s large -is=200 -ws=2 -ck=589
 python -m scripts.esm -m test -s large -is=120 -ck=150000 -ws=2
 ```
 ## Preprocess
@@ -152,7 +153,7 @@ python -m scripts.esm -m test -s large -is=120 -ck=150000 -ws=2
 - [x] manager.encode
 - [x] distributed evaluate
 - [x] reverse history when learning user profile
-- [ ] which part consumes time most?
+- [x] which part consumes time most?
 
 ## Questions
 - use bag-of-words to encode user history?
@@ -170,7 +171,6 @@ python -m scripts.esm -m test -s large -is=120 -ck=150000 -ws=2
 - use selected document for final bert is terrible
 - **history in MIND, the more recent is at the front or the tail**, we now use the head as the latest news by default
   - its ascending by time
-- [SEP] no position embedding
 - **one tower is not better than two tower, why?**
 
 ## Ablation
