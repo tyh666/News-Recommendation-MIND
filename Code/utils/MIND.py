@@ -151,7 +151,7 @@ class MIND(Dataset):
         with open(self.news_file, "r", encoding="utf-8") as rd:
             for idx in tqdm(rd):
                 nid, vert, subvert, title, ab, url, title_entity, abs_entity = idx.strip("\n").split("\t")
-                article = " ".join([title, ab, vert, subvert])
+                article = " ".join([title, ab, subvert])
                 article = re.sub("\'|\"", '', article)
                 tokens = self.tokenizer.tokenize(article)[:self.max_token_length]
                 # unify subwords

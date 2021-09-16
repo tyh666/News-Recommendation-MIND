@@ -4,6 +4,7 @@ import os
 import logging
 import argparse
 import json
+import random
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
@@ -106,7 +107,7 @@ class Manager():
             parser.add_argument("--bert", dest="bert", help="choose bert model", choices=["bert-base-uncased"], default="bert-base-uncased")
 
             parser.add_argument("--tb", dest="tb", action="store_true", default=False)
-            parser.add_argument("--seeds", dest="seeds", default=None, type=int)
+            parser.add_argument("-sd","--seed", dest="seed", default=42, type=int)
 
             parser.add_argument("-hn", "--head_num", dest="head_num", help="number of multi-heads", type=int, default=12)
             parser.add_argument("-ws", "--world_size", dest="world_size", help="total number of gpus", default=0, type=int)
@@ -123,11 +124,19 @@ class Manager():
             if args.embedding == 'deberta':
                 args.bert = 'microsoft/deberta-base'
 
-            if args.seeds is not None:
-                from .utils import manual_seed
-                manual_seed(args.seeds)
         else:
             args = config
+
+        if args.seed is not None:
+            seed = args.seed
+            random.seed(seed)
+            os.environ['PYTHONHASHSEED'] = str(seed)
+            np.random.seed(seed)
+            torch.manual_seed(seed)
+            torch.cuda.manual_seed(seed)
+            torch.cuda.manual_seed_all(seed)
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = True
 
         for k,v in vars(args).items():
             if not k.startswith("__"):

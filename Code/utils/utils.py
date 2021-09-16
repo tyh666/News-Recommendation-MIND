@@ -251,14 +251,6 @@ def my_collate(data):
     return dict(result)
 
 
-def manual_seed(seed):
-    # os.environ["PYTHONHASHSEED"] = str(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    # torch.backends.cudnn.deterministic = True
-
 def prepare(config):
     from .MIND import MIND,MIND_news,MIND_impr
     """ prepare dataloader and several paths
@@ -273,9 +265,6 @@ def prepare(config):
     if config.rank in [-1, 0]:
         logger.info("Hyper Parameters are {}".format(config))
         logger.info("preparing dataset...")
-
-    if config.seeds:
-        manual_seed(config.seeds)
 
     mind_path = config.path + "MIND"
     shuffle = config.shuffle
