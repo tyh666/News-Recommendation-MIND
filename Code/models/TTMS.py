@@ -44,8 +44,8 @@ class TTMS(nn.Module):
         )
 
         if config.debias:
-            self.userBias = nn.Parameter(torch.randn(1,self.ranker.hidden_dim))
-            nn.init.xavier_normal_(self.userBias.weight)
+            self.userBias = nn.Parameter(torch.randn(1,self.bert.hidden_dim))
+            nn.init.xavier_normal_(self.userBias)
 
         self.register_buffer('extra_cls_mask', torch.ones(1,1), persistent=False)
 
