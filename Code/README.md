@@ -25,8 +25,8 @@ else
   source ~/.bashrc
   nn
 
-  pip install torch==1.7.1+cu110 -f https://download.pytorch.org/whl/torch_stable.html
-  pip install tensorboard ipython jupyter notebook typing pandas scipy scikit-learn transformers
+  /data/v-pezhang/nn/bin/pip install torch==1.7.1+cu110 -f https://download.pytorch.org/whl/torch_stable.html
+  /data/v-pezhang/nn/bin/pip install tensorboard ipython jupyter notebook typing pandas scipy scikit-learn transformers
 
   cd /data/
   mkdir v-pezhang
@@ -51,7 +51,7 @@ fi
 cd /data/v-pezhang/Code/Document-Reduction/Code
 python -m scripts.esm -m tune -s large -ws=2
 python -m scripts.ttm -m tune -s large -encn=bert -sl=30 -bs=25 -is=10 --no_dedup -ws=2
-python -m scripts.ttms -m tune -s large -wl
+python -m scripts.ttms -m tune -s large -ws=2
 
 python -m scripts.esm -m tune -s demo -bs=5 -is=10 -d=1
 python -m scripts.ttm -m tune -s demo -bs=5 -is=10 -d=1 -encn=bert -sl=30

@@ -72,7 +72,7 @@ class MIND(Dataset):
 
             if not (os.path.exists(self.cache_directory + "news.pkl") and os.path.exists(self.cache_directory + "bm25.pkl") and os.path.exists(self.cache_directory + "entity.pkl")):
                 from transformers import AutoTokenizer
-                self.tokenizer = AutoTokenizer.from_pretrained(config.bert, cache=config.path + "bert_cache/")
+                self.tokenizer = AutoTokenizer.from_pretrained(config.bert, cache_dir=config.path + "bert_cache/")
 
                 logger.info("encoding news of {}...".format(news_file))
                 self.news_file = news_file
