@@ -1,0 +1,224 @@
+%%
+%% This is file `sample-sigconf.tex',
+%% generated with the docstrip utility.
+%%
+%% The original source files were:
+%%
+%% samples.dtx  (with options: `sigconf')
+%%
+%% IMPORTANT NOTICE:
+%%
+%% For the copyright see the source file.
+%%
+%% Any modified versions of this file must be renamed
+%% with new filenames distinct from sample-sigconf.tex.
+%%
+%% For distribution of the original source see the terms
+%% for copying and modification in the file samples.dtx.
+%%
+%% This generated file may be distributed as long as the
+%% original source files, as listed above, are part of the
+%% same distribution. (The sources need not necessarily be
+%% in the same archive or directory.)
+%%
+%% The first command in your LaTeX source must be the \documentclass command.
+\documentclass[sigconf,anonymous]{acmart}
+\usepackage{diagbox}
+\usepackage{multirow}
+\newcommand{\dou}[1]{\textcolor{red}{[[@dou: #1]]}}
+\newcommand{\jing}[1]{\textcolor{blue}{[[@jing: #1]]}}
+\newcommand{\pt}[1]{\textcolor{green}{[[@pei: #1]]}}
+
+%%
+%% \BibTeX command to typeset BibTeX logo in the docs
+\AtBeginDocument{%
+  \providecommand\BibTeX{{%
+    \normalfont B\kern-0.5em{\scshape i\kern-0.25em b}\kern-0.8em\TeX}}}
+
+%% Rights management information.  This information is sent to you
+%% when you complete the rights form.  These commands have SAMPLE
+%% values in them; it is your responsibility as an author to replace
+%% the commands and values with those provided to you when you
+%% complete the rights form.
+\setcopyright{acmcopyright}
+\copyrightyear{2021}
+\acmYear{2021}
+\acmDOI{10.1145/1122445.1122456}
+
+%% These commands are for a PROCEEDINGS abstract or paper.
+% \acmConference[WSDM '22]{15th ACM International WSDM Conference}{February 21--25, 2022}{Phoenix, Arizona}
+% \acmBooktitle{WSDM '22: 15th ACM International Conference on Web Search and Data Mining, February 21--25, 2022, Phoenix, Arizona}
+\acmPrice{15.00}
+\acmISBN{978-1-4503-XXXX-X/18/06}
+
+%%
+%% Submission ID.
+%% Use this when submitting an article to a sponsored event. You'll
+%% receive a unique submission ID from the organizers
+%% of the event, and this ID should be used as the parameter to this command.
+%%\acmSubmissionID{123-A56-BU3}
+
+%%
+%% The majority of ACM publications use numbered citations and
+%% references.  The command \citestyle{authoryear} switches to the
+%% "author year" style.
+%%
+%% If you are preparing content for an event
+%% sponsored by ACM SIGGRAPH, you must use the "author year" style of
+%% citations and references.
+%% Uncommenting
+%% the next command will enable that style.
+%%\citestyle{acmauthoryear}
+
+%%
+%% end of the preamble, start of the body of the document source.
+
+
+\begin{document}
+
+%%
+%% The "title" command has an optional parameter,
+%% allowing the author to define a "short title" to be used in page headers.
+\title{Towards Efficiency and Sparsity: Exploiting Personalized Terms for News Recommendation}
+
+%%
+%% The "author" command and its associated commands are used to define
+%% the authors and their affiliations.
+%% Of note is the shared affiliation of the first two authors, and the
+%% "authornote" and "authornotemark" commands
+%% used to denote shared contribution to the research.
+
+% \author{Peitian Zhang}
+% \email{zpt@ruc.edu.cn}
+% % \orcid{1234-5678-9012}
+% \affiliation{%
+%   \institution{Renmin University of China}
+%   \streetaddress{}
+%   \city{Beijing}
+%   \state{}
+%   \country{China}
+%   \postcode{100872}
+% }
+% \author{Zhicheng Dou}
+% \email{dou@ruc.edu.cn}
+% % \orcid{1234-5678-9012}
+% \affiliation{%
+%   \institution{Renmin University of China}
+%   \streetaddress{}
+%   \city{Beijing}
+%   \state{}
+%   \country{China}
+%   \postcode{100872}
+% }
+
+% \author{Jing Yao}
+% \email{jing@ruc.edu.cn}
+% % \orcid{1234-5678-9012}
+% \affiliation{%
+%   \institution{Renmin University of China}
+%   \streetaddress{}
+%   \city{Beijing}
+%   \state{}
+%   \country{China}
+%   \postcode{100872}
+% }
+
+
+%%
+%% By default, the full list of authors will be used in the page
+%% headers. Often, this list is too long, and will overlap
+%% other information printed in the page headers. This command allows
+%% the author to define a more concise list
+%% of authors' names for this purpose.
+% \renewcommand{\shortauthors}{Trovato and Tobin, et al.}
+
+%%
+%% The abstract is a short summary of the work to be presented in the
+%% article.
+\begin{abstract}
+    Some terms in a user's browsed news reveal her interests from the most fine-grained level. Capturing these \textbf{personalized terms} yields a highly compact and accurate user profile, significantly reducing the cost of using effective yet expensive matching models (e.g.BERT). The sparse terms bring interpretability to recommenders: the candidate generation process can be aligned to ad-hoc retrieval if we consider the personalized terms as query and the whole news set as document collection, where fast retrieval techniques can be employed. Due to lack of ground truth labels, we empower the model to learn to select representative terms, gaining a consistent improvement over heuristic selection baselines.
+\end{abstract}
+
+%%
+%% The code below is generated by the tool at http://dl.acm.org/ccs.cfm.
+%% Please copy and paste the code instead of the example below.
+% %%
+% \begin{CCSXML}
+% <ccs2012>
+%  <concept>
+%   <concept_id>10010520.10010553.10010562</concept_id>
+%   <concept_desc>Computer systems organization~Embedded systems</concept_desc>
+%   <concept_significance>500</concept_significance>
+%  </concept>
+%  <concept>
+%   <concept_id>10010520.10010575.10010755</concept_id>
+%   <concept_desc>Computer systems organization~Redundancy</concept_desc>
+%   <concept_significance>300</concept_significance>
+%  </concept>
+%  <concept>
+%   <concept_id>10010520.10010553.10010554</concept_id>
+%   <concept_desc>Computer systems organization~Robotics</concept_desc>
+%   <concept_significance>100</concept_significance>
+%  </concept>
+%  <concept>
+%   <concept_id>10003033.10003083.10003095</concept_id>
+%   <concept_desc>Networks~Network reliability</concept_desc>
+%   <concept_significance>100</concept_significance>
+%  </concept>
+% </ccs2012>
+% \end{CCSXML}
+
+% \ccsdesc[500]{Computer systems organization~Embedded systems}
+% \ccsdesc[300]{Computer systems organization~Redundancy}
+% \ccsdesc{Computer systems organization~Robotics}
+% \ccsdesc[100]{Networks~Network reliability}
+
+%%
+%% Keywords. The author(s) should pick words that accurately describe
+%% the work being presented. Separate the keywords with commas.
+\keywords{}
+
+%% A "teaser" image appears between the author and affiliation
+%% information and the body of the document, and typically spans the
+%% page.
+% \begin{teaserfigure}
+%   \includegraphics[width=\textwidth]{sampleteaser}
+%   \caption{Seattle Mariners at Spring Training, 2010.}
+%   \Description{Enjoying the baseball game from the third-base
+%   seats. Ichiro Suzuki preparing to bat.}
+%   \label{fig:teaser}
+% \end{teaserfigure}
+\settopmatter{printacmref=false}
+%%
+%% This command processes the author and affiliation and title
+%% information and builds the first part of the formatted document.
+\maketitle
+
+\section{Introduction}
+\label{section:introduction}
+
+\section{Related Work}
+\label{section:related work}
+In this section, we review the related work of news recommendation, feature selection and candidate recall.
+\subsection{News Recommendation}
+News recommendation has been widely explored for decades. Traditional collaborative filtering methods~\cite{das_CF, li_SCENE} hash similar users into the same group by LSH before recommending. Matrix Factorization~\cite{koren_MF} is also a popular technique to gather users. It decomposes the user-item matrix to map users and items into the same latent space, where the inner product between the user and item vector captures the interaction score. Unlike movies or products, enoumous news is spawn every second, outstriping the increase of users, which makes the user-item matrix especially sparse.Factorization Machine~\cite{rendle_FM} introduces real-valued features to MF so that the sparsity is alleviated. But it requires manual features which is time and labor demanding.
+
+Content-based news recommendation then emerges to address the above issues. Early works of content-based methods still relies on some manual features such as topics~\cite{liu_bayesian_news_trend}, geographics~\cite{li_contextual_bandit}, and demographics~\cite{cheng_Wide&Deep} to model news and users. In the recent ten years, deep learning shows an unlimited potential and prevails in the task of representation learning~\cite{Bengio_representation_learning}. So more and more works are underway to design equisite structures to learn representation of news and users directly from raw texts and browsing history respectively, taking the dot product between them as the click probability. Wu et al.~\cite{wu_GNN,wu_heterogeneous,wu_LSTUR,wu_NAML,wu_NPA,wu_NRMS,wu_topic-aware} proposes effective models that employs CNN, RNN, multi-head attention, and personalized attention to represent news and users. External information such as knowledge and user-item biparititie graph are also incorporated to enhance representations.
+
+More recently, large-scale pretrained language models (PLM in short) e.g. BERT~\cite{Bert} demonstrates impressive improvements over shallow and light-weighted neural models in NLP field. However, it is non-trivial to implement PLMs in the news recommendation scenario: the quadratic complexity of self-attention w.r.t. the input sequence length poses an intense challenge to speed up encoding users with dozens of historical articles that may contain thousands of words in total. Researchers make a lot of efforts to lessen this problem. SpeedyFeed~\cite{xiao_speedy} optimizes the training scheme to improve model efficiency. The model deduplicates user's historical news and candidate news in a batch, significantly speeding up the training process. Another line of research modifies the self-attention layer to reduce complexity. For example, Longfomer~\cite{Longformer} sparsify the full self-attention to a sliding and dialated pattern, which reduces the complexity to linear w.r.t. the input length; Fastformer aggregates self-attended query into a global one and make the complexity linear.
+% \begin{acks}
+% \end{acks}
+\clearpage
+%%
+%% The next two lines define the bibliography style to be used, and
+%% the bibliography file.
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{sample-base}
+
+%%
+%% If your work has an appendix, this is the place to put it.
+
+\end{document}
+\endinput
+%%
+%% End of file `sample-sigconf.tex'.
