@@ -2,7 +2,7 @@
 %%% Do NOT edit. File created by BibTeX with style
 %%% ACM-Reference-Format-Journals [18-Jan-2012].
 
-\begin{thebibliography}{24}
+\begin{thebibliography}{25}
 
 %%% ====================================================================
 %%% NOTE TO THE USER: you can override these defaults by providing
@@ -352,6 +352,26 @@
   \bibinfo{publisher}{Association for Computational Linguistics},
   \bibinfo{pages}{4883--4892}.
 \newblock
+
+
+\bibitem[\protect\citeauthoryear{Wu, Wu, Qi, and Huang}{Wu
+  et~al\mbox{.}}{2021}]%
+        {wu_newsPLM}
+\bibfield{author}{\bibinfo{person}{Chuhan Wu}, \bibinfo{person}{Fangzhao Wu},
+  \bibinfo{person}{Tao Qi}, {and} \bibinfo{person}{Yongfeng Huang}.}
+  \bibinfo{year}{2021}\natexlab{}.
+\newblock \showarticletitle{Empowering News Recommendation with Pre-trained
+  Language Models}. In \bibinfo{booktitle}{\emph{{SIGIR} '21: The 44th
+  International {ACM} {SIGIR} Conference on Research and Development in
+  Information Retrieval, Virtual Event, Canada, July 11-15, 2021}},
+  \bibfield{editor}{\bibinfo{person}{Fernando Diaz}, \bibinfo{person}{Chirag
+  Shah}, \bibinfo{person}{Torsten Suel}, \bibinfo{person}{Pablo Castells},
+  \bibinfo{person}{Rosie Jones}, {and} \bibinfo{person}{Tetsuya Sakai}} (Eds.).
+  \bibinfo{publisher}{{ACM}}, \bibinfo{pages}{1652--1656}.
+\newblock
+\urldef\tempurl%
+\url{https://doi.org/10.1145/3404835.3463069}
+\showDOI{\tempurl}
 
 
 \bibitem[\protect\citeauthoryear{Wu, Qiao, Chen, Wu, Qi, Lian, Liu, Xie, Gao,

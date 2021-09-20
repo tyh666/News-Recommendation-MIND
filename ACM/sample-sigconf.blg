@@ -33,48 +33,49 @@ Warning--empty address in wu_topic-aware
 Warning--empty address in wu_heterogeneous
 Warning--empty address in wu_NRMS
 Warning--empty address in wu_GNN
+Warning--empty address in wu_newsPLM
 Warning--empty address in wu_MIND
 Warning--no number and no volume in xiao_speedy
 Warning--page numbers missing in both pages and numpages fields in xiao_speedy
-You've used 24 entries,
+You've used 25 entries,
             5959 wiz_defined-function locations,
-            1644 strings with 22112 characters,
-and the built_in function-call counts, 34554 in all, are:
-= -- 3681
-> -- 1688
+            1651 strings with 22322 characters,
+and the built_in function-call counts, 36063 in all, are:
+= -- 3835
+> -- 1760
 < -- 0
-+ -- 574
-- -- 547
-* -- 2791
-:= -- 3687
-add.period$ -- 120
-call.type$ -- 24
-change.case$ -- 229
-chr.to.int$ -- 19
-cite$ -- 48
-duplicate$ -- 2972
-empty$ -- 2063
-format.name$ -- 634
-if$ -- 8049
++ -- 597
+- -- 569
+* -- 2921
+:= -- 3847
+add.period$ -- 125
+call.type$ -- 25
+change.case$ -- 237
+chr.to.int$ -- 20
+cite$ -- 50
+duplicate$ -- 3105
+empty$ -- 2154
+format.name$ -- 660
+if$ -- 8392
 int.to.chr$ -- 7
 int.to.str$ -- 1
-missing$ -- 116
-newline$ -- 226
-num.names$ -- 191
-pop$ -- 1252
+missing$ -- 121
+newline$ -- 236
+num.names$ -- 201
+pop$ -- 1300
 preamble$ -- 1
-purify$ -- 435
+purify$ -- 452
 quote$ -- 0
-skip$ -- 1075
+skip$ -- 1126
 stack$ -- 0
-substring$ -- 2487
-swap$ -- 351
+substring$ -- 2607
+swap$ -- 368
 text.length$ -- 0
 text.prefix$ -- 0
 top$ -- 0
-type$ -- 634
-warning$ -- 24
-while$ -- 168
+type$ -- 664
+warning$ -- 25
+while$ -- 176
 width$ -- 0
-write$ -- 460
-(There were 25 warnings)
+write$ -- 481
+(There were 26 warnings)
