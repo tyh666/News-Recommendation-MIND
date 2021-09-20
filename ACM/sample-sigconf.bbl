@@ -2,7 +2,7 @@
 %%% Do NOT edit. File created by BibTeX with style
 %%% ACM-Reference-Format-Journals [18-Jan-2012].
 
-\begin{thebibliography}{22}
+\begin{thebibliography}{24}
 
 %%% ====================================================================
 %%% NOTE TO THE USER: you can override these defaults by providing
@@ -129,6 +129,18 @@
 \newblock
 
 
+\bibitem[\protect\citeauthoryear{Gallagher, Chen, Blanco, and
+  Culpepper}{Gallagher et~al\mbox{.}}{2019}]%
+        {gallagher_joint_cascade}
+\bibfield{author}{\bibinfo{person}{Luke Gallagher}, \bibinfo{person}{Ruey-Cheng
+  Chen}, \bibinfo{person}{Roi Blanco}, {and} \bibinfo{person}{J~Shane
+  Culpepper}.} \bibinfo{year}{2019}\natexlab{}.
+\newblock \showarticletitle{Joint optimization of cascade ranking models}. In
+  \bibinfo{booktitle}{\emph{Proceedings of the Twelfth ACM International
+  Conference on Web Search and Data Mining}}. \bibinfo{pages}{15--23}.
+\newblock
+
+
 \bibitem[\protect\citeauthoryear{Hofst{\"{a}}tter, Mitra, Zamani, Craswell, and
   Hanbury}{Hofst{\"{a}}tter et~al\mbox{.}}{2021}]%
         {Intra-Document-Cascading}
@@ -213,6 +225,29 @@
   behavior}. In \bibinfo{booktitle}{\emph{{IUI},2010}}.
   \bibinfo{publisher}{{ACM}}, \bibinfo{pages}{31--40}.
 \newblock
+
+
+\bibitem[\protect\citeauthoryear{Pi, Zhou, Zhang, Wang, Ren, Fan, Zhu, and
+  Gai}{Pi et~al\mbox{.}}{2020}]%
+        {ali_SIM}
+\bibfield{author}{\bibinfo{person}{Qi Pi}, \bibinfo{person}{Guorui Zhou},
+  \bibinfo{person}{Yujing Zhang}, \bibinfo{person}{Zhe Wang},
+  \bibinfo{person}{Lejian Ren}, \bibinfo{person}{Ying Fan},
+  \bibinfo{person}{Xiaoqiang Zhu}, {and} \bibinfo{person}{Kun Gai}.}
+  \bibinfo{year}{2020}\natexlab{}.
+\newblock \showarticletitle{Search-based User Interest Modeling with Lifelong
+  Sequential Behavior Data for Click-Through Rate Prediction}. In
+  \bibinfo{booktitle}{\emph{{CIKM} '20: The 29th {ACM} International Conference
+  on Information and Knowledge Management, Virtual Event, Ireland, October
+  19-23, 2020}}, \bibfield{editor}{\bibinfo{person}{Mathieu d'Aquin},
+  \bibinfo{person}{Stefan Dietze}, \bibinfo{person}{Claudia Hauff},
+  \bibinfo{person}{Edward Curry}, {and} \bibinfo{person}{Philippe
+  Cudr{\'{e}}{-}Mauroux}} (Eds.). \bibinfo{publisher}{{ACM}},
+  \bibinfo{pages}{2685--2692}.
+\newblock
+\urldef\tempurl%
+\url{https://doi.org/10.1145/3340531.3412744}
+\showDOI{\tempurl}
 
 
 \bibitem[\protect\citeauthoryear{Rendle}{Rendle}{2010}]%
