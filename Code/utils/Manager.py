@@ -85,7 +85,7 @@ class Manager():
             parser.add_argument("--num_workers", dest="num_workers", help="worker number of a dataloader", type=int, default=0)
             parser.add_argument("--shuffle", dest="shuffle", help="whether to shuffle the indices", action="store_true", default=False)
             parser.add_argument("--pin_memory", dest="pin_memory", help="whether to pin memory to speed up tensor transfer", default=True)
-            parser.add_argument("--scheduler", dest="scheduler", help="choose schedule scheme for optimizer", choices=["linear"], default="linear")
+            parser.add_argument("--scheduler", dest="scheduler", help="choose schedule scheme for optimizer", choices=["linear","none"], default="linear")
             parser.add_argument("--warmup", dest="warmup", help="warmup steps of scheduler", type=int, default=10000)
             parser.add_argument("--interval", dest="interval", help="the step interval to update processing bar", default=10, type=int)
 
@@ -292,6 +292,7 @@ class Manager():
             }
         ])
 
+        scheduler = None
         if self.scheduler == "linear":
             total_steps = loader_train_length * self.epochs
             scheduler = get_linear_schedule_with_warmup(optimizer,
