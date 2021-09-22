@@ -9,6 +9,7 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import scipy.stats as ss
+import torch.distributed as dist
 
 from tqdm.auto import tqdm
 from typing import OrderedDict
@@ -16,8 +17,9 @@ from collections import defaultdict
 from transformers import get_linear_schedule_with_warmup
 # from torch.utils.tensorboard import SummaryWriter
 from sklearn.metrics import roc_auc_score, log_loss, mean_squared_error, accuracy_score, f1_score
+from torch.utils.data.dataloader import DataLoader
+from torch.utils.data.distributed import DistributedSampler
 
-import torch.distributed as dist
 
 logger = logging.getLogger(__name__)
 
@@ -179,6 +181,84 @@ class Manager():
         """
         if self.world_size > 1:
             dist.destroy_process_group()
+
+
+    def prepare(self):
+        """ prepare dataloader and several paths
+
+        Returns:
+            loaders(list of dataloaders): 0-loader_train/test/dev, 1-loader_dev, 2-loader_validate
+        """
+        from .MIND import MIND
+        from .utils import Partition_Sampler
+
+        if self.rank in [-1, 0]:
+            logger.info("Hyper Parameters are {}".format(self))
+            logger.info("preparing dataset...")
+
+        mind_path = self.path + "MIND"
+        shuffle = self.shuffle
+        pin_memory = self.pin_memory
+        num_workers = self.num_workers
+
+        if self.mode in ["train", "tune"]:
+            news_file_train = mind_path+"/MIND"+self.scale+"_train/news.tsv"
+            behavior_file_train = mind_path+"/MIND" + \
+                self.scale+"_train/behaviors.tsv"
+            news_file_dev = mind_path+"/MIND"+self.scale+"_dev/news.tsv"
+            behavior_file_dev = mind_path+"/MIND"+self.scale+"_dev/behaviors.tsv"
+
+            dataset_train = MIND(config=self, news_file=news_file_train,
+                            behaviors_file=behavior_file_train)
+            dataset_dev = MIND(config=self, news_file=news_file_dev,
+                            behaviors_file=behavior_file_dev)
+
+            # FIXME: multi view dataset
+
+            if self.world_size > 0:
+                sampler_train = DistributedSampler(dataset_train, num_replicas=self.world_size, rank=self.rank, shuffle=shuffle)
+                sampler_dev = Partition_Sampler(dataset_dev, num_replicas=self.world_size, rank=self.rank)
+            else:
+                sampler_train = None
+                sampler_dev = None
+            loader_train = DataLoader(dataset_train, batch_size=self.batch_size, pin_memory=pin_memory,
+                                    num_workers=num_workers, drop_last=False, shuffle=False, sampler=sampler_train)
+            loader_dev = DataLoader(dataset_dev, batch_size=1, pin_memory=pin_memory,
+                                    num_workers=num_workers, drop_last=False, sampler=sampler_dev)
+
+            return loader_train, loader_dev
+
+        elif self.mode in ["dev", "inspect"]:
+            news_file_dev = mind_path+"/MIND"+self.scale+"_dev/news.tsv"
+            behavior_file_dev = mind_path+"/MIND"+self.scale+"_dev/behaviors.tsv"
+
+            dataset_dev = MIND(config=self, news_file=news_file_dev,
+                                behaviors_file=behavior_file_dev)
+
+            if self.world_size > 0:
+                sampler_dev = Partition_Sampler(dataset_dev, num_replicas=self.world_size, rank=self.rank)
+            else:
+                sampler_dev = None
+            loader_dev = DataLoader(dataset_dev, batch_size=1, pin_memory=pin_memory,
+                                    num_workers=num_workers, drop_last=False, sampler=sampler_dev)
+
+            return loader_dev,
+
+        elif self.mode == "test":
+            news_file_test = mind_path+"/MIND"+self.scale+"_test/news.tsv"
+            behavior_file_test = mind_path+"/MIND"+self.scale+"_test/behaviors.tsv"
+
+            dataset_test = MIND(self, news_file_test, behavior_file_test)
+
+            # FIXME distributed test
+            if self.world_size > 0:
+                sampler_test = Partition_Sampler(dataset_test, num_replicas=self.world_size, rank=self.rank)
+            else:
+                sampler_test = None
+            loader_test = DataLoader(dataset_test, batch_size=1, pin_memory=pin_memory,
+                                    num_workers=num_workers, drop_last=False, sampler=sampler_test)
+
+            return loader_test,
 
 
     def save(self, model, step, optimizer=None):

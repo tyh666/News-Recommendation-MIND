@@ -122,3 +122,48 @@
 
 #     json.dump(vert2onehot, open("data/dictionaries/vert2onehot.json","w"),ensure_ascii=False)
 #     json.dump(subvert2onehot, open("data/dictionaries/subvert2onehot.json","w"),ensure_ascii=False)
+
+
+# if impr:
+        #     # FIXME: if self.bert
+        #     news_file_dev = mind_path+"/MIND"+self.scale+"_dev/news.tsv"
+        #     behavior_file_dev = mind_path+"/MIND"+self.scale+"_dev/behaviors.tsv"
+
+        #     dataset_dev = MIND_impr(self=self, news_file=news_file_dev,
+        #                         behaviors_file=behavior_file_dev)
+        #     loader_dev = DataLoader(dataset_dev, batch_size=1, pin_memory=pin_memory,
+        #                             num_workers=num_workers, drop_last=False)
+        #     vocab = dataset_dev.vocab
+        #     if not self.bert:
+        #         embedding = GloVe(dim=300, cache=vec_cache_path)
+        #         vocab.load_vectors(embedding)
+
+        #     return vocab, [loader_dev]
+
+        # if news:
+        #     news_file_train = mind_path + \
+        #         "/MIND{}_train/news.tsv".format(self.scale)
+        #     news_file_dev = mind_path+"/MIND{}_dev/news.tsv".format(self.scale)
+        #     # FIXME: if self.bert
+        #     dataset_train = MIND_news(self, news_file_train)
+        #     loader_news_train = DataLoader(
+        #         dataset_train, batch_size=self.batch_size, pin_memory=pin_memory, num_workers=num_workers, drop_last=False)
+
+        #     dataset_dev = MIND_news(self, news_file_dev)
+        #     loader_news_dev = DataLoader(
+        #         dataset_dev, batch_size=1, pin_memory=pin_memory, num_workers=num_workers, drop_last=False)
+
+        #     vocab = getVocab("data/dictionaries/vocab.pkl")
+        #     embedding = GloVe(dim=300, cache=vec_cache_path)
+        #     vocab.load_vectors(embedding)
+
+        #     if self.scale == "large":
+        #         news_file_test = mind_path + \
+        #             "/MIND{}_test/news.tsv".format(self.scale)
+        #         dataset_test = MIND_news(self, news_file_test)
+        #         loader_news_test = DataLoader(
+        #             dataset_test, batch_size=self.batch_size, pin_memory=pin_memory, num_workers=num_workers, drop_last=False)
+
+        #         return vocab, [loader_news_train, loader_news_dev, loader_news_test]
+
+        #     return vocab, [loader_news_train, loader_news_dev]

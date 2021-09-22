@@ -550,11 +550,14 @@ class MIND(Dataset):
                 "label": label
             }
 
+            # word-level
             if self.subwords is not None:
                 if self.reducer in ["bm25","entity","first"]:
+                    # subwords of history news don't accord with candidate news
                     cdd_subword_index = self.subwords_original[cdd_ids]
                     his_subword_index = self.subwords[his_ids][:, :self.k + 1]
                 else:
+                    # matching
                     cdd_subword_index = self.subwords[cdd_ids]
                     his_subword_index = self.subwords[his_ids]
                 back_dic["cdd_subword_index"] = cdd_subword_index

@@ -35,12 +35,14 @@ class config:
     head_num = 12
 
     rank = 0
+    base_rank = 0
     world_size = 0
     step = 0
-    seeds = 42
+    seed = 42
     interval = 10
 
     granularity = 'avg'
+    debias = False
     full_attn = True
     ascend_history = False
     save_pos = False
@@ -49,7 +51,6 @@ class config:
     no_dedup = False
     no_order_embed = False
     no_rm_punc = False
-    no_debias = False
 
     scheduler = 'linear'
     warmup = 100
@@ -62,4 +63,3 @@ class config:
     path = "../../../Data/"
 
     tb = False
-

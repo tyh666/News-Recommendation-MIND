@@ -1,7 +1,6 @@
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-from utils.utils import prepare
 from utils.Manager import Manager
 from models.TTMS import TTMS
 
@@ -14,7 +13,7 @@ def main(rank, manager):
         conig
     """
     manager.setup(rank)
-    loaders = prepare(manager)
+    loaders = manager.prepare()
 
     from models.Embeddings.BERT import BERT_Embedding
     embedding = BERT_Embedding(manager)
