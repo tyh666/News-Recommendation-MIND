@@ -62,10 +62,11 @@ class TTMS(nn.Module):
         Returns:
             score of each candidate news, [batch_size, cdd_size]
         """
-        if hasattr(self, 'newsDebias'):
-            user_repr += self.userBias
+        if hasattr(self, 'userBias'):
+            user_repr = user_repr + self.userBias
         score = cdd_news_repr.matmul(user_repr.transpose(-2,-1)).squeeze(-1)/math.sqrt(self.embedding.embedding_dim)
         return score
+
 
     def _forward(self,x):
         if self.granularity != 'token':
@@ -120,7 +121,6 @@ class TTMS(nn.Module):
             if 'his_refined_mask' in x:
                 his_refined_mask = x["his_refined_mask"].to(self.device)
 
-
         cdd_news = x["cdd_encoded_index"].long().to(self.device)
         _, cdd_news_repr = self.bert(
             self.embedding(cdd_news, cdd_subword_prefix), cdd_attn_mask
@@ -144,6 +144,7 @@ class TTMS(nn.Module):
         user_repr = self.newsUserProject(user_cls)
 
         return self.clickPredictor(cdd_news_repr, user_repr), kid
+
 
     def forward(self,x):
         """

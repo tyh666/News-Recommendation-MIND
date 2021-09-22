@@ -89,7 +89,7 @@ class MIND(Dataset):
 
         # synchronize all processes
         if config.world_size > 1:
-            dist.barrier(device_ids=[config.rank])
+            dist.barrier()
 
         logger.info("process NO.{} loading cached user behavior from {}".format(config.rank, self.behav_path))
         with open(self.behav_path, "rb") as f:

@@ -79,7 +79,7 @@ class Manager():
             parser.add_argument("--save_pos", dest="save_pos", help="whether to save token positions", action="store_true", default=False)
             parser.add_argument("--sep_his", dest="sep_his", help="whether to separate personalized terms from different news with an extra token", action="store_true", default=False)
             parser.add_argument("--full_attn", dest="full_attn", help="whether to interact among personalized terms (only in one-pass bert models)", action="store_true", default=False)
-            parser.add_argument("--debias", dest="debias", help="whether to add a learnable bias to each candidate news's score", action="store_true", default=False)
+            parser.add_argument("--debias", dest="debias", help="whether to add a learnable bias to each candidate news's score", action="store_true", default=True)
             parser.add_argument("--no_dedup", dest="no_dedup", help="whether to deduplicate tokens", action="store_true", default=False)
             parser.add_argument("--no_rm_punc", dest="no_rm_punc", help="whether to mask punctuations when selecting", action="store_true", default=False)
             parser.add_argument("--no_order_embed", dest="no_order_embed", help="whether to add an extra embedding to ps terms from the same historical news", action="store_true", default=False)
@@ -487,7 +487,7 @@ class Manager():
 
         # collect result across gpus when distributed evaluating
         if self.world_size > 1:
-            dist.barrier(device_ids=[self.rank])
+            dist.barrier()
             outputs = [None for i in range(self.world_size)]
             dist.all_gather_object(outputs, impr_label_preds)
 
@@ -771,7 +771,7 @@ class Manager():
             preds.extend(model(x)[0].tolist())
 
         if self.world_size > 1:
-            dist.barrier(device_ids=[self.rank])
+            dist.barrier()
             outputs = [None for i in range(self.world_size)]
             dist.all_gather_object(outputs, (impr_indexes, preds))
 

@@ -9,6 +9,7 @@ def scaled_dp_attention(query, key, value, attn_mask=None):
         query: tensor of [batch_size, *, query_num, key_dim]
         key: tensor of [batch_size, *, key_num, key_dim]
         value: tensor of [batch_size, *, key_num, value_dim]
+        attn_mask: tensor of [batch_size, *, key_num]
 
     Returns:
         attn_output: tensor of [batch_size, *, query_num, value_dim]
@@ -19,8 +20,9 @@ def scaled_dp_attention(query, key, value, attn_mask=None):
     key = key.transpose(-2, -1)
 
     attn_score = torch.matmul(query, key)/math.sqrt(query.shape[-1])
+
     if attn_mask is not None:
-        attn_prob = torch.softmax(attn_score + (1-attn_mask) * -10000, -1)
+        attn_prob = XSoftmax.apply(attn_score, attn_mask, -1)
     else:
         attn_prob = torch.softmax(attn_score, -1)
 
