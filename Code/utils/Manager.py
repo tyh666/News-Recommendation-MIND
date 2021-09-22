@@ -86,7 +86,7 @@ class Manager():
 
             parser.add_argument("--num_workers", dest="num_workers", help="worker number of a dataloader", type=int, default=0)
             parser.add_argument("--shuffle", dest="shuffle", help="whether to shuffle the indices", action="store_true", default=False)
-            parser.add_argument("--pin_memory", dest="pin_memory", help="whether to pin memory to speed up tensor transfer", default=True)
+            parser.add_argument("--pin_memory", dest="pin_memory", help="whether to pin memory to speed up tensor transfer", action="store_true", default=False)
             parser.add_argument("--scheduler", dest="scheduler", help="choose schedule scheme for optimizer", choices=["linear","none"], default="linear")
             parser.add_argument("--warmup", dest="warmup", help="warmup steps of scheduler", type=int, default=10000)
             parser.add_argument("--interval", dest="interval", help="the step interval to update processing bar", default=10, type=int)
@@ -487,6 +487,7 @@ class Manager():
 
         # collect result across gpus when distributed evaluating
         if self.world_size > 1:
+            dist.barrier(device_ids=[self.rank])
             outputs = [None for i in range(self.world_size)]
             dist.all_gather_object(outputs, impr_label_preds)
 
@@ -770,7 +771,7 @@ class Manager():
             preds.extend(model(x)[0].tolist())
 
         if self.world_size > 1:
-            dist.barrier()
+            dist.barrier(device_ids=[self.rank])
             outputs = [None for i in range(self.world_size)]
             dist.all_gather_object(outputs, (impr_indexes, preds))
 

@@ -86,7 +86,8 @@ if __name__ == "__main__":
         mp.spawn(
             main,
             args=(manager,),
-            nprocs=manager.world_size
+            nprocs=manager.world_size,
+            join=True
         )
     else:
         main(manager.device, manager)
