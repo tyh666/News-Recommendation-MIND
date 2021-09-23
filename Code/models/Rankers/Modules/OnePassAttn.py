@@ -4,30 +4,30 @@ import torch.nn as nn
 from models.Modules.Attention import XSoftmax
 
 class BertSelfAttention(nn.Module):
-    def __init__(self, config):
+    def __init__(self, manager):
         """
         one-pass bert, where other candidate news except itself are masked
         """
         super().__init__()
 
-        self.num_attention_heads = config.num_attention_heads
-        self.attention_head_size = int(config.hidden_size / config.num_attention_heads)
+        self.num_attention_heads = manager.num_attention_heads
+        self.attention_head_size = int(manager.hidden_size / manager.num_attention_heads)
         self.all_head_size = self.num_attention_heads * self.attention_head_size
 
-        self.query = nn.Linear(config.hidden_size, self.all_head_size)
-        self.key = nn.Linear(config.hidden_size, self.all_head_size)
-        self.value = nn.Linear(config.hidden_size, self.all_head_size)
+        self.query = nn.Linear(manager.hidden_size, self.all_head_size)
+        self.key = nn.Linear(manager.hidden_size, self.all_head_size)
+        self.value = nn.Linear(manager.hidden_size, self.all_head_size)
 
-        self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
+        self.dropout = nn.Dropout(manager.attention_probs_dropout_prob)
 
-        self.signal_length = config.signal_length
-        self.all_length = config.cdd_size * self.signal_length
-        self.term_num = config.term_num
-        self.full_attn = config.full_attn
+        self.signal_length = manager.signal_length
+        self.all_length = manager.cdd_size * self.signal_length
+        self.term_num = manager.term_num
+        self.full_attn = manager.full_attn
 
         # default to term_num = his_size * k + 1
-        self.register_buffer('one_pass_attn_mask_train', torch.cat([torch.eye(config.cdd_size).repeat_interleave(repeats=self.signal_length, dim=-1).repeat_interleave(repeats=self.signal_length, dim=0), torch.ones(config.cdd_size * self.signal_length, config.term_num)], dim=-1).unsqueeze(0).unsqueeze(0), persistent=False)
-        self.register_buffer('one_pass_attn_mask_eval', torch.eye(config.impr_size).repeat_interleave(repeats=self.signal_length, dim=-1), persistent=False)
+        self.register_buffer('one_pass_attn_mask_train', torch.cat([torch.eye(manager.cdd_size).repeat_interleave(repeats=self.signal_length, dim=-1).repeat_interleave(repeats=self.signal_length, dim=0), torch.ones(manager.cdd_size * self.signal_length, manager.term_num)], dim=-1).unsqueeze(0).unsqueeze(0), persistent=False)
+        self.register_buffer('one_pass_attn_mask_eval', torch.eye(manager.impr_size).repeat_interleave(repeats=self.signal_length, dim=-1), persistent=False)
         self.register_buffer('ps_term_mask', torch.ones(1,self.term_num), persistent=False)
 
     def transpose_for_scores(self, x):

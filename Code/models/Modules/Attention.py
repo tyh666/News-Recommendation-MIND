@@ -9,7 +9,7 @@ def scaled_dp_attention(query, key, value, attn_mask=None):
         query: tensor of [batch_size, *, query_num, key_dim]
         key: tensor of [batch_size, *, key_num, key_dim]
         value: tensor of [batch_size, *, key_num, value_dim]
-        attn_mask: tensor of [batch_size, *, key_num]
+        attn_mask: tensor of [batch_size, *, query_num, key_num]
 
     Returns:
         attn_output: tensor of [batch_size, *, query_num, value_dim]

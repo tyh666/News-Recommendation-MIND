@@ -3,14 +3,14 @@ import torch.nn as nn
 from ..Modules.Attention import scaled_dp_attention
 
 class Attention_Pooling(nn.Module):
-    def __init__(self, config):
+    def __init__(self, manager):
         super().__init__()
 
         self.name = 'attention-pooling'
-        self.query_news = nn.Parameter(torch.randn(1, config.hidden_dim))
+        self.query_news = nn.Parameter(torch.randn(1, manager.hidden_dim))
         nn.init.xavier_normal_(self.query_news)
 
-    def forward(self, news_reprs):
+    def forward(self, news_reprs, *args, **kargs):
         """
         encode user history into a representation vector
 
@@ -23,13 +23,14 @@ class Attention_Pooling(nn.Module):
         user_repr = scaled_dp_attention(self.query_news, news_reprs, news_reprs)
         return user_repr
 
+
 class Average_Pooling(nn.Module):
-    def __init__(self, config):
+    def __init__(self, manager):
         super().__init__()
 
         self.name = 'average-pooling'
 
-    def forward(self, news_reprs, *args):
+    def forward(self, news_reprs, *args, **kargs):
         """
         encode user history into a representation vector
 
@@ -44,20 +45,20 @@ class Average_Pooling(nn.Module):
 
 
 # class NPA_Encoder(nn.Module):
-#     def __init__(self, config, vocab, user_num):
+#     def __init__(self, manager, vocab, user_num):
 #         super().__init__()
 #         self.name = 'npa-encoder'
 
-#         self.dropout_p = config.dropout_p
+#         self.dropout_p = manager.dropout_p
 
 #         self.level = 1
-#         self.hidden_dim = config.filter_num
-#         self.embedding_dim = config.embedding_dim
-#         self.user_dim = config.user_dim
-#         self.query_dim = config.query_dim
+#         self.hidden_dim = manager.filter_num
+#         self.embedding_dim = manager.embedding_dim
+#         self.user_dim = manager.user_dim
+#         self.query_dim = manager.query_dim
 
 #         # pretrained embedding
-#         self.embedding = nn.Embedding.from_pretrained(vocab.vectors,sparse=config.spadam,freeze=False)
+#         self.embedding = nn.Embedding.from_pretrained(vocab.vectors,sparse=manager.spadam,freeze=False)
 
 #         # trainable lookup layer for user embedding, important to have len(uid2idx) + 1 rows because user indexes start from 1
 #         self.user_embedding = nn.Embedding(user_num + 1, self.user_dim, sparse=True)
@@ -75,7 +76,7 @@ class Average_Pooling(nn.Module):
 #                              out_channels=self.hidden_dim, kernel_size=3, padding=1)
 #         self.RELU = nn.ReLU()
 #         self.Tanh = nn.Tanh()
-#         self.DropOut = nn.Dropout(p=config.dropout_p)
+#         self.DropOut = nn.Dropout(p=manager.dropout_p)
 
 
 #     def forward(self, news_batch, **kwargs):

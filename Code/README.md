@@ -116,10 +116,10 @@ python -m scripts.esm -m test -s large -is=120 -ck=150000 -ws=2
 - [ ] RL based
 
 ## Term Fuser
-- [ ] differentiable and efficient
+- [x] differentiable and efficient
   - basically impossible to implement
 
-## Interactor
+## Ranker
 - [ ] Bert
   - [x] order embedding across the whole user history
   - [x] cls pooling
@@ -128,7 +128,7 @@ python -m scripts.esm -m test -s large -is=120 -ck=150000 -ws=2
   - [x] candidate news attention mask
   - [x] insert CLS in embedding layer, not fusion
     - fobiddable, otherwise the [CLS] would be extracted
-  - [x] position embedding in interactor
+  - [x] position embedding in Ranker
   - [x] one entry to define term_num
   - [x] speed compare between onepass bert and overlook bert
     - onepass is faster when training

@@ -2,14 +2,14 @@ import math
 import torch.nn as nn
 
 class CNN_Ranker(nn.Module):
-    def __init__(self, config):
+    def __init__(self, manager):
         super().__init__()
         self.name = '2dcnn'
 
-        self.term_num = config.term_num
-        self.embedding_dim = config.embedding_dim
+        self.term_num = manager.term_num
+        self.embedding_dim = manager.embedding_dim
 
-        self.signal_length = config.signal_length
+        self.signal_length = manager.signal_length
 
         self.SeqCNN2D = nn.Sequential(
             nn.Conv2d(in_channels=1, out_channels=32, kernel_size=[3, 3], padding=1),

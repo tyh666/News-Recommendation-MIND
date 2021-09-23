@@ -4,18 +4,18 @@ class Random_Embedding(nn.Module):
     """
         pretrained glove embedding
     """
-    def __init__(self, config, vocab):
+    def __init__(self, manager, vocab):
         super().__init__()
         self.name = 'random'
 
-        self.embedding_dim = config.embedding_dim
+        self.embedding_dim = manager.embedding_dim
 
         self.embedding = nn.Embedding(vocab)
-            sparse=config.spadam,
+            sparse=manager.spadam,
             freeze=False
         )
 
-        self.dropOut = nn.Dropout(config.dropout_p)
+        self.dropOut = nn.Dropout(manager.dropout_p)
 
     def forward(self, news_batch):
         """

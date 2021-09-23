@@ -3,11 +3,11 @@ import torch.nn as nn
 from ..Modules.Attention import scaled_dp_attention, MultiheadAttention, get_attn_mask
 
 class MHA_Encoder(nn.Module):
-    def __init__(self, config):
+    def __init__(self, manager):
         super().__init__()
-        self.hidden_dim = config.hidden_dim
-        self.embedding_dim = config.embedding_dim
-        self.head_num = config.head_num
+        self.hidden_dim = manager.hidden_dim
+        self.embedding_dim = manager.embedding_dim
+        self.head_num = manager.head_num
 
         value_dim, x = divmod(self.hidden_dim, self.head_num)
         assert x == 0, "hidden_dim {} must divide head_num {}".format(self.hidden_dim, self.head_num)
@@ -16,7 +16,7 @@ class MHA_Encoder(nn.Module):
         self.query_words = nn.Parameter(torch.randn(1, self.hidden_dim))
 
         self.layerNorm = nn.LayerNorm(self.hidden_dim)
-        self.dropOut = nn.Dropout(p=config.dropout_p)
+        self.dropOut = nn.Dropout(p=manager.dropout_p)
 
     def forward(self, news_embedding, attn_mask=None):
         """ encode news through multi-head self attention
@@ -40,30 +40,36 @@ class MHA_Encoder(nn.Module):
 
 
 class MHA_User_Encoder(nn.Module):
-    def __init__(self, config):
+    def __init__(self, manager):
         super().__init__()
         self.name = 'mha-u'
 
-        self.hidden_dim = config.hidden_dim
+        self.hidden_dim = manager.hidden_dim
 
-        head_num = config.head_num
+        head_num = manager.head_num
         value_dim, x = divmod(self.hidden_dim, head_num)
         assert x == 0, "hidden_dim {} must divide head_num {}".format(self.hidden_dim, head_num)
-        self.mha = MultiheadAttention(self.hidden_dim, config.head_num, value_dim=value_dim)
+        self.mha = MultiheadAttention(self.hidden_dim, manager.head_num, value_dim=value_dim)
 
         self.query_news = nn.Parameter(torch.randn(1, self.hidden_dim))
-        self.tanh = nn.Tanh()
+        self.layerNorm = nn.LayerNorm(self.hidden_dim)
+        self.dropOut = nn.Dropout(p=manager.dropout_p)
 
-    def forward(self, news_reprs):
+    def forward(self, news_repr, his_mask=None, **kargs):
         """
         encode user history into a representation vector
 
         Args:
-            news_reprs: batch of news representations, [batch_size, *, hidden_dim]
+            news_repr: batch of news representations, [batch_size, *, hidden_dim]
 
         Returns:
             user_repr: user representation (coarse), [batch_size, 1, hidden_dim]
         """
-        news_reprs = self.mha(news_reprs)
-        user_repr = scaled_dp_attention(self.query_news, news_reprs, news_reprs)
+        if his_mask is not None:
+            extended_attn_mask = get_attn_mask(his_mask.squeeze(-1))
+            news_repr = self.mha(news_repr, extended_attn_mask)
+            user_repr = scaled_dp_attention(self.query_news, news_repr, news_repr, his_mask.squeeze(-1).unsqueeze(1))
+        else:
+            news_repr = self.mha(news_repr)
+            user_repr = scaled_dp_attention(self.query_news, news_repr, news_repr)
         return user_repr

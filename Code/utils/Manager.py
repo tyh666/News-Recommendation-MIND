@@ -208,9 +208,9 @@ class Manager():
             news_file_dev = mind_path+"/MIND"+self.scale+"_dev/news.tsv"
             behavior_file_dev = mind_path+"/MIND"+self.scale+"_dev/behaviors.tsv"
 
-            dataset_train = MIND(config=self, news_file=news_file_train,
+            dataset_train = MIND(self, news_file=news_file_train,
                             behaviors_file=behavior_file_train)
-            dataset_dev = MIND(config=self, news_file=news_file_dev,
+            dataset_dev = MIND(self, news_file=news_file_dev,
                             behaviors_file=behavior_file_dev)
 
             # FIXME: multi view dataset
@@ -232,7 +232,7 @@ class Manager():
             news_file_dev = mind_path+"/MIND"+self.scale+"_dev/news.tsv"
             behavior_file_dev = mind_path+"/MIND"+self.scale+"_dev/behaviors.tsv"
 
-            dataset_dev = MIND(config=self, news_file=news_file_dev,
+            dataset_dev = MIND(self, news_file=news_file_dev,
                                 behaviors_file=behavior_file_dev)
 
             if self.world_size > 0:
@@ -427,8 +427,9 @@ class Manager():
         max_input = {
             "cdd_id": torch.empty(1, self.impr_size).random_(0,10),
             "his_id": torch.empty(1, self.his_size).random_(0,10),
-            "cdd_encoded_index": torch.empty(1, self.impr_size, self.signal_length).random_(0,10),
-            "his_encoded_index": torch.empty(1, self.his_size, self.signal_length).random_(0,10),
+            "user_index": torch.tensor([[1]]),
+            "cdd_encoded_index": torch.empty(1, self.impr_size, self.signal_length, dtype=torch.long).random_(0,10),
+            "his_encoded_index": torch.empty(1, self.his_size, self.signal_length, dtype=torch.long).random_(0,10),
             "cdd_attn_mask": torch.ones(1, self.impr_size, self.signal_length),
             "his_attn_mask": torch.ones(1, self.his_size, self.signal_length),
             "cdd_subword_index": torch.ones(1, self.impr_size, self.signal_length, 2, dtype=torch.int64),
@@ -439,8 +440,8 @@ class Manager():
         if self.reducer == "matching":
             max_input["his_refined_mask"] = torch.ones(1, self.his_size, self.signal_length)
         elif self.reducer == "bow":
-            max_input["cdd_encoded_index"] = torch.rand(1, self.impr_size, self.signal_length, 2).random_(0,10)
-            max_input["his_encoded_index"] = torch.rand(1, self.his_size, self.signal_length, 2).random_(0,10)
+            max_input["cdd_encoded_index"] = torch.rand(1, self.impr_size, self.signal_length, 2, dtype=torch.long).random_(0,10)
+            max_input["his_encoded_index"] = torch.rand(1, self.his_size, self.signal_length, 2, dtype=torch.long).random_(0,10)
             max_input["his_refined_mask"] = max_input["his_attn_mask"]
         elif self.reducer in ["bm25", "entity", "first"]:
             max_input["his_encoded_index"] = max_input["his_encoded_index"][:, :, :self.k+1]
@@ -742,8 +743,9 @@ class Manager():
         max_input = {
             "cdd_id": torch.empty(1, self.impr_size).random_(0,10),
             "his_id": torch.empty(1, self.his_size).random_(0,10),
-            "cdd_encoded_index": torch.empty(1, self.impr_size, self.signal_length).random_(0,10),
-            "his_encoded_index": torch.empty(1, self.his_size, self.signal_length).random_(0,10),
+            "user_index": torch.tensor([[1]]),
+            "cdd_encoded_index": torch.empty(1, self.impr_size, self.signal_length, dtype=torch.long).random_(0,10),
+            "his_encoded_index": torch.empty(1, self.his_size, self.signal_length, dtype=torch.long).random_(0,10),
             "cdd_attn_mask": torch.ones(1, self.impr_size, self.signal_length),
             "his_attn_mask": torch.ones(1, self.his_size, self.signal_length),
             "cdd_subword_index": torch.ones(1, self.impr_size, self.signal_length, 2, dtype=torch.int64),
@@ -754,8 +756,8 @@ class Manager():
         if self.reducer == "matching":
             max_input["his_refined_mask"] = torch.ones(1, self.his_size, self.signal_length)
         elif self.reducer == "bow":
-            max_input["cdd_encoded_index"] = torch.rand(1, self.impr_size, self.signal_length, 2).random_(0,10)
-            max_input["his_encoded_index"] = torch.rand(1, self.his_size, self.signal_length, 2).random_(0,10)
+            max_input["cdd_encoded_index"] = torch.rand(1, self.impr_size, self.signal_length, 2, dtype=torch.long).random_(0,10)
+            max_input["his_encoded_index"] = torch.rand(1, self.his_size, self.signal_length, 2, dtype=torch.long).random_(0,10)
             max_input["his_refined_mask"] = max_input["his_attn_mask"]
         elif self.reducer in ["bm25", "entity", "first"]:
             max_input["his_encoded_index"] = max_input["his_encoded_index"][:, :, :self.k+1]
@@ -886,7 +888,7 @@ class Manager():
             if x['user_index'][0] == pre_id:
                 continue
             pre_id = x['user_index'][0]
-            
+
             _, term_indexes = model(x)
 
             his_encoded_index = x["his_encoded_index"][0]
@@ -960,6 +962,15 @@ class Manager():
         return special_token_map[self.bert][token]
 
 
+    def get_user_num(self):
+        user_num_map = {
+            "demo": 2146,
+            "small": 94057,
+            "large": 876956,
+        }
+        return user_num_map[self.scale]
+
+
     def construct_nid2idx(self, scale=None, mode=None):
         """
             Construct news to newsID dictionary, index starting from 1
@@ -1020,6 +1031,60 @@ class Manager():
         h = open("data/dictionaries/uid2idx_{}.json".format(scale), "w")
         json.dump(uid2index, h, ensure_ascii=False)
         h.close()
+
+
+    def analyse(config):
+        """
+            analyse over MIND
+        """
+        mind_path = config.path + "MIND"
+
+        avg_title_length = 0
+        avg_abstract_length = 0
+        avg_his_length = 0
+        avg_imp_length = 0
+        cnt_his_lg_50 = 0
+        cnt_his_eq_0 = 0
+        cnt_imp_multi = 0
+
+        news_file = mind_path + \
+            "/MIND{}_{}/news.tsv".format(config.scale, config.mode)
+
+        behavior_file = mind_path + \
+            "/MIND{}_{}/behaviors.tsv".format(config.scale, config.mode)
+
+        with open(news_file, "r", encoding="utf-8") as rd:
+            count = 0
+            for idx in rd:
+                nid, vert, subvert, title, ab, url, _, _ = idx.strip(
+                    "\n").split("\t")
+                avg_title_length += len(title.split(" "))
+                avg_abstract_length += len(ab.split(" "))
+                count += 1
+        avg_title_length = avg_title_length/count
+        avg_abstract_length = avg_abstract_length/count
+
+        with open(behavior_file, "r", encoding="utf-8") as rd:
+            count = 0
+            for idx in rd:
+                uid, time, history, impr = idx.strip("\n").split("\t")[-4:]
+                his = history.split(" ")
+                imp = impr.split(" ")
+                if len(his) > 50:
+                    cnt_his_lg_50 += 1
+                if len(imp) > 50:
+                    cnt_imp_multi += 1
+                if not his[0]:
+                    cnt_his_eq_0 += 1
+                avg_his_length += len(his)
+                avg_imp_length += len(imp)
+                count += 1
+        avg_his_length = avg_his_length/count
+        avg_imp_length = avg_imp_length/count
+
+        print("avg_title_length:{}\n avg_abstract_length:{}\n avg_his_length:{}\n avg_impr_length:{}\n cnt_his_lg_50:{}\n cnt_his_eq_0:{}\n cnt_imp_multi:{}".format(
+            avg_title_length, avg_abstract_length, avg_his_length, avg_imp_length, cnt_his_lg_50, cnt_his_eq_0, cnt_imp_multi))
+
 
 
 def mrr_score(y_true, y_score):

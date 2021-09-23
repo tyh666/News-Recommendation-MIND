@@ -13,43 +13,43 @@ class TTMS(nn.Module):
     2. encode ps terms with the same bert, using [CLS] embedding as user representation
     3. predict by scaled dot product
     """
-    def __init__(self, config, embedding, encoderN, encoderU, reducer):
+    def __init__(self, manager, embedding, encoderN, encoderU, reducer):
         super().__init__()
 
-        self.scale = config.scale
-        self.cdd_size = config.cdd_size
-        self.batch_size = config.batch_size
-        self.his_size = config.his_size
-        self.signal_length = config.signal_length
-        self.device = config.device
+        self.scale = manager.scale
+        self.cdd_size = manager.cdd_size
+        self.batch_size = manager.batch_size
+        self.his_size = manager.his_size
+        self.signal_length = manager.signal_length
+        self.device = manager.device
 
         self.embedding = embedding
         self.encoderN = encoderN
         self.encoderU = encoderU
 
         self.reducer = reducer
-        self.bert = BERT_Encoder(config)
+        self.bert = BERT_Encoder(manager)
 
-        self.granularity = config.granularity
+        self.granularity = manager.granularity
         if self.granularity != 'token':
-            self.register_buffer('cdd_dest', torch.zeros((self.batch_size, config.impr_size, config.signal_length * config.signal_length)), persistent=False)
-            if config.reducer in ["bm25", "entity", "first"]:
-                self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, (config.k + 1) * (config.k + 1))), persistent=False)
+            self.register_buffer('cdd_dest', torch.zeros((self.batch_size, manager.impr_size, manager.signal_length * manager.signal_length)), persistent=False)
+            if manager.reducer in ["bm25", "entity", "first"]:
+                self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, (manager.k + 1) * (manager.k + 1))), persistent=False)
             else:
-                self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, config.signal_length * config.signal_length)), persistent=False)
+                self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, manager.signal_length * manager.signal_length)), persistent=False)
 
         self.newsUserProject = nn.Sequential(
             nn.Linear(self.bert.hidden_dim, self.bert.hidden_dim),
             nn.Tanh()
         )
 
-        if config.debias:
+        if manager.debias:
             self.userBias = nn.Parameter(torch.randn(1,self.bert.hidden_dim))
             nn.init.xavier_normal_(self.userBias)
 
         self.register_buffer('extra_cls_mask', torch.ones(1,1), persistent=False)
 
-        config.name = '__'.join(['ttms', config.embedding, config.encoderN, config.encoderU, config.reducer, config.granularity])
+        manager.name = '__'.join(['ttms', manager.embedding, manager.encoderN, manager.encoderU, manager.reducer, manager.granularity])
 
 
     def clickPredictor(self, cdd_news_repr, user_repr):
@@ -121,20 +121,20 @@ class TTMS(nn.Module):
             if 'his_refined_mask' in x:
                 his_refined_mask = x["his_refined_mask"].to(self.device)
 
-        cdd_news = x["cdd_encoded_index"].long().to(self.device)
+        cdd_news = x["cdd_encoded_index"].to(self.device)
         _, cdd_news_repr = self.bert(
             self.embedding(cdd_news, cdd_subword_prefix), cdd_attn_mask
         )
         cdd_news_repr = self.newsUserProject(cdd_news_repr)
 
-        his_news = x["his_encoded_index"].long().to(self.device)
+        his_news = x["his_encoded_index"].to(self.device)
         his_news_embedding = self.embedding(his_news, his_subword_prefix)
         his_news_encoded_embedding, his_news_repr = self.encoderN(
             his_news_embedding, his_attn_mask
         )
         # no need to calculate this if ps_terms are fixed in advance
         if self.reducer.name == 'matching':
-            user_repr = self.encoderU(his_news_repr)
+            user_repr = self.encoderU(his_news_repr, his_mask=x['his_mask'].to(self.device), user_index=x['user_index'].to(self.device))
         else:
             user_repr = None
 

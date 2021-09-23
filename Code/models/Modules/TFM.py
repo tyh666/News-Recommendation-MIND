@@ -4,11 +4,11 @@ import torch.nn as nn
 # from collections import defaultdict
 
 class Union_Fuser(nn.Module):
-    def __init__(self, config):
+    def __init__(self, manager):
         super().__init__()
         self.name = 'union'
-        self.embedding_dim = config.embedding_dim
-        
+        self.embedding_dim = manager.embedding_dim
+
 
     def forward(self, ps_terms, ps_term_mask):
         """

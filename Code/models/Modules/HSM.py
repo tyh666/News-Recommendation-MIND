@@ -7,20 +7,20 @@ class SFI_Selector(nn.Module):
     """
     select most informative k history
     """
-    def __init__(self, config):
+    def __init__(self, manager):
         super().__init__()
-        self.k = config.k
-        self.his_size = config.his_size
+        self.k = manager.k
+        self.his_size = manager.his_size
 
-        self.signal_length = config.signal_length
-        self.embedding_dim = config.embedding_dim
-        self.hidden_dim = config.hidden_dim
+        self.signal_length = manager.signal_length
+        self.embedding_dim = manager.embedding_dim
+        self.hidden_dim = manager.hidden_dim
 
         self.selectionProject = nn.Sequential(
             nn.Linear(self.hidden_dim, self.hidden_dim)
         )
-        if config.threshold != -float('inf'):
-            threshold = torch.tensor([config.threshold])
+        if manager.threshold != -float('inf'):
+            threshold = torch.tensor([manager.threshold])
             self.register_buffer('threshold', threshold)
 
         for param in self.selectionProject:
@@ -93,11 +93,11 @@ class Recent_Selector(nn.Module):
     """
     select recent k history
     """
-    def __init__(self, config):
+    def __init__(self, manager):
         super().__init__()
-        self.k = config.k
-        self.his_size = config.his_size
-        self.signal_length = config.signal_length
+        self.k = manager.k
+        self.his_size = manager.his_size
+        self.signal_length = manager.signal_length
 
     def forward(self, cdd_repr, his_repr, his_embedding, his_attn_mask):
         """ apply news-level attention

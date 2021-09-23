@@ -3,12 +3,12 @@ import torch.nn as nn
 from ..Modules.Attention import scaled_dp_attention
 
 class CNN_Encoder(nn.Module):
-    def __init__(self, config):
+    def __init__(self, manager):
         super().__init__()
         self.name = 'cnn-n'
 
-        self.hidden_dim = config.hidden_dim
-        self.embedding_dim = config.embedding_dim
+        self.hidden_dim = manager.hidden_dim
+        self.embedding_dim = manager.embedding_dim
 
         self.wordQueryProject = nn.Linear(self.hidden_dim, self.hidden_dim)
 
@@ -50,11 +50,11 @@ class CNN_Encoder(nn.Module):
 
 
 class CNN_User_Encoder(nn.Module):
-    def __init__(self, config):
+    def __init__(self, manager):
         super().__init__()
         self.name = 'cnn-u'
 
-        self.hidden_dim = config.hidden_dim
+        self.hidden_dim = manager.hidden_dim
         self.SeqCNN1D = nn.Sequential(
             nn.Conv1d(self.hidden_dim, self.hidden_dim//2, 3, 1, 1),
             nn.ReLU(),
@@ -63,7 +63,7 @@ class CNN_User_Encoder(nn.Module):
             nn.ReLU(),
             nn.MaxPool1d(3,3)
         )
-        self.userProject = nn.Linear((self.hidden_dim // 2 // 2) * (config.his_size // 3 // 3), self.hidden_dim)
+        self.userProject = nn.Linear((self.hidden_dim // 2 // 2) * (manager.his_size // 3 // 3), self.hidden_dim)
 
         nn.init.xavier_normal_(self.SeqCNN1D[0].weight)
         nn.init.xavier_normal_(self.SeqCNN1D[3].weight)
@@ -87,20 +87,20 @@ class CNN_User_Encoder(nn.Module):
 
 if __name__ == '__main__':
     from models.Encoders.CNN import CNN_Encoder
-    from data.configs.demo import config
+    from data.managers.demo import manager
 
-    config.npratio = 1
-    config.batch_size = 2
-    config.his_size = 2
-    config.k = 3
-    config.embedding = 'bert'
-    config.bert = 'bert-base-uncased'
-    config.signal_length = 512
+    manager.npratio = 1
+    manager.batch_size = 2
+    manager.his_size = 2
+    manager.k = 3
+    manager.embedding = 'bert'
+    manager.bert = 'bert-base-uncased'
+    manager.signal_length = 512
 
-    config.embedding_dim = 768
-    config.hidden_dim = 768
+    manager.embedding_dim = 768
+    manager.hidden_dim = 768
 
     a = torch.rand(2,2,512,768)
-    enc = CNN_Encoder(config)
+    enc = CNN_Encoder(manager)
     res = enc(a)
     print(res[0].shape, res[1].shape)

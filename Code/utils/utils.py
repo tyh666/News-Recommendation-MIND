@@ -250,59 +250,6 @@ def my_collate(data):
     return dict(result)
 
 
-def analyse(config):
-    """
-        analyse over MIND
-    """
-    mind_path = config.path + "MIND"
-
-    avg_title_length = 0
-    avg_abstract_length = 0
-    avg_his_length = 0
-    avg_imp_length = 0
-    cnt_his_lg_50 = 0
-    cnt_his_eq_0 = 0
-    cnt_imp_multi = 0
-
-    news_file = mind_path + \
-        "/MIND{}_{}/news.tsv".format(config.scale, config.mode)
-
-    behavior_file = mind_path + \
-        "/MIND{}_{}/behaviors.tsv".format(config.scale, config.mode)
-
-    with open(news_file, "r", encoding="utf-8") as rd:
-        count = 0
-        for idx in rd:
-            nid, vert, subvert, title, ab, url, _, _ = idx.strip(
-                "\n").split("\t")
-            avg_title_length += len(title.split(" "))
-            avg_abstract_length += len(ab.split(" "))
-            count += 1
-    avg_title_length = avg_title_length/count
-    avg_abstract_length = avg_abstract_length/count
-
-    with open(behavior_file, "r", encoding="utf-8") as rd:
-        count = 0
-        for idx in rd:
-            uid, time, history, impr = idx.strip("\n").split("\t")[-4:]
-            his = history.split(" ")
-            imp = impr.split(" ")
-            if len(his) > 50:
-                cnt_his_lg_50 += 1
-            if len(imp) > 50:
-                cnt_imp_multi += 1
-            if not his[0]:
-                cnt_his_eq_0 += 1
-            avg_his_length += len(his)
-            avg_imp_length += len(imp)
-            count += 1
-    avg_his_length = avg_his_length/count
-    avg_imp_length = avg_imp_length/count
-
-    print("avg_title_length:{}\n avg_abstract_length:{}\n avg_his_length:{}\n avg_impr_length:{}\n cnt_his_lg_50:{}\n cnt_his_eq_0:{}\n cnt_imp_multi:{}".format(
-        avg_title_length, avg_abstract_length, avg_his_length, avg_imp_length, cnt_his_lg_50, cnt_his_eq_0, cnt_imp_multi))
-
-
 class Partition_Sampler():
     def __init__(self, dataset, num_replicas, rank) -> None:
         super().__init__()
@@ -402,16 +349,16 @@ class DeDuplicate(object):
     """
     mask duplicated terms in one document by attention masks
     """
-    def __init__(self, config) -> None:
+    def __init__(self, manager) -> None:
         super().__init__()
-        self.max_length = config.signal_length
+        self.max_length = manager.signal_length
 
-        if not config.no_rm_punc:
+        if not manager.no_rm_punc:
             punc_map = {
                 'bert':set([999,1001,1002,1003,1004,1006,1007,1008,1009,1010,1011,1012,1013,1024,1025,1026,1027,1028,1029,1030,1031,1032,1033,1034,1035,1036,1066,1529]),
                 "deberta":set([10975,4,947,3226,1640,43,2744,5214,73,37457,41552,15698,6,328,116,131,35,34437,12905,1039,10431,1629,207,35227,742])
             }
-            self.punctuations = punc_map[config.embedding]
+            self.punctuations = punc_map[manager.embedding]
         else:
             self.punctuations = ''
 
@@ -445,10 +392,10 @@ class CountFreq(object):
     """
     generate token count pairs
     """
-    def __init__(self, config) -> None:
+    def __init__(self, manager) -> None:
         super().__init__()
-        self.max_length = config.signal_length
-        self.position = config.save_pos
+        self.max_length = manager.signal_length
+        self.position = manager.save_pos
 
     def __call__(self, documents, attn_masks):
         """
@@ -484,9 +431,9 @@ class CountFreq(object):
 
 
 class Truncate(object):
-    def __init__(self, config) -> None:
+    def __init__(self, manager) -> None:
         super().__init__()
-        self.max_length = config.signal_length
+        self.max_length = manager.signal_length
 
     def __call__(self, documents, attn_masks):
         """

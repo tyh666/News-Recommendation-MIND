@@ -8,25 +8,25 @@ class BERT_Embedding(nn.Module):
         3. slice/average/summarize subword embedding into the word embedding
         4. apply layerNorm and dropOut
     """
-    def __init__(self, config):
+    def __init__(self, manager):
         super().__init__()
         self.name = 'bert'
 
         # dimension for the final output embedding/representation
         self.embedding_dim = 768
-        config.embedding_dim = self.embedding_dim
+        manager.embedding_dim = self.embedding_dim
 
         bert = AutoModel.from_pretrained(
-            config.bert,
-            cache_dir=config.path + 'bert_cache/'
+            manager.bert,
+            cache_dir=manager.path + 'bert_cache/'
         )
         self.embedding = bert.embeddings.word_embeddings
 
         self.layerNorm = bert.embeddings.LayerNorm
         self.dropOut = bert.embeddings.dropout
 
-        if config.reducer == 'bow':
-            self.freq_embedding = nn.Embedding(config.signal_length // 2, self.embedding_dim)
+        if manager.reducer == 'bow':
+            self.freq_embedding = nn.Embedding(manager.signal_length // 2, self.embedding_dim)
             nn.init.xavier_normal_(self.freq_embedding.weight)
 
     def forward(self, news_batch, subword_prefix=None):

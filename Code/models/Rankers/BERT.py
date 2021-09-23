@@ -11,20 +11,20 @@ class BERT_Original_Ranker(nn.Module):
         ...
         cddn [SEP] his1 [SEP] his2 ...
     """
-    def __init__(self, config):
-        assert config.hidden_dim == 768
+    def __init__(self, manager):
+        assert manager.hidden_dim == 768
         super().__init__()
 
         self.name = 'original-bert'
-        self.k = config.k
-        self.signal_length = config.signal_length
-        self.hidden_dim = config.hidden_dim
+        self.k = manager.k
+        self.signal_length = manager.signal_length
+        self.hidden_dim = manager.hidden_dim
 
         self.final_dim = self.hidden_dim
 
         bert = BertModel.from_pretrained(
-            config.bert,
-            cache_dir=config.path + 'bert_cache/'
+            manager.bert,
+            cache_dir=manager.path + 'bert_cache/'
         )
         self.bert = bert.encoder
         self.pooler = nn.Sequential(
@@ -37,7 +37,7 @@ class BERT_Original_Ranker(nn.Module):
         # [SEP] token
         self.sep_embedding = nn.Parameter(bert.embeddings.word_embeddings(torch.tensor([102])).clone().detach().requires_grad_(True).view(1,1,self.hidden_dim))
 
-        self.order_embedding = nn.Parameter(torch.randn(config.his_size, 1, config.hidden_dim))
+        self.order_embedding = nn.Parameter(torch.randn(manager.his_size, 1, manager.hidden_dim))
         nn.init.xavier_normal_(self.order_embedding)
         nn.init.xavier_normal_(self.pooler[0].weight)
 
@@ -100,32 +100,32 @@ class BERT_Onepass_Ranker(nn.Module):
     one-pass bert:
         cdd1 cdd2 ... cddn [SEP] pst1 pst2 ...
     """
-    def __init__(self, config):
+    def __init__(self, manager):
         from .Modules.OnePassAttn import BertSelfAttention
 
         super().__init__()
 
         self.name = 'onepass-bert'
-        self.signal_length = config.signal_length
-        self.term_num = config.term_num + 2
+        self.signal_length = manager.signal_length
+        self.term_num = manager.term_num + 2
         self.hidden_dim = 768
 
-        bert_config = BertConfig()
+        bert_manager = BertConfig()
         # primary bert
-        prim_bert = BertModel(bert_config).encoder
+        prim_bert = BertModel(bert_manager).encoder
         # [CLS]
-        bert_config.signal_length = self.signal_length + 1
+        bert_manager.signal_length = self.signal_length + 1
         # two [SEP]
-        bert_config.term_num = config.term_num + 2
-        bert_config.cdd_size = config.cdd_size
-        bert_config.impr_size = config.impr_size
-        bert_config.full_attn = config.full_attn
+        bert_manager.term_num = manager.term_num + 2
+        bert_manager.cdd_size = manager.cdd_size
+        bert_manager.impr_size = manager.impr_size
+        bert_manager.full_attn = manager.full_attn
         for l in prim_bert.layer:
-            l.attention.self = BertSelfAttention(bert_config)
+            l.attention.self = BertSelfAttention(bert_manager)
 
         bert = BertModel.from_pretrained(
-            config.bert,
-            cache_dir=config.path + 'bert_cache/'
+            manager.bert,
+            cache_dir=manager.path + 'bert_cache/'
         )
         prim_bert.load_state_dict(bert.encoder.state_dict())
         self.bert = prim_bert
@@ -135,8 +135,8 @@ class BERT_Onepass_Ranker(nn.Module):
 
         # [SEP] token
         word_embedding = bert.embeddings.word_embeddings
-        self.cls_embedding = nn.Parameter(word_embedding.weight[config.get_special_token_id('[CLS]')].view(1,1,self.hidden_dim))
-        self.sep_embedding = nn.Parameter(word_embedding.weight[config.get_special_token_id('[SEP]')].view(1,1,self.hidden_dim))
+        self.cls_embedding = nn.Parameter(word_embedding.weight[manager.get_special_token_id('[CLS]')].view(1,1,self.hidden_dim))
+        self.sep_embedding = nn.Parameter(word_embedding.weight[manager.get_special_token_id('[SEP]')].view(1,1,self.hidden_dim))
 
         try:
             self.pos_embedding = nn.Parameter(bert.embeddings.position_embeddings.weight)

@@ -9,38 +9,38 @@ class Matching_Reducer(nn.Module):
     1. keep the first K terms unmasked
     2. add order embedding to terms from different historical news
     """
-    def __init__(self, config):
+    def __init__(self, manager):
         super().__init__()
 
         self.name = "matching"
 
-        self.k = config.k
-        self.diversify = config.diversify
-        self.his_size = config.his_size
-        self.embedding_dim = config.embedding_dim
+        self.k = manager.k
+        self.diversify = manager.diversify
+        self.his_size = manager.his_size
+        self.embedding_dim = manager.embedding_dim
 
-        config.term_num = config.k * config.his_size
+        manager.term_num = manager.k * manager.his_size
 
-        keep_k_modifier = torch.zeros(1, config.signal_length)
+        keep_k_modifier = torch.zeros(1, manager.signal_length)
         keep_k_modifier[:, :self.k] = 1
         self.register_buffer('keep_k_modifier', keep_k_modifier, persistent=False)
 
         if self.diversify:
-            self.newsUserAlign = nn.Linear(config.hidden_dim * 2, config.hidden_dim)
+            self.newsUserAlign = nn.Linear(manager.hidden_dim * 2, manager.hidden_dim)
             nn.init.xavier_normal_(self.newsUserAlign.weight)
 
-        if config.threshold != -float('inf'):
-            threshold = torch.tensor([config.threshold])
+        if manager.threshold != -float('inf'):
+            threshold = torch.tensor([manager.threshold])
             self.register_buffer('threshold', threshold)
 
-        if config.sep_his:
-            config.term_num += (self.his_size - 1)
-            self.sep_embedding = nn.Parameter(torch.randn(1, 1, 1, config.embedding_dim))
+        if manager.sep_his:
+            manager.term_num += (self.his_size - 1)
+            self.sep_embedding = nn.Parameter(torch.randn(1, 1, 1, manager.embedding_dim))
             self.register_buffer('extra_sep_mask', torch.ones(1, 1, 1), persistent=False)
             nn.init.xavier_normal_(self.sep_embedding)
 
-        if not config.no_order_embed:
-            self.order_embedding = nn.Parameter(torch.randn(config.his_size, 1, config.embedding_dim))
+        if not manager.no_order_embed:
+            self.order_embedding = nn.Parameter(torch.randn(manager.his_size, 1, manager.embedding_dim))
             nn.init.xavier_normal_(self.order_embedding)
 
 
@@ -105,27 +105,27 @@ class Slicing_Reducer(nn.Module):
     """
     truncation
     """
-    def __init__(self, config):
+    def __init__(self, manager):
         super().__init__()
 
         self.name = "slicing"
-        self.k = config.k
-        self.his_size = config.his_size
-        self.embedding_dim = config.embedding_dim
+        self.k = manager.k
+        self.his_size = manager.his_size
+        self.embedding_dim = manager.embedding_dim
 
-        config.term_num = config.k * config.his_size
+        manager.term_num = manager.k * manager.his_size
 
-        if not config.no_sep_his:
-            config.term_num += (self.his_size - 1)
-            self.sep_embedding = nn.Parameter(torch.randn(1, 1, 1, config.embedding_dim))
+        if not manager.no_sep_his:
+            manager.term_num += (self.his_size - 1)
+            self.sep_embedding = nn.Parameter(torch.randn(1, 1, 1, manager.embedding_dim))
             self.register_buffer('extra_sep_mask', torch.ones(1, 1, 1), persistent=False)
             nn.init.xavier_normal_(self.sep_embedding)
 
-        if not config.no_order_embed:
-            self.order_embedding = nn.Parameter(torch.randn(config.his_size, 1, config.embedding_dim))
+        if not manager.no_order_embed:
+            self.order_embedding = nn.Parameter(torch.randn(manager.his_size, 1, manager.embedding_dim))
             nn.init.xavier_normal_(self.order_embedding)
 
-        self.register_buffer('kid', torch.arange(config.k).unsqueeze(0).unsqueeze(0), persistent=False)
+        self.register_buffer('kid', torch.arange(manager.k).unsqueeze(0).unsqueeze(0), persistent=False)
 
     def forward(self, news_selection_embedding, news_embedding, user_repr, news_repr, his_attn_mask, his_refined_mask=None):
         """

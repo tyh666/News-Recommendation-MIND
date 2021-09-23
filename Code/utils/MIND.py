@@ -16,13 +16,13 @@ class MIND(Dataset):
     """ Map Style Dataset for MIND, use bert tokenizer
 
     Args:
-        config(dict): pre-defined dictionary of hyper parameters
+        manager(dict): pre-defined dictionary of hyper parameters
         news_file(str): path of news_file
         behaviors_file(str): path of behaviors_file
         shuffle(bool): whether to shuffle the order of impressions
     """
 
-    def __init__(self, config, news_file, behaviors_file, shuffle_pos=False):
+    def __init__(self, manager, news_file, behaviors_file, shuffle_pos=False):
         reducer_map = {
             "matching": "news.pkl",
             "bm25": "bm25.pkl",
@@ -31,25 +31,25 @@ class MIND(Dataset):
             "first": "news.pkl"
         }
         # initiate the whole iterator
-        self.npratio = config.npratio
+        self.npratio = manager.npratio
         self.shuffle_pos = shuffle_pos
-        self.signal_length = config.signal_length
-        self.his_size = config.his_size
-        self.impr_size = config.impr_size
-        self.k = config.k
-        self.ascend_history = config.ascend_history
-        self.reducer = config.reducer
-        self.granularity = config.granularity
+        self.signal_length = manager.signal_length
+        self.his_size = manager.his_size
+        self.impr_size = manager.impr_size
+        self.k = manager.k
+        self.ascend_history = manager.ascend_history
+        self.reducer = manager.reducer
+        self.granularity = manager.granularity
 
         pat = re.search("MIND/(.*_(.*)/)news", news_file)
         self.mode = pat.group(2)
 
-        self.cache_directory = "/".join(["data/cache", config.embedding, pat.group(1)])
+        self.cache_directory = "/".join(["data/cache", manager.embedding, pat.group(1)])
         self.news_path = self.cache_directory + reducer_map[self.reducer]
         self.behav_path = self.cache_directory + "{}/{}".format(self.impr_size, re.search("(\w*\.)tsv", behaviors_file).group(1) + ".pkl")
 
         # only preprocess on the master node, the worker can directly load the cache
-        if config.rank in [-1, 0]:
+        if manager.rank in [-1, 0]:
             if not os.path.exists(self.behav_path):
                 logger.info("encoding user behaviors of {}...".format(behaviors_file))
                 os.makedirs(self.cache_directory + str(self.impr_size), exist_ok=True)
@@ -57,47 +57,47 @@ class MIND(Dataset):
                 try:
                     # VERY IMPORTANT!!!
                     # The nid2idx dictionary must follow the original order of news in news.tsv
-                    self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_{}.json".format(config.scale, self.mode))
+                    self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_{}.json".format(manager.scale, self.mode))
                 except FileNotFoundError:
-                    config.construct_nid2idx()
-                    self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_{}.json".format(config.scale, self.mode))
+                    manager.construct_nid2idx()
+                    self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_{}.json".format(manager.scale, self.mode))
                 try:
-                    self.uid2index = getId2idx("data/dictionaries/uid2idx_{}.json".format(config.scale))
+                    self.uid2index = getId2idx("data/dictionaries/uid2idx_{}.json".format(manager.scale))
                 except FileNotFoundError:
-                    config.construct_uid2idx()
-                    self.uid2index = getId2idx("data/dictionaries/uid2idx_{}.json".format(config.scale))
+                    manager.construct_uid2idx()
+                    self.uid2index = getId2idx("data/dictionaries/uid2idx_{}.json".format(manager.scale))
 
                 self.init_behaviors()
 
 
             if not (os.path.exists(self.cache_directory + "news.pkl") and os.path.exists(self.cache_directory + "bm25.pkl") and os.path.exists(self.cache_directory + "entity.pkl")):
                 from transformers import AutoTokenizer
-                self.tokenizer = AutoTokenizer.from_pretrained(config.bert, cache_dir=config.path + "bert_cache/")
+                self.tokenizer = AutoTokenizer.from_pretrained(manager.bert, cache_dir=manager.path + "bert_cache/")
 
                 logger.info("encoding news of {}...".format(news_file))
                 self.news_file = news_file
-                self.embedding = config.embedding
+                self.embedding = manager.embedding
 
                 self.max_token_length = 512
                 self.max_reduction_length = 30
 
-                self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_{}.json".format(config.scale, self.mode))
+                self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_{}.json".format(manager.scale, self.mode))
 
-                self.convert_tokens_to_words = config.convert_tokens_to_words
+                self.convert_tokens_to_words = manager.convert_tokens_to_words
 
                 self.init_news()
 
         # synchronize all processes
-        if config.world_size > 1:
+        if manager.world_size > 1:
             dist.barrier()
 
-        logger.info("process NO.{} loading cached user behavior from {}".format(config.rank, self.behav_path))
+        logger.info("process NO.{} loading cached user behavior from {}".format(manager.rank, self.behav_path))
         with open(self.behav_path, "rb") as f:
             behaviors = pickle.load(f)
             for k,v in behaviors.items():
                 setattr(self, k, v)
 
-        logger.info("process NO.{} loading cached news tokenization from {}".format(config.rank, self.news_path))
+        logger.info("process NO.{} loading cached news tokenization from {}".format(manager.rank, self.news_path))
         with open(self.news_path, "rb") as f:
             news = pickle.load(f)
             self.encoded_news = news["encoded_news"]
@@ -121,16 +121,16 @@ class MIND(Dataset):
                 else:
                     self.subwords_original = None
 
-        if config.reducer == "matching":
-            if not config.no_dedup:
+        if manager.reducer == "matching":
+            if not manager.no_dedup:
                 from utils.utils import DeDuplicate
-                refiner = DeDuplicate(config)
-        elif config.reducer in ["bm25", "entity", "first"]:
+                refiner = DeDuplicate(manager)
+        elif manager.reducer in ["bm25", "entity", "first"]:
             from utils.utils import Truncate
-            refiner = Truncate(config)
-        elif config.reducer == "bow":
+            refiner = Truncate(manager)
+        elif manager.reducer == "bow":
             from utils.utils import CountFreq
-            refiner = CountFreq(config)
+            refiner = CountFreq(manager)
         else:
             refiner = None
 
@@ -497,7 +497,7 @@ class MIND(Dataset):
         impr_index = impr[0]
         impr_news = impr[1]
 
-        user_index = [self.uindexes[impr_index]]
+        user_index = self.uindexes[impr_index]
 
         # each time called to return positive one sample and its negative samples
         if self.mode == "train":
@@ -524,7 +524,7 @@ class MIND(Dataset):
             cdd_mask[:neg_num + 1] = 1
 
             # true means the corresponding history news is padded
-            his_mask = torch.zeros((self.his_size, 1), dtype=bool)
+            his_mask = torch.zeros((self.his_size, 1))
             his_mask[:len(his_ids)] = 1
 
             if self.ascend_history:
@@ -538,7 +538,7 @@ class MIND(Dataset):
             his_attn_mask = self.attn_mask[his_ids]
 
             back_dic = {
-                "user_index": np.asarray(user_index),
+                "user_index": user_index,
                 "cdd_id": np.asarray(cdd_ids),
                 "his_id": np.asarray(his_ids),
                 "cdd_encoded_index": cdd_encoded_index,
@@ -583,7 +583,7 @@ class MIND(Dataset):
 
             his_ids = self.histories[impr_index][:self.his_size]
             # true means the corresponding history news is padded
-            his_mask = torch.zeros((self.his_size, 1), dtype=bool)
+            his_mask = torch.zeros((self.his_size, 1))
             his_mask[:len(his_ids)] = 1
 
             if self.ascend_history:
@@ -591,7 +591,6 @@ class MIND(Dataset):
             else:
                 his_ids = his_ids[::-1] + [0] * (self.his_size - len(his_ids))
 
-            user_index = [self.uindexes[impr_index]]
             label = impr[2]
 
             cdd_encoded_index = self.encoded_news[cdd_ids]
@@ -601,7 +600,7 @@ class MIND(Dataset):
 
             back_dic = {
                 "impr_index": impr_index + 1,
-                "user_index": np.asarray(user_index),
+                "user_index": user_index,
                 "cdd_id": np.asarray(cdd_ids),
                 "his_id": np.asarray(his_ids),
                 "cdd_encoded_index": cdd_encoded_index,
@@ -641,7 +640,7 @@ class MIND(Dataset):
 
             his_ids = self.histories[impr_index][:self.his_size]
             # true means the corresponding history news is padded
-            his_mask = torch.zeros((self.his_size, 1), dtype=bool)
+            his_mask = torch.zeros((self.his_size, 1))
             his_mask[:len(his_ids)] = 1
 
             if self.ascend_history:
@@ -649,7 +648,6 @@ class MIND(Dataset):
             else:
                 his_ids = his_ids[::-1] + [0] * (self.his_size - len(his_ids))
 
-            user_index = [self.uindexes[impr_index]]
 
             cdd_encoded_index = self.encoded_news[cdd_ids]
             cdd_attn_mask = self.attn_mask[cdd_ids]
@@ -658,7 +656,7 @@ class MIND(Dataset):
 
             back_dic = {
                 "impr_index": impr_index + 1,
-                "user_index": np.asarray(user_index),
+                "user_index": user_index,
                 "cdd_id": np.asarray(cdd_ids),
                 "his_id": np.asarray(his_ids),
                 "cdd_encoded_index": cdd_encoded_index,
@@ -700,20 +698,20 @@ class MIND_news(Dataset):
     """ Map Dataset for MIND, return each news, intended for pipeline(obtaining news representation in advance)
 
     Args:
-        config(dict): pre-defined dictionary of hyper parameters
+        manager(dict): pre-defined dictionary of hyper parameters
         news_file(str): path of news_file
         mode(str): train/test
     """
 
-    def __init__(self, config, news_file, behaviors_file, shuffle_pos=False):
+    def __init__(self, manager, news_file, behaviors_file, shuffle_pos=False):
         # initiate the whole iterator
         self.shuffle_pos = shuffle_pos
-        self.signal_length = config.signal_length
-        self.k = config.k
+        self.signal_length = manager.signal_length
+        self.k = manager.k
         pat = re.search("MIND/(.*_(.*)/)news", news_file)
         self.mode = pat.group(2)
 
-        self.news_path = "/".join(["data/cache", config.embedding, pat.group(1), "news.pkl"])
+        self.news_path = "/".join(["data/cache", manager.embedding, pat.group(1), "news.pkl"])
 
         if os.path.exists(self.news_path):
             with open(self.news_path, "rb") as f:
@@ -731,10 +729,10 @@ class MIND_news(Dataset):
             self.max_news_length = 512
 
             # there are only two types of vocabulary
-            self.tokenizer = BertTokenizerFast.from_pretrained(config.bert, cache=config.path + "bert_cache/")
+            self.tokenizer = BertTokenizerFast.from_pretrained(manager.bert, cache=manager.path + "bert_cache/")
 
             self.nid2index = getId2idx(
-                "data/dictionaries/nid2idx_{}_{}.json".format(config.scale, self.mode))
+                "data/dictionaries/nid2idx_{}_{}.json".format(manager.scale, self.mode))
 
             logger.info("encoding news...")
             self.init_news()
@@ -801,33 +799,33 @@ class MIND_impr(Dataset):
     """ Map Style Dataset for MIND, return each impression once
 
     Args:
-        config(dict): pre-defined dictionary of hyper parameters
+        manager(dict): pre-defined dictionary of hyper parameters
         news_file(str): path of news_file
         behaviors_file(str): path of behaviors_file
         shuffle(bool): whether to shuffle the order of impressions
     """
 
-    def __init__(self, config, news_file, behaviors_file, shuffle_pos=False, validate=False):
+    def __init__(self, manager, news_file, behaviors_file, shuffle_pos=False, validate=False):
         # initiate the whole iterator
-        self.npratio = config.npratio
+        self.npratio = manager.npratio
         self.shuffle_pos = shuffle_pos
 
         self.news_file = news_file
         self.behaviors_file = behaviors_file
-        self.title_length = config.title_length
-        self.abs_length = config.abs_length
-        self.his_size = config.his_size
+        self.title_length = manager.title_length
+        self.abs_length = manager.abs_length
+        self.his_size = manager.his_size
 
-        self.multiview = config.multiview
-        self.k = config.k
+        self.multiview = manager.multiview
+        self.k = manager.k
 
         # there are only two types of vocabulary
         self.vocab = getVocab("data/dictionaries/vocab.pkl")
 
         self.nid2index = getId2idx(
-            "data/dictionaries/nid2idx_{}_{}.json".format(config.scale, "dev"))
+            "data/dictionaries/nid2idx_{}_{}.json".format(manager.scale, "dev"))
         self.uid2index = getId2idx(
-            "data/dictionaries/uid2idx_{}.json".format(config.scale))
+            "data/dictionaries/uid2idx_{}.json".format(manager.scale))
         self.vert2onehot = getId2idx(
             "data/dictionaries/vert2onehot.json"
         )
@@ -935,7 +933,7 @@ class MIND_impr(Dataset):
         his_title_index = self.news_title_array[his_ids][:, :self.title_length]
         back_dic = {
             "impr_index": impr_index + 1,
-            "user_index": np.asarray(user_index),
+            "user_index": user_index,
             "cdd_id": np.asarray(cdd_ids),
             "cdd_encoded_index": np.asarray(cdd_title_index),
             "his_id": np.asarray(his_ids),

@@ -10,26 +10,26 @@ class BERT_Encoder(nn.Module):
         2. add position embedding to the sequence, starting from 0 pos
         2. encode news with bert
     """
-    def __init__(self, config):
+    def __init__(self, manager):
         super().__init__()
 
         # dimension for the final output embedding/representation
         self.hidden_dim = 768
 
         bert = AutoModel.from_pretrained(
-            config.bert,
-            cache_dir=config.path + 'bert_cache/'
+            manager.bert,
+            cache_dir=manager.path + 'bert_cache/'
         )
         self.bert = bert.encoder
 
-        if re.search('bert-', config.bert):
+        if re.search('bert-', manager.bert):
             self.extend_attn_mask = False
         else:
             self.extend_attn_mask = True
 
         word_embedding = bert.embeddings.word_embeddings
-        self.cls_embedding = nn.Parameter(word_embedding.weight[config.get_special_token_id('[CLS]')].view(1,1,self.hidden_dim))
-        self.sep_embedding = nn.Parameter(word_embedding.weight[config.get_special_token_id('[SEP]')].view(1,1,self.hidden_dim))
+        self.cls_embedding = nn.Parameter(word_embedding.weight[manager.get_special_token_id('[CLS]')].view(1,1,self.hidden_dim))
+        self.sep_embedding = nn.Parameter(word_embedding.weight[manager.get_special_token_id('[SEP]')].view(1,1,self.hidden_dim))
 
         try:
             self.pos_embedding = nn.Parameter(bert.embeddings.position_embeddings.weight)

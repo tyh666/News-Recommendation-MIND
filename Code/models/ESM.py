@@ -4,17 +4,17 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class ESM(nn.Module):
-    def __init__(self, config, embedding, encoderN, encoderU, reducer, ranker):
+    def __init__(self, manager, embedding, encoderN, encoderU, reducer, ranker):
         super().__init__()
 
-        self.scale = config.scale
-        self.cdd_size = config.cdd_size
-        self.batch_size = config.batch_size
-        self.his_size = config.his_size
-        self.signal_length = config.signal_length
-        self.device = config.device
+        self.scale = manager.scale
+        self.cdd_size = manager.cdd_size
+        self.batch_size = manager.batch_size
+        self.his_size = manager.his_size
+        self.signal_length = manager.signal_length
+        self.device = manager.device
 
-        self.k = config.k
+        self.k = manager.k
 
         self.embedding = embedding
         self.encoderN = encoderN
@@ -32,15 +32,15 @@ class ESM(nn.Module):
         nn.init.xavier_normal_(self.learningToRank[0].weight)
         nn.init.xavier_normal_(self.learningToRank[2].weight)
 
-        self.granularity = config.granularity
+        self.granularity = manager.granularity
         if self.granularity != 'token':
-            self.register_buffer('cdd_dest', torch.zeros((self.batch_size, config.impr_size, config.signal_length * config.signal_length)), persistent=False)
-            if config.reducer in ["bm25", "entity", "first"]:
-                self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, (config.k + 1) * (config.k + 1))), persistent=False)
+            self.register_buffer('cdd_dest', torch.zeros((self.batch_size, manager.impr_size, manager.signal_length * manager.signal_length)), persistent=False)
+            if manager.reducer in ["bm25", "entity", "first"]:
+                self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, (manager.k + 1) * (manager.k + 1))), persistent=False)
             else:
-                self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, config.signal_length * config.signal_length)), persistent=False)
+                self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, manager.signal_length * manager.signal_length)), persistent=False)
 
-        config.name = '__'.join(['esm', config.embedding, config.encoderN, config.encoderU, config.reducer, config.ranker, config.granularity, "full" if config.full_attn else "partial"])
+        manager.name = '__'.join(['esm', manager.embedding, manager.encoderN, manager.encoderU, manager.reducer, manager.ranker, manager.granularity, "full" if manager.full_attn else "partial"])
 
 
     def clickPredictor(self, reduced_tensor):

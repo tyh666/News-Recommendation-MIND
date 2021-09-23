@@ -4,12 +4,12 @@ import torch
 import torch.nn as nn
 
 class Pipeline_Encoder(nn.Module):
-    def __init__(self, config):
+    def __init__(self, manager):
         super().__init__()
         self.name = 'pipeline-encoder'
 
-        news_repr_path = 'data/tensors/news_repr_{}_{}-[{}].tensor'.format(config.scale,config.mode,config.pipeline)
-        news_embedding_path = 'data/tensors/news_embedding_{}_{}-[{}].tensor'.format(config.scale,config.mode,config.pipeline)
+        news_repr_path = 'data/tensors/news_repr_{}_{}-[{}].tensor'.format(manager.scale,manager.mode,manager.pipeline)
+        news_embedding_path = 'data/tensors/news_embedding_{}_{}-[{}].tensor'.format(manager.scale,manager.mode,manager.pipeline)
 
         if os.path.exists(news_repr_path) and os.path.exists(news_embedding_path):
             self.news_repr = nn.Embedding.from_pretrained(torch.load(news_repr_path), freeze=True)
@@ -22,7 +22,7 @@ class Pipeline_Encoder(nn.Module):
 
         self.level = news_embedding.shape[-2]
         self.hidden_dim = news_embedding.shape[-1]
-        self.DropOut = nn.Dropout(config.dropout_p)
+        self.DropOut = nn.Dropout(manager.dropout_p)
 
     def forward(self,news_batch,**kwargs):
         """ encode news by lookup table

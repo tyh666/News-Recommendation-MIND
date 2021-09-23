@@ -37,6 +37,12 @@ def main(rank, manager):
     elif manager.encoderU == 'attn':
         from models.Encoders.Pooling import Attention_Pooling
         encoderU = Attention_Pooling(manager)
+    elif manager.encoderU == 'mha':
+        from models.Encoders.MHA import MHA_User_Encoder
+        encoderU = MHA_User_Encoder(manager)
+    elif manager.encoderU == 'lstur':
+        from models.Encoders.RNN import LSTUR
+        encoderU = LSTUR(manager)
 
     if manager.reducer in ['matching', 'bow']:
         from models.Modules.DRM import Matching_Reducer

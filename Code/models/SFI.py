@@ -4,16 +4,16 @@ import torch.nn as nn
 
 
 class SFI(nn.Module):
-    def __init__(self, config, embedding, encoder, selector, ranker):
+    def __init__(self, manager, embedding, encoder, selector, ranker):
         super().__init__()
 
-        self.scale = config.scale
-        self.batch_size = config.batch_size
-        self.his_size = config.his_size
-        self.signal_length = config.signal_length
-        self.device = config.device
+        self.scale = manager.scale
+        self.batch_size = manager.batch_size
+        self.his_size = manager.his_size
+        self.signal_length = manager.signal_length
+        self.device = manager.device
 
-        self.k = config.k
+        self.k = manager.k
 
         self.embedding = embedding
         self.encoder = encoder
@@ -21,7 +21,7 @@ class SFI(nn.Module):
         self.ranker = ranker
 
         self.name = '__'.join(['sfi', self.encoder.name, self.ranker.name])
-        config.name = self.name
+        manager.name = self.name
 
         self.hidden_dim = encoder.hidden_dim
         self.final_dim = ranker.final_dim + self.his_size
