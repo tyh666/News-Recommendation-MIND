@@ -881,52 +881,53 @@ class Manager():
 
         logger.info("press <ENTER> to continue")
 
-        jumpout = False
+        pre_id = None
         for x in loader:
+            if x['user_index'][0] == pre_id:
+                continue
+            pre_id = x['user_index'][0]
+            
             _, term_indexes = model(x)
-            his_encoded_index = x["his_encoded_index"]
+
+            his_encoded_index = x["his_encoded_index"][0]
             if self.reducer == "bow":
-                his_encoded_index = his_encoded_index[:, :, :, 0]
-            his_id = x["his_id"]
+                his_encoded_index = his_encoded_index[ :, :, 0]
+            term_indexes = term_indexes[0]
+            his_id = x["his_id"][0]
+            user_index = x["user_index"][0]
 
-            for i,batch in enumerate(his_encoded_index):
-                for j,his_token_ids in enumerate(batch):
-                    print("*******************************************************")
-                    tokens = t.convert_ids_to_tokens(his_token_ids)
-                    if self.granularity != "token":
-                        terms = self.convert_tokens_to_words(tokens, punctuation=True)
-                        terms.extend(["[PAD]"] * (self.signal_length - len(terms)))
-                        terms = np.asarray(terms)
-                    else:
-                        if self.embedding == 'deberta':
-                            terms = []
-                            for token in tokens:
-                                if token.startswith('Ġ'):
-                                    terms.append(token[1:])
-                                else:
-                                    terms.append(token)
-                        terms = np.asarray(terms)
-                    ps_term_ids = term_indexes[i, j].cpu().numpy()
-                    ps_terms = terms[ps_term_ids]
+            for j,his_token_ids in enumerate(his_encoded_index):
+                print("*************************{}******************************".format(user_index.item()))
+                tokens = t.convert_ids_to_tokens(his_token_ids)
+                if self.granularity != "token":
+                    terms = self.convert_tokens_to_words(tokens, punctuation=True)
+                    terms.extend(["[PAD]"] * (self.signal_length - len(terms)))
+                    terms = np.asarray(terms)
+                else:
+                    if self.embedding == 'deberta':
+                        terms = []
+                        for token in tokens:
+                            if token.startswith('Ġ'):
+                                terms.append(token[1:])
+                            else:
+                                terms.append(token)
+                    terms = np.asarray(terms)
+                ps_term_ids = term_indexes[j].cpu().numpy()
+                ps_terms = terms[ps_term_ids]
 
-                    if ps_terms[0] == "[PAD]":
-                        jumpout = True
-                        break
-                    else:
-                        print("[personalized terms]\n\t {}".format(" ".join(ps_terms)))
-                        print("[bm25 terms]\n\t {}".format(t.decode(bm25_terms[his_id[i,j]])))
-                        print("[entities]\n\t {}".format(t.decode(entities[his_id[i,j]])))
-                        print("[original news]\n\t {}".format(t.decode(news[his_id[i,j]][:self.signal_length], skip_special_tokens=True)))
-
-                        command = input()
-                        if command == "n":
-                            break
-                        elif command == "q":
-                            return
-
-                if jumpout:
-                    jumpout = False
+                if ps_terms[0] == "[PAD]":
                     break
+                else:
+                    print("[personalized terms]\n\t {}".format(" ".join(ps_terms)))
+                    print("[bm25 terms]\n\t {}".format(t.decode(bm25_terms[his_id[j]])))
+                    print("[entities]\n\t {}".format(t.decode(entities[his_id[j]])))
+                    print("[original news]\n\t {}".format(t.decode(news[his_id[j]][:self.signal_length], skip_special_tokens=True)))
+
+                command = input()
+                if command == "n":
+                    break
+                elif command == "q":
+                    return
 
 
     def convert_tokens_to_words(self, tokens, punctuation=False):
