@@ -667,7 +667,7 @@ class Manager():
                 if scheduler:
                     scheduler.step()
 
-                if step % interval == 0:
+                if step % interval == 0 and step > 0:
                     tqdm_.set_description(
                         "epoch: {:d},  step: {:d},  total_step: {:d},  loss: {:.4f}".format(epoch + 1, step, steps, epoch_loss / step))
                     # if writer:
