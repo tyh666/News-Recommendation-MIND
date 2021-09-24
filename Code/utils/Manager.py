@@ -657,7 +657,7 @@ class Manager():
                 label = x["label"].to(model.device)
 
                 loss = loss_func(pred, label)
-                epoch_loss += loss
+                epoch_loss += float(loss)
 
                 loss.backward()
 
