@@ -57,8 +57,6 @@ def main(rank, manager, dist=False):
     elif manager.mode == 'test':
         manager.test(ttm, loaders[0])
 
-    if dist:
-        cleanup()
 
 if __name__ == "__main__":
     manager = Manager()

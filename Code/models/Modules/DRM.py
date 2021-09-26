@@ -21,7 +21,7 @@ class Matching_Reducer(nn.Module):
 
         manager.term_num = manager.k * manager.his_size
 
-        keep_k_modifier = torch.zeros(1, manager.signal_length)
+        keep_k_modifier = torch.zeros(1, manager.signal_length - 2)
         keep_k_modifier[:, :self.k] = 1
         self.register_buffer('keep_k_modifier', keep_k_modifier, persistent=False)
 
@@ -53,7 +53,7 @@ class Matching_Reducer(nn.Module):
             news_embedding: word-level news embedding, [batch_size, his_size, signal_length, hidden_dim]
             news_repr: news-level representation, [batch_size, his_size, hidden_dim]
             user_repr: user representation, [batch_size, 1, hidden_dim]
-
+            his_refined_mask: dedupicated attention mask, [batch_size, his_size, signal_length]
         Returns:
             ps_terms: weighted embedding for personalized terms, [batch_size, term_num, embedding_dim]
             ps_term_mask: attention mask of output terms, [batch_size, term_num]
@@ -67,23 +67,27 @@ class Matching_Reducer(nn.Module):
         else:
             selection_query = user_repr.unsqueeze(-1)
 
-        # [bs, hs, sl - 1]
+        news_selection_embedding = news_selection_embedding[:, :, 1:-1]
+        news_embedding = news_embedding[:, :, 1:-1]
+        his_attn_mask = his_attn_mask[:, :, 1:-1]
+
+        # [bs, hs, sl - 2]
         scores = F.normalize(news_selection_embedding, dim=-1).matmul(F.normalize(selection_query, dim=-2)).squeeze(-1)
-        # print(scores[0])
-        pad_pos = ~((his_refined_mask + self.keep_k_modifier).bool())
+        pad_pos = ~((his_refined_mask[:, :, 1:-1] + self.keep_k_modifier).bool())
+
         # mask the padded term
         scores = scores.masked_fill(pad_pos, -float('inf'))
 
         score_k, score_kid = scores.topk(dim=-1, k=self.k)
 
-        ps_terms = news_embedding.gather(dim=-2,index=score_kid.unsqueeze(-1).expand(score_kid.size() + (news_embedding.size(-1),)))
+        ps_terms = news_embedding.gather(dim=-2,index=score_kid.unsqueeze(-1).expand(*score_kid.size(), news_embedding.size(-1)))
         # [bs, hs, k]
         ps_term_mask = his_attn_mask.gather(dim=-1, index=score_kid)
 
         if hasattr(self, 'threshold'):
             mask_pos = score_k < self.threshold
             # ps_terms = personalized_terms * (nn.functional.softmax(score_k.masked_fill(score_k < self.threshold, 0), dim=-1).unsqueeze(-1))
-            ps_terms = ps_terms * (score_k.masked_fill(mask_pos, 0).unsqueeze(-1))
+            ps_terms = ps_terms * (F.softmax(score_k.masked_fill(mask_pos, 0), dim=-1).unsqueeze(-1))
             ps_term_mask = ps_term_mask * (~mask_pos)
         else:
             ps_terms = ps_terms * (F.softmax(score_k, dim=-1).unsqueeze(-1))
@@ -91,6 +95,7 @@ class Matching_Reducer(nn.Module):
         if hasattr(self, 'order_embedding'):
             ps_terms += self.order_embedding
 
+        # add extra [SEP] token to separate terms from different history news
         if hasattr(self, 'sep_embedding'):
             ps_terms = torch.cat([ps_terms, self.sep_embedding.expand(batch_size, self.his_size, 1, self.embedding_dim)], dim=-2).view(batch_size, -1, self.embedding_dim)[:, :-1]
             ps_term_mask = torch.cat([ps_term_mask, self.extra_sep_mask.expand(batch_size, self.his_size, 1)], dim=-1).view(batch_size, -1)[:, :-1]

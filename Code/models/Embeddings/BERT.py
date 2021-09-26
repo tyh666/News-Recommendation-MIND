@@ -20,7 +20,7 @@ class BERT_Embedding(nn.Module):
             manager.bert,
             cache_dir=manager.path + 'bert_cache/'
         )
-        self.embedding = bert.embeddings.word_embeddings
+        self.bert_word_embedding = bert.embeddings.word_embeddings
 
         self.layerNorm = bert.embeddings.LayerNorm
         self.dropOut = bert.embeddings.dropout
@@ -41,10 +41,10 @@ class BERT_Embedding(nn.Module):
         """
         # bag of words
         if news_batch.dim() == 4:
-            word_embeds = self.embedding(news_batch[:,:,:,0]) + self.freq_embedding(news_batch[:,:,:,1])
+            word_embeds = self.bert_word_embedding(news_batch[:,:,:,0]) + self.freq_embedding(news_batch[:,:,:,1])
 
         else:
-            word_embeds = self.embedding(news_batch)
+            word_embeds = self.bert_word_embedding(news_batch)
 
         # word-level
         if subword_prefix is not None:

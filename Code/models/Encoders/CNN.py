@@ -23,7 +23,7 @@ class CNN_Encoder(nn.Module):
         self.query_words = nn.Parameter(torch.randn(
             (1, self.hidden_dim), requires_grad=True))
 
-        self.RELU = nn.ReLU()
+        self.Relu = nn.ReLU()
         self.Tanh = nn.Tanh()
 
         nn.init.xavier_normal_(self.wordQueryProject.weight)
@@ -43,7 +43,7 @@ class CNN_Encoder(nn.Module):
         """
         signal_length = news_embedding.size(2)
         cnn_input = news_embedding.view(-1, signal_length, self.embedding_dim).transpose(-2, -1)
-        cnn_output = self.RELU(self.layerNorm(self.cnn(cnn_input).transpose(-2, -1))).view(*news_embedding.shape[:-1], self.hidden_dim)
+        cnn_output = self.Relu(self.layerNorm(self.cnn(cnn_input).transpose(-2, -1))).view(*news_embedding.shape[:-1], self.hidden_dim)
 
         news_repr = scaled_dp_attention(self.query_words, self.Tanh(self.wordQueryProject(cnn_output)), cnn_output, attn_mask.unsqueeze(-2)).squeeze(dim=-2)
         return cnn_output, news_repr
