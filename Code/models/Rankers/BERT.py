@@ -15,7 +15,6 @@ class BERT_Original_Ranker(nn.Module):
         assert manager.hidden_dim == 768
         super().__init__()
 
-        self.name = 'original-bert'
         self.k = manager.k
         self.signal_length = manager.signal_length
         self.hidden_dim = manager.hidden_dim
@@ -143,7 +142,7 @@ class BERT_Onepass_Ranker(nn.Module):
         except:
             self.pos_embedding = None
 
-        self.register_buffer('extra_attn_mask', torch.ones(1, 1), persistent=False)
+        self.register_buffer('extra_sep_mask', torch.zeros(1, 1), persistent=False)
 
     def forward(self, cdd_news_embedding, ps_terms, cdd_attn_mask, ps_term_mask):
         """
@@ -182,7 +181,7 @@ class BERT_Onepass_Ranker(nn.Module):
         if self.pos_embedding is not None:
             bert_input[:, cdd_length:] += self.pos_embedding[self.signal_length + 1: self.signal_length + 1 + self.term_num]
 
-        attn_mask = torch.cat([cdd_attn_mask, self.extra_attn_mask.expand(batch_size, 1), ps_term_mask, self.extra_attn_mask.expand(batch_size, 1)], dim=-1)
+        attn_mask = torch.cat([cdd_attn_mask, self.extra_sep_mask.expand(batch_size, 1), ps_term_mask, self.extra_sep_mask.expand(batch_size, 1)], dim=-1)
         attn_mask = get_attn_mask(attn_mask)
 
         bert_output = self.bert(bert_input, attention_mask=attn_mask).last_hidden_state[:, 0 : cdd_size * (self.signal_length + 1) : self.signal_length + 1].view(batch_size, cdd_size, self.hidden_dim)

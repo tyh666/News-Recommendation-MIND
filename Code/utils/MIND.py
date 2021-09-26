@@ -186,7 +186,10 @@ class MIND(Dataset):
             subwords_all = []
             subwords_first = []
             for text in tqdm(texts, ncols=150, leave=True):
-                tokens = tokenizer.tokenize(text)
+                token_ouput = tokenizer(text, padding='max_length', truncation=True, max_length=max_length)
+                token_ids = token_ouput['input_ids']
+
+                tokens = tokenizer.convert_ids_to_tokens(token_ids)
 
                 # maintain subword entry
                 subword_all = []
@@ -196,9 +199,12 @@ class MIND(Dataset):
                 i = -1
                 j = -1
                 for token in tokens:
-                    if token.startswith("##"):
+                    if token == '[PAD]':
+                        subword_all.append([0,0])
+                        subword_first.append([0,0])
+
+                    elif token.startswith("##"):
                         j += 1
-                        # subword.append([0,0])
                         subword_all.append([i,j])
                         subword_first.append([0,0])
 
@@ -208,16 +214,10 @@ class MIND(Dataset):
                         subword_all.append([i,j])
                         subword_first.append([i,j])
 
-                token_ids = tokenizer.convert_tokens_to_ids(tokens[:max_length])
-                pad_length = max_length - len(token_ids)
-
-                text_toks.append(token_ids + [0] * pad_length)
-                attention_masks.append([1] * min(len(token_ids), max_length) + [0] * pad_length)
-
-                subword_all.extend([[0,0]] * pad_length)
-                subword_first.extend([[0,0]] * pad_length)
-                subwords_all.append(subword_all[:max_length])
-                subwords_first.append(subword_first[:max_length])
+                text_toks.append(token_ids)
+                attention_masks.append(token_ouput['attention_mask'])
+                subwords_all.append(subword_all)
+                subwords_first.append(subword_first)
 
             # encode news
             encoded_news = np.asarray(text_toks)
@@ -246,7 +246,10 @@ class MIND(Dataset):
             subwords_all = []
             subwords_first = []
             for text in texts:
-                tokens = tokenizer.tokenize(text)
+                token_ouput = tokenizer(text, padding='max_length', truncation=True, max_length=max_length)
+                token_ids = token_ouput['input_ids']
+
+                tokens = tokenizer.convert_ids_to_tokens(token_ids)
 
                 # maintain subword entry
                 subword_all = []
@@ -256,8 +259,12 @@ class MIND(Dataset):
                 i = -1
                 j = -1
                 for index,token in enumerate(tokens):
+                    if token == '[PAD]':
+                        subword_all.append([0,0])
+                        subword_first.append([0,0])
+
                     # not subword
-                    if index == 0 or token.startswith("Ġ") or token in r"[.&*()+=/\<>,!?;:~`@#$%^]":
+                    if index in [0,1] or token.startswith("Ġ") or token in r"[.&*()+=/\<>,!?;:~`@#$%^]":
                         i += 1
                         j += 1
                         subword_all.append([i,j])
@@ -266,20 +273,13 @@ class MIND(Dataset):
                     # subword
                     else:
                         j += 1
-                        # subword.append([0,0])
                         subword_all.append([i,j])
                         subword_first.append([0,0])
 
-                token_ids = tokenizer.convert_tokens_to_ids(tokens[:max_length])
-                pad_length = max_length - len(token_ids)
-
-                text_toks.append(token_ids + [0] * pad_length)
-                attention_masks.append([1] * min(len(token_ids), max_length) + [0] * pad_length)
-
-                subword_all.extend([[0,0]] * pad_length)
-                subword_first.extend([[0,0]] * pad_length)
-                subwords_all.append(subword_all[:max_length])
-                subwords_first.append(subword_first[:max_length])
+                text_toks.append(token_ids)
+                attention_masks.append(token_ouput['attention_mask'])
+                subwords_all.append(subword_all)
+                subwords_first.append(subword_first)
 
             # encode news
             encoded_news = np.asarray(text_toks)

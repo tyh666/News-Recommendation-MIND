@@ -915,6 +915,7 @@ class Manager():
                     terms = np.asarray(terms)
                 else:
                     if self.embedding == 'deberta':
+                        # remove Ġ for clearity
                         terms = []
                         for token in tokens:
                             if token.startswith('Ġ'):
