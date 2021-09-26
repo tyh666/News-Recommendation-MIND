@@ -5,12 +5,15 @@ import logging
 import argparse
 import json
 import random
-import torch.nn as nn
-import torch.optim as optim
+import smtplib
+import pandas as pd
 import numpy as np
 import scipy.stats as ss
+import torch.nn as nn
+import torch.optim as optim
 import torch.distributed as dist
 
+from data.configs.email import email,password
 from tqdm.auto import tqdm
 from typing import OrderedDict
 from collections import defaultdict
@@ -90,6 +93,7 @@ class Manager():
             parser.add_argument("--scheduler", dest="scheduler", help="choose schedule scheme for optimizer", choices=["linear","none"], default="linear")
             parser.add_argument("--warmup", dest="warmup", help="warmup steps of scheduler", type=int, default=10000)
             parser.add_argument("--interval", dest="interval", help="the step interval to update processing bar", default=10, type=int)
+            parser.add_argument("--no_email", dest="no_email", help="whether to email the result", action='store_true', default=False)
 
             parser.add_argument("--npratio", dest="npratio", help="the number of unclicked news to sample when training", type=int, default=4)
             parser.add_argument("--metrics", dest="metrics", help="metrics for evaluating the model", type=str, default="")
@@ -175,19 +179,11 @@ class Manager():
             os.environ["CUDA_VISIBLE_DEVICES"] = str(rank)
 
 
-    def cleanup(self):
-        """
-        shut down the distributed training process
-        """
-        if self.world_size > 1:
-            dist.destroy_process_group()
-
-
     def prepare(self):
         """ prepare dataloader and several paths
 
         Returns:
-            loaders(list of dataloaders): 0-loader_train/test/dev, 1-loader_dev, 2-loader_validate
+            loaders(list of dataloaders): 0-loader_train/test/dev, 1-loader_dev
         """
         from .MIND import MIND
         from .utils import Partition_Sampler
@@ -329,9 +325,21 @@ class Manager():
                 if k not in hparam_list:
                     d[k] = v
 
-            f.write(str(d)+"\n")
-            f.write(str(res) + "\n")
-            f.write("\n")
+            name = str(d) + "\n"
+            content = str(res) + "\n\n"
+            f.write(name)
+            f.write(content)
+
+            if not self.no_email:
+                try:
+                    subject = "[Performance Report!] {} : {}".format(d["name"], res["auc"])
+                    email_server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+                    email_server.login(email, password)
+                    message = "Subject: {}\n\n{}".format(subject,name + content)
+                    email_server.sendmail(email, email, message)
+                    email_server.close()
+                except:
+                    logger.info("error in connecting SMTP")
 
 
     def _get_loss(self, model):
@@ -975,8 +983,6 @@ class Manager():
         """
             Construct news to newsID dictionary, index starting from 1
         """
-        import pandas as pd
-        import json
         logger.info("mapping news id to news index...")
         nid2index = {}
         mind_path = self.path + "MIND"
@@ -1004,8 +1010,6 @@ class Manager():
         """
             Construct user to userID dictionary, index starting from 1
         """
-        import pandas as pd
-        import json
         logger.info("mapping user id to user index...")
         uid2index = {}
         user_df_list = []

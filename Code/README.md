@@ -11,7 +11,7 @@ then
   source ~/.bashrc
   nn
 
-  /data/v-pezhang/nn/bin/pip install torch==1.7.1+cu110 -f https://download.pytorch.org/whl/torch_stable.html
+  /data/v-pezhang/nn/bin/pip install torch==1.9.1+cu111 -f https://download.pytorch.org/whl/torch_stable.html
 
   screen -S pt
   sleep infinity
@@ -25,7 +25,7 @@ else
   echo 'alias nn="conda activate /data/v-pezhang/nn"' >> ~/.bashrc
   source ~/.bashrc
   nn
-  /data/v-pezhang/nn/bin/pip install torch==1.7.1+cu110 -f https://download.pytorch.org/whl/torch_stable.html
+  /data/v-pezhang/nn/bin/pip install torch==1.9.1+cu111 -f https://download.pytorch.org/whl/torch_stable.html
   /data/v-pezhang/nn/bin/pip install tensorboard ipython jupyter notebook typing pandas scipy scikit-learn transformers
 
   cd /data/

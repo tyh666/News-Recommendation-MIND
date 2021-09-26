@@ -83,8 +83,6 @@ def main(rank, manager):
     elif manager.mode == 'inspect':
         manager.inspect(ttms, loaders[0])
 
-    manager.cleanup()
-
 
 if __name__ == "__main__":
     manager = Manager()
