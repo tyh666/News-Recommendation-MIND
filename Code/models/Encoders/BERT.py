@@ -30,8 +30,8 @@ class BERT_Encoder(nn.Module):
             self.extend_attn_mask = False
 
         word_embedding = bert.embeddings.word_embeddings
-        self.cls_embedding = nn.Parameter(word_embedding.weight[manager.get_special_token_id('[CLS]')].view(1,1,self.hidden_dim))
-        self.sep_embedding = nn.Parameter(word_embedding.weight[manager.get_special_token_id('[SEP]')].view(1,1,self.hidden_dim))
+        self.bert_cls_embedding = nn.Parameter(word_embedding.weight[manager.get_special_token_id('[CLS]')].view(1,1,self.hidden_dim))
+        self.bert_sep_embedding = nn.Parameter(word_embedding.weight[manager.get_special_token_id('[SEP]')].view(1,1,self.hidden_dim))
 
         self.query = nn.Parameter(torch.randn(1, self.hidden_dim))
         nn.init.xavier_normal_(self.query)
@@ -68,10 +68,10 @@ class BERT_Encoder(nn.Module):
 
         attn_mask = attn_mask.view(-1, signal_length)
 
-        # bert_input = torch.cat([self.cls_embedding.expand(bs, 1, self.hidden_dim), bert_input, self.sep_embedding.expand(bs, 1, self.hidden_dim)], dim=-2)
+        # bert_input = torch.cat([self.bert_cls_embedding.expand(bs, 1, self.hidden_dim), bert_input, self.bert_sep_embedding.expand(bs, 1, self.hidden_dim)], dim=-2)
         if signal_length > self.signal_length:
             # add [CLS] and [SEP] to ps_terms
-            bert_input = torch.cat([self.cls_embedding.expand(bs, 1, self.hidden_dim), bert_input, self.sep_embedding.expand(bs, 1, self.hidden_dim)], dim=-2)
+            bert_input = torch.cat([self.bert_cls_embedding.expand(bs, 1, self.hidden_dim), bert_input, self.bert_sep_embedding.expand(bs, 1, self.hidden_dim)], dim=-2)
             attn_mask = torch.cat([self.extra_attn_mask.expand(bs, 1), attn_mask, self.extra_attn_mask.expand(bs, 1)], dim=-1)
 
             # if self.bert_token_type_embedding is not None:

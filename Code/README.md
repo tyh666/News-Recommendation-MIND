@@ -13,7 +13,6 @@ then
 
   /data/v-pezhang/nn/bin/pip install torch==1.9.1+cu111 -f https://download.pytorch.org/whl/torch_stable.html
 
-  screen -S pt
   sleep infinity
 
 else
