@@ -899,7 +899,7 @@ class Manager():
 
             _, term_indexes = model(x)
 
-            his_encoded_index = x["his_encoded_index"][0]
+            his_encoded_index = x["his_encoded_index"][0][:, 1:]
             if self.reducer == "bow":
                 his_encoded_index = his_encoded_index[ :, :, 0]
             term_indexes = term_indexes[0]
@@ -922,7 +922,10 @@ class Manager():
                                 terms.append(token[1:])
                             else:
                                 terms.append(token)
+                    else:
+                        terms = tokens
                     terms = np.asarray(terms)
+
                 ps_term_ids = term_indexes[j].cpu().numpy()
                 ps_terms = terms[ps_term_ids]
 

@@ -103,8 +103,6 @@ class Matching_Reducer(nn.Module):
             ps_terms = ps_terms.view(batch_size, -1, self.embedding_dim)
             ps_term_mask = ps_term_mask.view(batch_size, -1)
 
-        # add 1 to debias [CLS] index
-        score_kid = score_kid + 1
         return ps_terms, ps_term_mask, score_kid
 
 

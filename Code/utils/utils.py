@@ -70,8 +70,8 @@ def convert_tokens_to_words_deberta(tokens):
     """
     words = []
     for i,tok in enumerate(tokens):
-        # the beginning of a word
-        if i == 0:
+        # [CLS] and the beginning of a word
+        if i in [0,1]:
             words.append(tok)
         elif tok == "[PAD]":
             break
@@ -96,7 +96,7 @@ def convert_tokens_to_words_deberta_punctuation(tokens):
     words = []
     for i,tok in enumerate(tokens):
         # the beginning of a word
-        if i == 0:
+        if i in [0,1]:
             words.append(tok)
         elif tok == "[PAD]":
             break
