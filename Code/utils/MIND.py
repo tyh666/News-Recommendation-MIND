@@ -264,7 +264,7 @@ class MIND(Dataset):
                         subword_first.append([0,0])
 
                     # not subword
-                    if index in [0,1] or token.startswith("Ġ") or token in r"[.&*()+=/\<>,!?;:~`@#$%^]":
+                    elif index in [0,1] or token.startswith("Ġ") or token in r"[.&*()+=/\<>,!?;:~`@#$%^]":
                         i += 1
                         j += 1
                         subword_all.append([i,j])
