@@ -1602,14 +1602,114 @@ w3c valid html last updated on 2018-11-14 10:55 CET by the dblp team
   bibsource = {dblp computer science bibliography, https://dblp.org}
 }
 
-@inproceedings{RippleNet,
-  author    = {Hongwei Wang and
-               Fuzheng Zhang and
-               Jialin Wang and
-               Miao Zhao and
-               Wenjie Li and
-               Xing Xie and
-               Minyi Guo},
+@inproceedings{query_likelihood,
+  author    = {Donald Metzler and
+               W. Bruce Croft},
+  editor    = {Ricardo A. Baeza{-}Yates and
+               Nivio Ziviani and
+               Gary Marchionini and
+               Alistair Moffat and
+               John Tait},
+  title     = {A Markov random field model for term dependencies},
+  booktitle = {{SIGIR} 2005: Proceedings of the 28th Annual International {ACM} {SIGIR}
+               Conference on Research and Development in Information Retrieval, Salvador,
+               Brazil, August 15-19, 2005},
+  pages     = {472--479},
+  publisher = {{ACM}},
+  year      = {2005},
+  url       = {https://doi.org/10.1145/1076034.1076115},
+  doi       = {10.1145/1076034.1076115},
+  timestamp = {Tue, 06 Nov 2018 11:07:23 +0100},
+  biburl    = {https://dblp.org/rec/conf/sigir/MetzlerC05.bib},
+  bibsource = {dblp computer science bibliography, https://dblp.org}
+}
+
+@article{DeepCT,
+  author    = {Zhuyun Dai and
+               Jamie Callan},
+  title     = {Context-Aware Sentence/Passage Term Importance Estimation For First
+               Stage Retrieval},
+  journal   = {CoRR},
+  volume    = {abs/1910.10687},
+  year      = {2019},
+  url       = {http://arxiv.org/abs/1910.10687},
+  eprinttype = {arXiv},
+  eprint    = {1910.10687},
+  timestamp = {Fri, 25 Oct 2019 14:59:26 +0200},
+  biburl    = {https://dblp.org/rec/journals/corr/abs-1910-10687.bib},
+  bibsource = {dblp computer science bibliography, https://dblp.org}
+}
+
+@inproceedings{HDCT,
+  author    = {Zhuyun Dai and
+               Jamie Callan},
+  editor    = {Yennun Huang and
+               Irwin King and
+               Tie{-}Yan Liu and
+               Maarten van Steen},
+  title     = {Context-Aware Document Term Weighting for Ad-Hoc Search},
+  booktitle = {{WWW} '20: The Web Conference 2020, Taipei, Taiwan, April 20-24, 2020},
+  pages     = {1897--1907},
+  publisher = {{ACM} / {IW3C2}},
+  year      = {2020},
+  url       = {https://doi.org/10.1145/3366423.3380258},
+  doi       = {10.1145/3366423.3380258},
+  timestamp = {Fri, 25 Dec 2020 01:14:58 +0100},
+  biburl    = {https://dblp.org/rec/conf/www/DaiC20.bib},
+  bibsource = {dblp computer science bibliography, https://dblp.org}
+}
+
+@article{Doc2Query,
+  author    = {Rodrigo Nogueira and
+               Wei Yang and
+               Jimmy Lin and
+               Kyunghyun Cho},
+  title     = {Document Expansion by Query Prediction},
+  journal   = {CoRR},
+  volume    = {abs/1904.08375},
+  year      = {2019},
+  url       = {http://arxiv.org/abs/1904.08375},
+  eprinttype = {arXiv},
+  eprint    = {1904.08375},
+  timestamp = {Fri, 26 Apr 2019 13:18:53 +0200},
+  biburl    = {https://dblp.org/rec/journals/corr/abs-1904-08375.bib},
+  bibsource = {dblp computer science bibliography, https://dblp.org}
+}
+
+@inproceedings{COIL,
+  author    = {Luyu Gao and
+               Zhuyun Dai and
+               Jamie Callan},
+  editor    = {Kristina Toutanova and
+               Anna Rumshisky and
+               Luke Zettlemoyer and
+               Dilek Hakkani{-}T{\"{u}}r and
+               Iz Beltagy and
+               Steven Bethard and
+               Ryan Cotterell and
+               Tanmoy Chakraborty and
+               Yichao Zhou},
+  title     = {{COIL:} Revisit Exact Lexical Match in Information Retrieval with
+               Contextualized Inverted List},
+  booktitle = {Proceedings of the 2021 Conference of the North American Chapter of
+               the Association for Computational Linguistics: Human Language Technologies,
+               {NAACL-HLT} 2021, Online, June 6-11, 2021},
+  pages     = {3030--3042},
+  publisher = {Association for Computational Linguistics},
+  year      = {2021},
+  url       = {https://doi.org/10.18653/v1/2021.naacl-main.241},
+  doi       = {10.18653/v1/2021.naacl-main.241},
+  timestamp = {Fri, 06 Aug 2021 00:41:31 +0200},
+  biburl    = {https://dblp.org/rec/conf/naacl/GaoDC21.bib},
+  bibsource = {dblp computer science bibliography, https://dblp.org}
+}
+
+@inproceedings{SNRM,
+  author    = {Hamed Zamani and
+               Mostafa Dehghani and
+               W. Bruce Croft and
+               Erik G. Learned{-}Miller and
+               Jaap Kamps},
   editor    = {Alfredo Cuzzocrea and
                James Allan and
                Norman W. Paton and
@@ -1621,18 +1721,18 @@ w3c valid html last updated on 2018-11-14 10:55 CET by the dblp team
                Alexandros Labrinidis and
                Assaf Schuster and
                Haixun Wang},
-  title     = {RippleNet: Propagating User Preferences on the Knowledge Graph for
-               Recommender Systems},
+  title     = {From Neural Re-Ranking to Neural Ranking: Learning a Sparse Representation
+               for Inverted Indexing},
   booktitle = {Proceedings of the 27th {ACM} International Conference on Information
                and Knowledge Management, {CIKM} 2018, Torino, Italy, October 22-26,
                2018},
-  pages     = {417--426},
+  pages     = {497--506},
   publisher = {{ACM}},
   year      = {2018},
-  url       = {https://doi.org/10.1145/3269206.3271739},
-  doi       = {10.1145/3269206.3271739},
-  timestamp = {Tue, 16 Jun 2020 16:36:37 +0200},
-  biburl    = {https://dblp.org/rec/conf/cikm/WangZWZLXG18.bib},
+  url       = {https://doi.org/10.1145/3269206.3271800},
+  doi       = {10.1145/3269206.3271800},
+  timestamp = {Sun, 25 Jul 2021 11:54:58 +0200},
+  biburl    = {https://dblp.org/rec/conf/cikm/ZamaniDCLK18.bib},
   bibsource = {dblp computer science bibliography, https://dblp.org}
 }
 
@@ -1684,5 +1784,53 @@ w3c valid html last updated on 2018-11-14 10:55 CET by the dblp team
   eprint    = {2102.04887},
   timestamp = {Mon, 08 Mar 2021 08:56:39 +0100},
   biburl    = {https://dblp.org/rec/journals/corr/abs-2102-04887.bib},
+  bibsource = {dblp computer science bibliography, https://dblp.org}
+}
+
+@inproceedings{DeepImpact,
+  author    = {Antonio Mallia and
+               Omar Khattab and
+               Torsten Suel and
+               Nicola Tonellotto},
+  editor    = {Fernando Diaz and
+               Chirag Shah and
+               Torsten Suel and
+               Pablo Castells and
+               Rosie Jones and
+               Tetsuya Sakai},
+  title     = {Learning Passage Impacts for Inverted Indexes},
+  booktitle = {{SIGIR} '21: The 44th International {ACM} {SIGIR} Conference on Research
+               and Development in Information Retrieval, Virtual Event, Canada, July
+               11-15, 2021},
+  pages     = {1723--1727},
+  publisher = {{ACM}},
+  year      = {2021},
+  url       = {https://doi.org/10.1145/3404835.3463030},
+  doi       = {10.1145/3404835.3463030},
+  timestamp = {Thu, 15 Jul 2021 15:30:48 +0200},
+  biburl    = {https://dblp.org/rec/conf/sigir/MalliaKST21.bib},
+  bibsource = {dblp computer science bibliography, https://dblp.org}
+}
+
+@article{SparTerm,
+  author    = {Yang Bai and
+               Xiaoguang Li and
+               Gang Wang and
+               Chaoliang Zhang and
+               Lifeng Shang and
+               Jun Xu and
+               Zhaowei Wang and
+               Fangshan Wang and
+               Qun Liu},
+  title     = {SparTerm: Learning Term-based Sparse Representation for Fast Text
+               Retrieval},
+  journal   = {CoRR},
+  volume    = {abs/2010.00768},
+  year      = {2020},
+  url       = {https://arxiv.org/abs/2010.00768},
+  eprinttype = {arXiv},
+  eprint    = {2010.00768},
+  timestamp = {Wed, 01 Sep 2021 15:40:21 +0200},
+  biburl    = {https://dblp.org/rec/journals/corr/abs-2010-00768.bib},
   bibsource = {dblp computer science bibliography, https://dblp.org}
 }
