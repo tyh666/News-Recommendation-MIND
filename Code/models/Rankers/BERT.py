@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from transformers import BertModel,BertConfig
-from ..Modules.Attention import get_attn_mask
+from ..Modules.Attention import get_attn_mask, scaled_dp_attention
 
 class BERT_Original_Ranker(nn.Module):
     """
@@ -175,7 +175,12 @@ class BERT_Onepass_Ranker(nn.Module):
         attn_mask = torch.cat([cdd_attn_mask, ps_term_mask, self.extra_sep_mask.expand(batch_size, 1)], dim=-1)
         attn_mask = get_attn_mask(attn_mask)
 
-        bert_output = self.bert(bert_input, attention_mask=attn_mask).last_hidden_state[:, 0 : cdd_size * self.signal_length : self.signal_length].view(batch_size, cdd_size, self.hidden_dim)
-        bert_output = self.bert_pooler(bert_output)
+        bert_output = self.bert(bert_input, attention_mask=attn_mask).last_hidden_state
+
+        # [CLS] pooler
+        output = bert_output[:, 0 : cdd_size * self.signal_length : self.signal_length].view(batch_size, cdd_size, self.hidden_dim)
+        # attentive pooler
+        # output = scaled_dp_attention(bert_output.view(batch_size, cdd_size, -1, self.hidden_dim),)
+        bert_output = self.bert_pooler(output)
 
         return bert_output
