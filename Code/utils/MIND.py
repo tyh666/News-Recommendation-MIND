@@ -149,7 +149,7 @@ class MIND(Dataset):
         articles = [""]
         entities = [""]
         with open(self.news_file, "r", encoding="utf-8") as rd:
-            for idx in tqdm(rd, ncols=150, leave=True):
+            for idx in tqdm(rd, ncols=120, leave=True):
                 nid, vert, subvert, title, ab, url, title_entity, abs_entity = idx.strip("\n").split("\t")
                 article = " ".join([title, ab, subvert])
                 article = re.sub("\'|\"", '', article)
@@ -185,7 +185,7 @@ class MIND(Dataset):
             attention_masks = []
             subwords_all = []
             subwords_first = []
-            for text in tqdm(texts, ncols=150, leave=True):
+            for text in tqdm(texts, ncols=120, leave=True):
                 token_ouput = tokenizer(text, padding='max_length', truncation=True, max_length=max_length)
                 token_ids = token_ouput['input_ids']
 
@@ -336,7 +336,7 @@ class MIND(Dataset):
             negatives = []
 
             with open(self.behaviors_file, "r", encoding="utf-8") as rd:
-                for idx in tqdm(rd, ncols=150, leave=True):
+                for idx in tqdm(rd, ncols=120, leave=True):
                     _, uid, time, history, impr = idx.strip("\n").split("\t")
 
                     history = [self.nid2index[i] for i in history.split()]

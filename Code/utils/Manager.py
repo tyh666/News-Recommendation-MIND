@@ -458,7 +458,7 @@ class Manager():
 
         model(max_input)
 
-        for x in tqdm(dataloader, smoothing=self.smoothing, ncols=150, leave=True):
+        for x in tqdm(dataloader, smoothing=self.smoothing, ncols=120, leave=True):
             impr_indexes.extend(x["impr_index"].tolist())
             preds.extend(model(x)[0].tolist())
             labels.extend(x["label"].tolist())
@@ -559,7 +559,7 @@ class Manager():
             epoch_loss = 0
             if distributed:
                 dataloader.sampler.set_epoch(epoch)
-            tqdm_ = tqdm(dataloader, smoothing=self.smoothing, ncols=150, leave=True)
+            tqdm_ = tqdm(dataloader, smoothing=self.smoothing, ncols=120, leave=True)
 
             for step, x in enumerate(tqdm_):
 
@@ -655,7 +655,7 @@ class Manager():
             epoch_loss = 0
             if distributed:
                 loaders[0].sampler.set_epoch(epoch)
-            tqdm_ = tqdm(loaders[0], smoothing=self.smoothing, ncols=150, leave=True)
+            tqdm_ = tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True)
 
             for step, x in enumerate(tqdm_):
 
@@ -776,7 +776,7 @@ class Manager():
 
         impr_indexes = []
         preds = []
-        for x in tqdm(loader_test, smoothing=self.smoothing, ncols=150, leave=True):
+        for x in tqdm(loader_test, smoothing=self.smoothing, ncols=120, leave=True):
             impr_indexes.extend(x["impr_index"].tolist())
             preds.extend(model(x)[0].tolist())
 
@@ -848,7 +848,7 @@ class Manager():
             (news_num + 1, model.signal_length, model.embedding_dim))
 
         start_pos = 0
-        for x in tqdm(loader, ncols=150, leave=True):
+        for x in tqdm(loader, ncols=120, leave=True):
             news = x["cdd_encoded_index"].long()
             news_embedding = model.embedding(news)
             news_repr,_ = model.encoder(news_embedding)

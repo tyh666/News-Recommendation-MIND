@@ -68,12 +68,8 @@ class ESM(nn.Module):
             cdd_size = x['cdd_subword_index'].size(1)
 
             if self.training:
-                if batch_size != self.batch_size:
-                    cdd_dest = self.cdd_dest[:batch_size, :cdd_size]
-                    his_dest = self.his_dest[:batch_size]
-                else:
-                    cdd_dest = self.cdd_dest[:, :cdd_size]
-                    his_dest = self.his_dest
+                cdd_dest = self.cdd_dest[:batch_size, :cdd_size]
+                his_dest = self.his_dest[:batch_size]
 
             # batch_size always equals 1 when evaluating
             else:
@@ -87,6 +83,7 @@ class ESM(nn.Module):
             his_subword_index = his_subword_index[:, :, :, 0] * his_signal_length + his_subword_index[:, :, :, 1]
 
             if self.training:
+                # * cdd_mask to filter out padded cdd news
                 cdd_subword_prefix = cdd_dest.scatter(dim=-1, index=cdd_subword_index, value=1) * x["cdd_mask"].to(self.device)
             else:
                 cdd_subword_prefix = cdd_dest.scatter(dim=-1, index=cdd_subword_index, value=1)
@@ -118,7 +115,6 @@ class ESM(nn.Module):
 
         cdd_news = x["cdd_encoded_index"].long().to(self.device)
         cdd_news_embedding = self.embedding(cdd_news, cdd_subword_prefix)
-        # _, cdd_news_repr = self.encoderN(cdd_news_embedding)
 
         his_news = x["his_encoded_index"].long().to(self.device)
         his_news_embedding = self.embedding(his_news, his_subword_prefix)
