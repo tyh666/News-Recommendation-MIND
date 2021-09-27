@@ -20,11 +20,9 @@ class SFI(nn.Module):
         self.selector = selector
         self.ranker = ranker
 
-        self.name = '__'.join(['sfi', self.encoder.name, self.ranker.name])
-        manager.name = self.name
+        manager.name = '__'.join(['sfi', self.encoder.name, self.ranker.name])
 
-        self.hidden_dim = encoder.hidden_dim
-        self.final_dim = ranker.final_dim + self.his_size
+        self.final_dim = ranker.hidden_dim + self.his_size
 
         self.learningToRank = nn.Sequential(
             nn.Linear(self.final_dim, int(self.final_dim/2)),

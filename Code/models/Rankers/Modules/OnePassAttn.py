@@ -73,9 +73,11 @@ class BertSelfAttention(nn.Module):
         # [bs, hn, cdd_length, *]
         attention_scores = (attention_scores / math.sqrt(self.attention_head_size))
         attention_mask_query = one_pass_mask * attention_mask[:, :, :-self.term_num]
+        # attention_mask_query = (1 - one_pass_mask * attention_mask) * -10000.
 
         # Normalize the attention scores to probabilities.
         attention_probs = XSoftmax.apply(attention_scores, attention_mask_query, -1)
+        # attention_probs = attention_scores + attention_mask_query
         attention_probs = self.dropout(attention_probs)
 
         # full attention
