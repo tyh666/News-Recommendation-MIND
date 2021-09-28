@@ -135,8 +135,8 @@ class ESM(nn.Module):
         score, kid = self._forward(x)
 
         if self.training:
-            prob = nn.functional.log_softmax(score, dim=1)
+            logit = nn.functional.log_softmax(score, dim=1)
         else:
-            prob = torch.sigmoid(score)
+            logit = torch.sigmoid(score)
 
-        return prob, kid
+        return logit, kid

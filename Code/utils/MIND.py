@@ -24,6 +24,7 @@ class MIND(Dataset):
 
     def __init__(self, manager, news_file, behaviors_file, shuffle_pos=False):
         reducer_map = {
+            "none": "news.pkl",
             "matching": "news.pkl",
             "bm25": "bm25.pkl",
             "bow": "news.pkl",
@@ -121,18 +122,17 @@ class MIND(Dataset):
                 else:
                     self.subwords_original = None
 
+        refiner = None
         if manager.reducer == "matching":
             if not manager.no_dedup:
                 from utils.utils import DeDuplicate
                 refiner = DeDuplicate(manager)
-        elif manager.reducer in ["bm25", "entity", "first"]:
+        elif manager.reducer in ["bm25", "none", "entity", "first"]:
             from utils.utils import Truncate
             refiner = Truncate(manager)
         elif manager.reducer == "bow":
             from utils.utils import CountFreq
             refiner = CountFreq(manager)
-        else:
-            refiner = None
 
         self.init_refinement(refiner)
 
@@ -474,9 +474,10 @@ class MIND(Dataset):
             self.encoded_news_original = self.encoded_news_original[:, :self.signal_length]
             self.attn_mask_original = self.attn_mask_original[:, :self.signal_length]
 
-        elif self.reducer == "bow":
+        elif self.reducer in ["bow","none"]:
             self.encoded_news = refined_news
             self.attn_mask = refined_mask
+
 
     def __len__(self):
         """

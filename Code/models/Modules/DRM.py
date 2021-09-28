@@ -21,6 +21,7 @@ class Matching_Reducer(nn.Module):
 
         manager.term_num = manager.k * manager.his_size
 
+        # strip [CLS] and [SEP]
         keep_k_modifier = torch.zeros(1, manager.signal_length - 2)
         keep_k_modifier[:, :self.k] = 1
         self.register_buffer('keep_k_modifier', keep_k_modifier, persistent=False)

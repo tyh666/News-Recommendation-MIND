@@ -27,7 +27,11 @@ class SFI_Selector(nn.Module):
             if isinstance(param, nn.Linear):
                 nn.init.xavier_normal_(param.weight)
 
-    def forward(self, cdd_repr, his_repr, his_embedding, his_attn_mask):
+        keep_k_modifier = torch.zeros(1, 1, manager.his_size)
+        keep_k_modifier[:, :, :self.k] = 1
+        self.register_buffer('keep_k_modifier', keep_k_modifier, persistent=False)
+
+    def forward(self, cdd_repr, his_repr, his_embedding, his_attn_mask, his_mask):
         """ apply news-level attention
 
         Args:
@@ -57,11 +61,9 @@ class SFI_Selector(nn.Module):
 
         else:
             # t2 = time.time()
-            # attn_weights = attn_weights.masked_fill(his_mask.transpose(-1, -2), -float("inf"))
+            pad_pos = ~((his_mask.transpose(-1, -2) + self.keep_k_modifier).bool())
+            attn_weights = attn_weights.masked_fill(pad_pos, -float("inf"))
             attn_weights, attn_weights_index = attn_weights.topk(dim=-1, k=self.k)
-
-            # print(attn_weights, attn_weights_index)
-            # t3 = time.time()
 
             # [bs, cs, k, sl, level, fn]
             his_selected = his_embedding.unsqueeze(dim=1).expand(batch_size, cdd_size, self.his_size, self.signal_length, self.embedding_dim).gather(
@@ -74,17 +76,12 @@ class SFI_Selector(nn.Module):
                 index=attn_weights_index.view(batch_size, cdd_size, self.k, 1).expand(batch_size, cdd_size, self.k, self.signal_length)
             )
 
-            # t4 = time.time()
-
         if hasattr(self, 'threshold'):
             # bs, cs, k
             mask_pos = attn_weights < self.threshold
-            his_selected = his_selected * (attn_weights.masked_fill(mask_pos, 0).view(batch_size, cdd_size, self.k, 1, 1))
-            # his_selected = his_selected * (F.softmax(attn_weights.masked_fill(attn_weights<self.threshold, 0), dim=-1).view(batch_size, self.cdd_size, self.k, 1, 1, 1))
+            # his_selected = his_selected * (attn_weights.masked_fill(mask_pos, 0).view(batch_size, cdd_size, self.k, 1, 1))
+            his_selected = his_selected * (F.softmax(attn_weights.masked_fill(attn_weights<self.threshold, 0), dim=-1).view(batch_size, self.cdd_size, self.k, 1, 1, 1))
             his_mask_selected = his_mask_selected * (~mask_pos.unsqueeze(-1))
-
-        # t6 = time.time()
-        # print("product time:{}, sort time:{}, scatter time:{}, activate time:{}, mask time:{}".format(t2-t1, t3-t2, t4-t3, t5-t4, t6-t5))
 
         return his_selected, his_mask_selected
 

@@ -14,6 +14,7 @@ import torch.optim as optim
 import torch.distributed as dist
 
 from data.configs.email import email,password
+from datetime import datetime
 from tqdm.auto import tqdm
 from typing import OrderedDict
 from collections import defaultdict
@@ -1093,6 +1094,37 @@ class Manager():
         print("avg_title_length:{}\n avg_abstract_length:{}\n avg_his_length:{}\n avg_impr_length:{}\n cnt_his_lg_50:{}\n cnt_his_eq_0:{}\n cnt_imp_multi:{}".format(
             avg_title_length, avg_abstract_length, avg_his_length, avg_imp_length, cnt_his_lg_50, cnt_his_eq_0, cnt_imp_multi))
 
+
+    def gather_same_user_impr(self):
+        """
+        gather the impression of the same user to one record
+        """
+        behav_path = self.path + "MIND/MIND{}_{}/behaviors.tsv".format(self.scale, self.mode)
+        behaviors = defaultdict(list)
+
+        with open(behav_path, "r", encoding="utf-8") as rd:
+            for idx in rd:
+                impr_index, uid, time, history, impr = idx.strip("\n").split("\t")
+                # important to subtract 1 because all list related to behaviors start from 0
+
+                behaviors[uid].append([impr_index, uid, time, history, impr])
+
+        for k,v in behaviors.items():
+            behaviors[k] = sorted(v,key=lambda x: datetime.strptime(x[2], "%m/%d/%Y %X %p"))
+
+        behavs = []
+        for k,v in behaviors.items():
+            record = []
+            imprs = []
+            record.extend(v[0][:4])
+            for i,behav in enumerate(v):
+                imprs.append(behav[4])
+            record.append(" ".join(imprs))
+            behavs.append(record)
+
+        with open(behav_path,"w",encoding="utf-8") as f:
+            for record in behavs:
+                f.write('\t'.join(record) + '\n')
 
 
 def mrr_score(y_true, y_score):
