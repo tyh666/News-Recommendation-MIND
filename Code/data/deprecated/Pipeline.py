@@ -9,15 +9,12 @@ class Pipeline_Encoder(nn.Module):
         self.name = 'pipeline-encoder'
 
         news_repr_path = 'data/tensors/news_repr_{}_{}-[{}].tensor'.format(manager.scale,manager.mode,manager.pipeline)
-        news_embedding_path = 'data/tensors/news_embedding_{}_{}-[{}].tensor'.format(manager.scale,manager.mode,manager.pipeline)
 
-        if os.path.exists(news_repr_path) and os.path.exists(news_embedding_path):
+        if os.path.exists(news_repr_path):
             self.news_repr = nn.Embedding.from_pretrained(torch.load(news_repr_path), freeze=True)
-            news_embedding = torch.load(news_embedding_path)
-            self.news_embedding = nn.Embedding.from_pretrained(news_embedding.view(news_embedding.shape[0],-1), freeze=True)
         else:
             logger = logging.getLogger(__name__)
-            logger.warning("No encoded news at '{}', please encode news first!".format(news_embedding_path))
+            logger.warning("No encoded news at '{}', please encode news first!".format())
             raise ValueError
 
         self.level = news_embedding.shape[-2]

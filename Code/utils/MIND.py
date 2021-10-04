@@ -3,6 +3,7 @@ import os
 import json
 import pickle
 import logging
+
 import torch
 import numpy as np
 import torch.distributed as dist
@@ -22,7 +23,7 @@ class MIND(Dataset):
         shuffle(bool): whether to shuffle the order of impressions
     """
 
-    def __init__(self, manager, news_file, behaviors_file, shuffle_pos=False):
+    def __init__(self, manager):
         reducer_map = {
             "none": "news.pkl",
             "matching": "news.pkl",
@@ -33,7 +34,7 @@ class MIND(Dataset):
         }
         # initiate the whole iterator
         self.npratio = manager.npratio
-        self.shuffle_pos = shuffle_pos
+        self.shuffle_pos = manager.shuffle_pos
         self.signal_length = manager.signal_length
         self.his_size = manager.his_size
         self.impr_size = manager.impr_size
@@ -42,19 +43,20 @@ class MIND(Dataset):
         self.reducer = manager.reducer
         self.granularity = manager.granularity
 
-        pat = re.search("MIND/(.*_(.*)/)news", news_file)
-        self.mode = pat.group(2)
+        self.mode = manager.get_mode_for_path()
+        self.file_directory = manager.path + "MIND/"
+        self.file_name = "MIND{}_{}/".format(manager.scale, self.mode)
 
-        self.cache_directory = "/".join(["data/cache", manager.embedding, pat.group(1)])
+        self.cache_directory = "/".join(["data/cache", manager.embedding, self.file_name])
         self.news_path = self.cache_directory + reducer_map[self.reducer]
-        self.behav_path = self.cache_directory + "{}/{}".format(self.impr_size, re.search("(\w*\.)tsv", behaviors_file).group(1) + ".pkl")
+        self.behav_path = self.cache_directory + "{}/{}".format(self.impr_size, "behaviors.pkl")
 
         # only preprocess on the master node, the worker can directly load the cache
         if manager.rank in [-1, 0]:
             if not os.path.exists(self.behav_path):
-                logger.info("encoding user behaviors of {}...".format(behaviors_file))
+                self.behaviors_file = self.file_directory + self.file_name + "behaviors.tsv"
+                logger.info("encoding user behaviors of {}...".format(self.behaviors_file))
                 os.makedirs(self.cache_directory + str(self.impr_size), exist_ok=True)
-                self.behaviors_file = behaviors_file
                 try:
                     # VERY IMPORTANT!!!
                     # The nid2idx dictionary must follow the original order of news in news.tsv
@@ -73,10 +75,10 @@ class MIND(Dataset):
 
             if not (os.path.exists(self.cache_directory + "news.pkl") and os.path.exists(self.cache_directory + "bm25.pkl") and os.path.exists(self.cache_directory + "entity.pkl")):
                 from transformers import AutoTokenizer
-                self.tokenizer = AutoTokenizer.from_pretrained(manager.bert, cache_dir=manager.path + "bert_cache/")
+                self.tokenizer = AutoTokenizer.from_pretrained(manager.bert)#, cache_dir=manager.path + "bert_cache/")
 
-                logger.info("encoding news of {}...".format(news_file))
-                self.news_file = news_file
+                self.news_file = self.file_directory + self.file_name + "news.tsv"
+                logger.info("encoding news of {}...".format(self.news_file))
                 self.embedding = manager.embedding
 
                 self.max_token_length = 512
@@ -362,16 +364,11 @@ class MIND(Dataset):
 
                     impr_index += 1
 
-            self.imprs = imprs
-            self.histories = histories
-            self.negatives = negatives
-            self.uindexes = uindexes
-
             save_dict = {
-                "imprs": self.imprs,
-                "histories": self.histories,
-                "negatives": self.negatives,
-                "uindexes": self.uindexes
+                "imprs": imprs,
+                "histories": histories,
+                "negatives": negatives,
+                "uindexes": uindexes
             }
 
         # store every behavior
@@ -400,14 +397,10 @@ class MIND(Dataset):
 
                     impr_index += 1
 
-            self.imprs = imprs
-            self.histories = histories
-            self.uindexes = uindexes
-
             save_dict = {
-                "imprs": self.imprs,
-                "histories": self.histories,
-                "uindexes": self.uindexes
+                "imprs": imprs,
+                "histories": histories,
+                "uindexes": uindexes
             }
 
         # store every behavior
@@ -435,14 +428,10 @@ class MIND(Dataset):
 
                     impr_index += 1
 
-            self.imprs = imprs
-            self.histories = histories
-            self.uindexes = uindexes
-
             save_dict = {
-                "imprs": self.imprs,
-                "histories": self.histories,
-                "uindexes": self.uindexes
+                "imprs": imprs,
+                "histories": histories,
+                "uindexes": uindexes
             }
 
         with open(self.behav_path, "wb") as f:
@@ -539,7 +528,7 @@ class MIND(Dataset):
             his_attn_mask = self.attn_mask[his_ids]
 
             back_dic = {
-                "user_index": user_index,
+                "user_id": user_index,
                 "cdd_id": np.asarray(cdd_ids),
                 "his_id": np.asarray(his_ids),
                 "cdd_encoded_index": cdd_encoded_index,
@@ -601,7 +590,7 @@ class MIND(Dataset):
 
             back_dic = {
                 "impr_index": impr_index + 1,
-                "user_index": user_index,
+                "user_id": user_index,
                 "cdd_id": np.asarray(cdd_ids),
                 "his_id": np.asarray(his_ids),
                 "cdd_encoded_index": cdd_encoded_index,
@@ -657,7 +646,7 @@ class MIND(Dataset):
 
             back_dic = {
                 "impr_index": impr_index + 1,
-                "user_index": user_index,
+                "user_id": user_index,
                 "cdd_id": np.asarray(cdd_ids),
                 "his_id": np.asarray(his_ids),
                 "cdd_encoded_index": cdd_encoded_index,
@@ -696,85 +685,87 @@ class MIND(Dataset):
 
 # FIXME: refactor with bm25
 class MIND_news(Dataset):
-    """ Map Dataset for MIND, return each news, intended for pipeline(obtaining news representation in advance)
+    """ Map Dataset for MIND, return each news for encoding
 
     Args:
-        manager(dict): pre-defined dictionary of hyper parameters
+        manager
         news_file(str): path of news_file
         mode(str): train/test
     """
 
-    def __init__(self, manager, news_file, behaviors_file, shuffle_pos=False):
+    def __init__(self, manager):
+        reducer_map = {
+            "none": "news.pkl",
+            "matching": "news.pkl",
+            "bm25": "bm25.pkl",
+            "bow": "news.pkl",
+            "entity": "entity.pkl",
+            "first": "news.pkl"
+        }
         # initiate the whole iterator
-        self.shuffle_pos = shuffle_pos
+        self.npratio = manager.npratio
+        self.shuffle_pos = manager.shuffle_pos
         self.signal_length = manager.signal_length
+        self.his_size = manager.his_size
+        self.impr_size = manager.impr_size
         self.k = manager.k
-        pat = re.search("MIND/(.*_(.*)/)news", news_file)
-        self.mode = pat.group(2)
+        self.ascend_history = manager.ascend_history
+        self.reducer = manager.reducer
+        self.granularity = manager.granularity
 
-        self.news_path = "/".join(["data/cache", manager.embedding, pat.group(1), "news.pkl"])
+        self.mode = manager.get_mode_for_path()
+        self.file_directory = manager.path + "MIND/"
+        self.file_name = "MIND{}_{}/".format(manager.scale, self.mode)
 
-        if os.path.exists(self.news_path):
-            with open(self.news_path, "rb") as f:
-                news = pickle.load(f)
-                for k,v in news.items():
-                    setattr(self, k, v)
+        self.cache_directory = "/".join(["data/cache", manager.embedding, self.file_name])
+        self.news_path = self.cache_directory + reducer_map[self.reducer]
 
-        else:
-            from transformers import BertTokenizerFast
-            os.makedirs(self.cache_directory, exist_ok=True)
+        if not (os.path.exists(self.cache_directory + "news.pkl") and os.path.exists(self.cache_directory + "bm25.pkl") and os.path.exists(self.cache_directory + "entity.pkl")):
+            raise ValueError("please initialize MIND dataset before initializing MIND_news")
 
-            self.news_file = news_file
-            self.behaviors_file = behaviors_file
+        logger.info("process NO.{} loading cached news tokenization from {}".format(manager.rank, self.news_path))
+        with open(self.news_path, "rb") as f:
+            news = pickle.load(f)
+            self.encoded_news = news["encoded_news"]
+            self.attn_mask = news["attn_mask"]
+            if self.granularity in ["avg","sum"]:
+                self.subwords = news["subwords_all"][:, :self.signal_length]
+            elif self.granularity == "first":
+                self.subwords = news["subwords_first"][:, :self.signal_length]
+            else:
+                self.subwords = None
 
-            self.max_news_length = 512
+        if manager.reducer in ["matching", "bm25", "none", "entity", "first"]:
+            from utils.utils import Truncate
+            refiner = Truncate(manager)
+        elif manager.reducer == "bow":
+            from utils.utils import CountFreq
+            refiner = CountFreq(manager)
 
-            # there are only two types of vocabulary
-            self.tokenizer = BertTokenizerFast.from_pretrained(manager.bert, cache=manager.path + "bert_cache/")
-
-            self.nid2index = getId2idx(
-                "data/dictionaries/nid2idx_{}_{}.json".format(manager.scale, self.mode))
-
-            logger.info("encoding news...")
-            self.init_news()
+        self.init_refinement(refiner)
 
 
-    def init_news(self):
+    def init_refinement(self, refiner):
         """
-            init news information given news file, such as news_title_array.
+            token level refinement, determined by reducer
+
+            matching -> deduplicate
+            bm25 -> truncate
+            bow -> count
         """
+        if not refiner:
+            return
 
-        # VERY IMPORTANT!!! FIXME
-        # The nid2idx dictionary must follow the original order of news in news.tsv
-
-        documents = ["[PAD]"*(self.max_news_length - 1)]
-
-        with open(self.news_file, "r", encoding="utf-8") as rd:
-            for idx in rd:
-                nid, vert, subvert, title, ab, url, _, _ = idx.strip("\n").split("\t")
-                # concat all fields to form the document
-                # try:
-                #     self.tokenizer.tokenize(" ".join(["[CLS]", title, ab, vert, subvert]))
-                # except:
-                #     print(" ".join(["[CLS]", title, ab, vert, subvert]))
-                documents.append(" ".join(["[CLS]", title, ab, vert, subvert]))
-
-        encoded_dict = self.tokenizer(documents, add_special_tokens=False, padding=True, truncation=True, max_length=self.max_news_length, return_tensors="np")
-        self.encoded_news = encoded_dict.input_ids
-        self.attn_mask = encoded_dict.attention_mask
-
-        with open(self.news_path, "wb") as f:
-            pickle.dump(
-                {
-                    "encoded_news": self.encoded_news,
-                    "attn_mask": self.attn_mask
-                },
-                f
-            )
+        refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
+        self.encoded_news = refined_news
+        self.attn_mask = refined_mask
 
 
     def __len__(self):
-        return len(self.news_title_array)
+        """
+            return length of the whole dataset
+        """
+        return len(self.encoded_news)
 
 
     def __getitem__(self, idx):
@@ -786,13 +777,190 @@ class MIND_news(Dataset):
         Returns:
             dict of training data, including |npratio+1| cdd news word vector, |his_size+1| his news word vector etc.
         """
-        encoded_index = self.encoded_news[idx][:self.signal_length]
-        attn_mask = self.attn_mask[idx][:self.signal_length]
-        return {
-            "cdd_id": np.asarray([idx]),
-            "cdd_encoded_index": encoded_index,
-            "cdd_attn_mask": attn_mask
+
+        cdd_encoded_index = self.encoded_news[idx]
+        cdd_attn_mask = self.attn_mask[idx]
+
+        back_dic = {
+            "cdd_id": idx,
+            "cdd_encoded_index": cdd_encoded_index,
+            "cdd_attn_mask": cdd_attn_mask,
         }
+
+        if self.subwords is not None:
+            cdd_subword_index = self.subwords[idx]
+            back_dic["cdd_subword_index"] = cdd_subword_index
+
+        return back_dic
+
+
+class MIND_history(Dataset):
+    """ Map Dataset for MIND, return each news for encoding
+
+    Args:
+        manager
+        news_file(str): path of news_file
+        mode(str): train/test
+    """
+
+    def __init__(self, manager):
+        reducer_map = {
+            "none": "news.pkl",
+            "matching": "news.pkl",
+            "bm25": "bm25.pkl",
+            "bow": "news.pkl",
+            "entity": "entity.pkl",
+            "first": "news.pkl"
+        }
+        # initiate the whole iterator
+        self.npratio = manager.npratio
+        self.shuffle_pos = manager.shuffle_pos
+        self.signal_length = manager.signal_length
+        self.his_size = manager.his_size
+        self.impr_size = manager.impr_size
+        self.k = manager.k
+        self.ascend_history = manager.ascend_history
+        self.reducer = manager.reducer
+        self.granularity = manager.granularity
+
+        self.mode = manager.get_mode_for_path()
+        self.file_directory = manager.path + "MIND/"
+        self.file_name = "MIND{}_{}/".format(manager.scale, self.mode)
+
+        self.cache_directory = "/".join(["data/cache", manager.embedding, self.file_name])
+        self.news_path = self.cache_directory + reducer_map[self.reducer]
+        self.behav_path = self.cache_directory + "{}/{}".format(self.impr_size, "behaviors.pkl")
+
+        if not (os.path.exists(self.behav_path) and (os.path.exists(self.cache_directory + "news.pkl") and os.path.exists(self.cache_directory + "bm25.pkl") and os.path.exists(self.cache_directory + "entity.pkl"))):
+            raise ValueError("please initialize MIND dataset before initializing MIND_history")
+
+        logger.info("process NO.{} loading cached user behavior from {}".format(manager.rank, self.behav_path))
+        with open(self.behav_path, "rb") as f:
+            behaviors = pickle.load(f)
+            self.histories = behaviors['histories']
+            self.uindexes = behaviors['uindexes']
+
+        logger.info("process NO.{} loading cached news tokenization from {}".format(manager.rank, self.news_path))
+        with open(self.news_path, "rb") as f:
+            news = pickle.load(f)
+            self.encoded_news = news["encoded_news"]
+            self.attn_mask = news["attn_mask"]
+            if self.granularity in ["avg","sum"]:
+                self.subwords = news["subwords_all"][:, :self.signal_length]
+            elif self.granularity == "first":
+                self.subwords = news["subwords_first"][:, :self.signal_length]
+            else:
+                self.subwords = None
+
+        if self.reducer in ["bm25", "entity", "first"]:
+            with open(self.cache_directory + "news.pkl", "rb") as f:
+                news = pickle.load(f)
+                self.encoded_news_original = news["encoded_news"]
+                self.attn_mask_original = news["attn_mask"]
+                if self.granularity in ["avg","sum"]:
+                    self.subwords_original = news["subwords_all"][:, :self.signal_length]
+                elif self.granularity == "first":
+                    self.subwords_original = news["subwords_first"][:, :self.signal_length]
+                else:
+                    self.subwords_original = None
+
+        refiner = None
+        if manager.reducer == "matching":
+            if not manager.no_dedup:
+                from utils.utils import DeDuplicate
+                refiner = DeDuplicate(manager)
+        elif manager.reducer in ["bm25", "none", "entity", "first"]:
+            from utils.utils import Truncate
+            refiner = Truncate(manager)
+        elif manager.reducer == "bow":
+            from utils.utils import CountFreq
+            refiner = CountFreq(manager)
+
+        self.init_refinement(refiner)
+
+
+    def init_refinement(self, refiner):
+        """
+            token level refinement, determined by reducer
+
+            matching -> deduplicate
+            bm25 -> truncate
+            bow -> count
+        """
+        if not refiner:
+            return
+
+        refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
+        if self.reducer == "matching":
+            self.encoded_news = refined_news
+            self.attn_mask_dedup = refined_mask
+            # truncate the attention mask
+            self.attn_mask = self.attn_mask[:, :self.signal_length]
+
+        elif self.reducer in ["bm25", "entity", "first"]:
+            self.encoded_news = refined_news
+            self.attn_mask = refined_mask
+            # truncate the original text tokens
+            self.encoded_news_original = self.encoded_news_original[:, :self.signal_length]
+            self.attn_mask_original = self.attn_mask_original[:, :self.signal_length]
+
+        elif self.reducer in ["bow","none"]:
+            self.encoded_news = refined_news
+            self.attn_mask = refined_mask
+
+
+    def __len__(self):
+        """
+            return length of the whole dataset
+        """
+        return len(self.uindexes)
+
+
+    def __getitem__(self, idx):
+        """ parse behavior log No.idx to training example
+
+        Args:
+            idx (int): impression index, start from zero
+
+        Returns:
+            dict of training data, including |npratio+1| cdd news word vector, |his_size+1| his news word vector etc.
+        """
+        user_index = self.uindexes[idx]
+        his_ids = self.histories[idx][:self.his_size]
+        his_mask = torch.zeros((self.his_size, 1))
+        his_mask[:len(his_ids)] = 1
+
+        if self.ascend_history:
+            his_ids = his_ids + [0] * (self.his_size - len(his_ids))
+        else:
+            his_ids = his_ids[::-1] + [0] * (self.his_size - len(his_ids))
+
+        his_encoded_index = self.encoded_news[his_ids]
+        his_attn_mask = self.attn_mask[his_ids]
+
+        back_dic = {
+            "user_id": user_index,
+            "his_id": np.asarray(his_ids),
+            "his_encoded_index": his_encoded_index,
+            "his_attn_mask": his_attn_mask,
+            "his_mask": his_mask,
+        }
+
+        if self.subwords is not None:
+            if self.reducer in ["bm25","entity","first"]:
+                his_subword_index = self.subwords[his_ids][:, :self.k + 1]
+            else:
+                his_subword_index = self.subwords[his_ids]
+            back_dic["his_subword_index"] = his_subword_index
+
+        if self.reducer == "matching":
+            his_attn_mask_dedup = self.attn_mask_dedup[his_ids]
+            back_dic["his_refined_mask"] = his_attn_mask_dedup
+
+        elif self.reducer == "bow":
+            back_dic["his_refined_mask"] = back_dic["his_attn_mask"]
+
+        return back_dic
 
 
 # FIXME: need refactoring
@@ -809,7 +977,7 @@ class MIND_impr(Dataset):
     def __init__(self, manager, news_file, behaviors_file, shuffle_pos=False, validate=False):
         # initiate the whole iterator
         self.npratio = manager.npratio
-        self.shuffle_pos = shuffle_pos
+        self.shuffle_pos = manager.shuffle_pos
 
         self.news_file = news_file
         self.behaviors_file = behaviors_file
@@ -934,7 +1102,7 @@ class MIND_impr(Dataset):
         his_title_index = self.news_title_array[his_ids][:, :self.title_length]
         back_dic = {
             "impr_index": impr_index + 1,
-            "user_index": user_index,
+            "user_id": user_index,
             "cdd_id": np.asarray(cdd_ids),
             "cdd_encoded_index": np.asarray(cdd_title_index),
             "his_id": np.asarray(his_ids),

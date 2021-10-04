@@ -48,6 +48,7 @@ class Manager():
             parser.add_argument("-d","--device", dest="device",
                                 help="device to run on, -1 means cpu", choices=[i for i in range(-1,10)], type=int, default=0)
             parser.add_argument("-p", "--path", dest="path", type=str, default="../../../Data/", help="root path for large-scale reusable data")
+            parser.add_argument("-f", "--fast", dest="fast", help="enable fast evaluation/test", action='store_true', default=False)
 
             parser.add_argument("-bs", "--batch_size", dest="batch_size",
                                 help="batch size", type=int, default=25)
@@ -76,7 +77,6 @@ class Manager():
                                 help="learning rate of non-bert modules", type=float, default=1e-4)
             parser.add_argument("-blr", "--bert_lr", dest="bert_lr",
                                 help="learning rate of bert based modules", type=float, default=1e-5)
-            parser.add_argument("-sm", "--smoothing", dest="smoothing", help="smoothing factor of tqdm", type=float, default=0.3)
 
             parser.add_argument("-div", "--diversify", dest="diversify", help="whether to diversify selection with news representation", action="store_true", default=False)
             parser.add_argument("--ascend_history", dest="ascend_history", help="whether to order history by time in ascending", action="store_true", default=False)
@@ -88,8 +88,10 @@ class Manager():
             parser.add_argument("--no_rm_punc", dest="no_rm_punc", help="whether to mask punctuations when selecting", action="store_true", default=False)
             parser.add_argument("--no_order_embed", dest="no_order_embed", help="whether to add an extra embedding to ps terms from the same historical news", action="store_true", default=False)
 
+            parser.add_argument("-sm", "--smoothing", dest="smoothing", help="smoothing factor of tqdm", type=float, default=0.3)
             parser.add_argument("--num_workers", dest="num_workers", help="worker number of a dataloader", type=int, default=0)
             parser.add_argument("--shuffle", dest="shuffle", help="whether to shuffle the indices", action="store_true", default=False)
+            parser.add_argument("--shuffle_pos", dest="shuffle_pos", help="whether to shuffle the candidate news and its negtive samples", action="store_true", default=False)
             parser.add_argument("--pin_memory", dest="pin_memory", help="whether to pin memory to speed up tensor transfer", action="store_true", default=False)
             parser.add_argument("--scheduler", dest="scheduler", help="choose schedule scheme for optimizer", choices=["linear","none"], default="linear")
             parser.add_argument("--warmup", dest="warmup", help="warmup steps of scheduler", type=int, default=10000)
@@ -124,6 +126,8 @@ class Manager():
 
             args.cdd_size = args.npratio + 1
             args.metrics = "auc,mean_mrr,ndcg@5,ndcg@10".split(",") + [i for i in args.metrics.split(",") if i]
+            # if args.fast:
+            #     args.mode = args.mode + '_fast'
             if args.device == -1:
                 args.device = "cpu"
                 args.pin_memory = False
@@ -186,31 +190,20 @@ class Manager():
         Returns:
             loaders(list of dataloaders): 0-loader_train/test/dev, 1-loader_dev
         """
-        from .MIND import MIND
+        from .MIND import MIND, MIND_news, MIND_history
         from .utils import Partition_Sampler
 
         if self.rank in [-1, 0]:
             logger.info("Hyper Parameters are {}".format(self))
             logger.info("preparing dataset...")
 
-        mind_path = self.path + "MIND"
         shuffle = self.shuffle
         pin_memory = self.pin_memory
         num_workers = self.num_workers
 
         if self.mode in ["train", "tune"]:
-            news_file_train = mind_path+"/MIND"+self.scale+"_train/news.tsv"
-            behavior_file_train = mind_path+"/MIND" + \
-                self.scale+"_train/behaviors.tsv"
-            news_file_dev = mind_path+"/MIND"+self.scale+"_dev/news.tsv"
-            behavior_file_dev = mind_path+"/MIND"+self.scale+"_dev/behaviors.tsv"
-
-            dataset_train = MIND(self, news_file=news_file_train,
-                            behaviors_file=behavior_file_train)
-            dataset_dev = MIND(self, news_file=news_file_dev,
-                            behaviors_file=behavior_file_dev)
-
-            # FIXME: multi view dataset
+            dataset_train = MIND(self)
+            dataset_dev = MIND(self)
 
             if self.world_size > 0:
                 sampler_train = DistributedSampler(dataset_train, num_replicas=self.world_size, rank=self.rank, shuffle=shuffle)
@@ -226,11 +219,7 @@ class Manager():
             return loader_train, loader_dev
 
         elif self.mode in ["dev", "inspect"]:
-            news_file_dev = mind_path+"/MIND"+self.scale+"_dev/news.tsv"
-            behavior_file_dev = mind_path+"/MIND"+self.scale+"_dev/behaviors.tsv"
-
-            dataset_dev = MIND(self, news_file=news_file_dev,
-                                behaviors_file=behavior_file_dev)
+            dataset_dev = MIND(self)
 
             if self.world_size > 0:
                 sampler_dev = Partition_Sampler(dataset_dev, num_replicas=self.world_size, rank=self.rank)
@@ -242,12 +231,10 @@ class Manager():
             return loader_dev,
 
         elif self.mode == "test":
-            news_file_test = mind_path+"/MIND"+self.scale+"_test/news.tsv"
-            behavior_file_test = mind_path+"/MIND"+self.scale+"_test/behaviors.tsv"
+            dataset_test = MIND(self)
+            dataset_news = MIND_news(self)
+            dataset_history = MIND_history(self)
 
-            dataset_test = MIND(self, news_file_test, behavior_file_test)
-
-            # FIXME distributed test
             if self.world_size > 0:
                 sampler_test = Partition_Sampler(dataset_test, num_replicas=self.world_size, rank=self.rank)
             else:
@@ -255,7 +242,12 @@ class Manager():
             loader_test = DataLoader(dataset_test, batch_size=1, pin_memory=pin_memory,
                                     num_workers=num_workers, drop_last=False, sampler=sampler_test)
 
-            return loader_test,
+            loader_news = DataLoader(dataset_news, batch_size=self.batch_size_news, pin_memory=pin_memory,
+                        num_workers=num_workers, drop_last=False)
+            loader_history = DataLoader(dataset_history, batch_size=self.batch_size_history, pin_memory=pin_memory,
+                        num_workers=num_workers, drop_last=False)
+
+            return loader_test, loader_news, loader_history
 
 
     def save(self, model, step, optimizer=None):
@@ -416,6 +408,82 @@ class Manager():
 
 
     @torch.no_grad()
+    def _eval_fast(self, models, loaders):
+        """
+        1. encode and save news
+        2. encode user
+        3. compute scores by look-up tables and dot product
+
+        Args:
+            models
+                0: container
+                1: test model
+            loaders
+                0: loader_test
+                1: loader_news
+                2: loader_history
+        """
+        for model in models:
+            model.eval()
+
+        cache_directory = "data/cache/{}/{}/".format(self.name, self.scale)
+        os.makedirs(cache_directory, exist_ok=True)
+
+        logger.info("encoding news...")
+        # FIXME: process padded news
+        encoder = models[0]
+        news_reprs = torch.zeros(self.get_news_num() + 1, encoder.hidden_dim, device=encoder.device)
+
+        for x in tqdm(loaders[1], smoothing=self.smoothing, ncols=120, leave=True):
+            news_repr = encoder(x)
+            news_reprs[x['cdd_id']] = news_repr
+
+        torch.save(cache_directory + "news.pt")
+        del news_reprs
+
+        logger.info("encoding user...")
+        user_reprs = torch.zeros(self.get_user_num(), encoder.hidden_dim, device=encoder.device)
+
+        for x in tqdm(loaders[2], smoothing=self.smoothing, ncols=120, leave=True):
+            user_repr = encoder(x)
+            user_reprs[x['user_id']] = user_repr
+
+        torch.save(cache_directory + "user.pt")
+        del user_reprs
+
+        tester = models[1]
+
+        impr_indexes = []
+        labels = []
+        preds = []
+        for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
+            impr_indexes.extend(x["impr_index"].tolist())
+            preds.extend(tester(x).tolist())
+            labels.extend(x["label"].tolist())
+
+        if self.world_size > 1:
+            dist.barrier()
+            outputs = [None for i in range(self.world_size)]
+            dist.all_gather_object(outputs, (impr_indexes, preds, labels))
+
+            if self.rank == 0:
+                impr_indexes = []
+                labels = []
+                preds = []
+                for output in outputs:
+                    impr_indexes.extend(output[0])
+                    labels.extend(output[1])
+                    preds.extend(output[2])
+
+                labels, preds = self._group_lists(impr_indexes, labels, preds)
+
+        else:
+            labels, preds = self._group_lists(impr_indexes, labels, preds)
+
+        return preds
+
+
+    @torch.no_grad()
     def _eval(self, model, dataloader):
         """ making prediction and gather results into groups according to impression_id
 
@@ -436,7 +504,7 @@ class Manager():
         max_input = {
             "cdd_id": torch.empty(1, self.impr_size).random_(0,10),
             "his_id": torch.empty(1, self.his_size).random_(0,10),
-            "user_index": torch.tensor([1]),
+            "user_id": torch.tensor([1]),
             "cdd_encoded_index": torch.empty(1, self.impr_size, self.signal_length, dtype=torch.long).random_(0,10),
             "his_encoded_index": torch.empty(1, self.his_size, self.signal_length, dtype=torch.long).random_(0,10),
             "cdd_attn_mask": torch.ones(1, self.impr_size, self.signal_length),
@@ -464,42 +532,11 @@ class Manager():
             preds.extend(model(x)[0].tolist())
             labels.extend(x["label"].tolist())
 
-        return impr_indexes, labels, preds
-
-
-    def evaluate(self, model, dataloader, load=False, log=True, optimizer=None, scheduler=None):
-        """Evaluate the given file and returns some evaluation metrics.
-
-        Args:
-            self(nn.Module)
-            self(dict)
-            dataloader(torch.utils.data.DataLoader)
-            loading(bool): whether to load model
-            log(bool): whether to log
-
-        Returns:
-            res(dict): A dictionary contains evaluation metrics.
-        """
-        # multiple evaluation steps
-
-        model.eval()
-
-        if load:
-            self.load(model, self.checkpoint, optimizer)
-
-        if self.rank in [0,-1]:
-            logger.info("evaluating...")
-
-        # protect non-master node to return an object
-        res = None
-
-        impr_label_preds = self._eval(model, dataloader)
-
         # collect result across gpus when distributed evaluating
         if self.world_size > 1:
             dist.barrier()
             outputs = [None for i in range(self.world_size)]
-            dist.all_gather_object(outputs, impr_label_preds)
+            dist.all_gather_object(outputs, (impr_indexes, preds, labels))
 
             if self.rank == 0:
                 impr_indexes = []
@@ -513,8 +550,46 @@ class Manager():
                 labels, preds = self._group_lists(impr_indexes, labels, preds)
 
         else:
-            labels, preds = self._group_lists(*impr_label_preds)
+            labels, preds = self._group_lists(impr_indexes, labels, preds)
 
+
+        return labels, preds
+
+
+    def evaluate(self, models, loaders, load=False, log=True, optimizer=None, scheduler=None):
+        """Evaluate the given file and returns some evaluation metrics.
+
+        Args:
+            self(dict)
+            loaders(torch.utils.data.DataLoader):
+                0: loader_dev
+                1: loader_news
+                2: loader_history
+            loading(bool): whether to load model
+            log(bool): whether to log
+
+        Returns:
+            res(dict): A dictionary contains evaluation metrics.
+        """
+        for model in models:
+            model.eval()
+
+        # load saved model
+        if load:
+            self.load(models[0], self.checkpoint, optimizer)
+
+        if self.rank in [0,-1]:
+            logger.info("evaluating...")
+
+        # protect non-master node to return an object
+        res = None
+
+        if len(models) > 1:
+            # fast evaluate
+            labels, preds = self._eval_fast(models, loaders)
+        else:
+            # slow evaluate
+            labels, preds = self._eval(models[0], loaders[0])
 
         if self.rank in [0, -1]:
             res = cal_metric(labels, preds, self.metrics)
@@ -734,8 +809,10 @@ class Manager():
             self._log(res)
 
 
-    @torch.no_grad()
-    def test(self, model, loader_test):
+    def _test(self, model, loaders):
+        pass
+
+    def test(self, model, loaders):
         """ test the model on test dataset of MINDlarge
 
         Args:
@@ -752,7 +829,7 @@ class Manager():
         max_input = {
             "cdd_id": torch.empty(1, self.impr_size).random_(0,10),
             "his_id": torch.empty(1, self.his_size).random_(0,10),
-            "user_index": torch.tensor([1]),
+            "user_id": torch.tensor([1]),
             "cdd_encoded_index": torch.empty(1, self.impr_size, self.signal_length, dtype=torch.long).random_(0,10),
             "his_encoded_index": torch.empty(1, self.his_size, self.signal_length, dtype=torch.long).random_(0,10),
             "cdd_attn_mask": torch.ones(1, self.impr_size, self.signal_length),
@@ -894,9 +971,9 @@ class Manager():
 
         pre_id = None
         for x in loader:
-            if x['user_index'][0] == pre_id:
+            if x["user_id"][0] == pre_id:
                 continue
-            pre_id = x['user_index'][0]
+            pre_id = x["user_id"][0]
 
             _, term_indexes = model(x)
 
@@ -905,7 +982,7 @@ class Manager():
                 his_encoded_index = his_encoded_index[ :, :, 0]
             term_indexes = term_indexes[0]
             his_id = x["his_id"][0]
-            user_index = x["user_index"][0]
+            user_index = x["user_id"][0]
 
             for j,his_token_ids in enumerate(his_encoded_index):
                 print("*************************{}******************************".format(user_index.item()))
@@ -982,6 +1059,40 @@ class Manager():
             "large": 876956,
         }
         return user_num_map[self.scale]
+
+
+    def get_news_num(self):
+        news_num_map = {
+            "demo":{
+                "train": 51282,
+                "dev": 42416,
+                "test": 120961
+            },
+            "small":{
+                "train": 51282,
+                "dev": 42416,
+                "test": 120961
+            },
+            "large":{
+                "train": 101527,
+                "dev": 72023,
+                "test": 120961
+            }
+        }
+        return news_num_map[self.scale][self.mode]
+
+
+    def get_mode_for_path(self):
+        """
+        transfer tune mode to train mode
+        """
+        mode_map = {
+            "train": "train",
+            "tune": "train",
+            "dev": "dev",
+            "test": "test"
+        }
+        return mode_map[self.mode]
 
 
     def construct_nid2idx(self, scale=None, mode=None):

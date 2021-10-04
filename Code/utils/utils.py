@@ -9,7 +9,6 @@ import logging
 import transformers
 import pandas as pd
 import numpy as np
-import torch.distributed as dist
 from collections import defaultdict
 from datetime import datetime
 

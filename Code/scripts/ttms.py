@@ -64,6 +64,10 @@ def main(rank, manager):
     #     aggregator = None
 
     ttms = TTMS(manager, embedding, encoderN, encoderU, reducer).to(rank)
+    if manager.fast:
+        from models.Container import EncoderContainer, TestContainer
+        encoder = EncoderContainer(manager, embedding, encoderN, encoderU, reducer).to(rank)
+        tester = TestContainer(manager).to(rank)
 
     if manager.world_size > 1:
         ttms = DDP(ttms, device_ids=[rank], output_device=rank, find_unused_parameters=False)
@@ -78,7 +82,10 @@ def main(rank, manager):
         manager.tune(ttms, loaders)
 
     elif manager.mode == 'test':
-        manager.test(ttms, loaders[0])
+        if manager.fast:
+            manager.test([encoder, tester], loaders)
+        else:
+            manager.test(ttms, loaders[0])
 
     elif manager.mode == 'inspect':
         manager.inspect(ttms, loaders[0])

@@ -1,6 +1,4 @@
-from numpy import dtype
 import torch
-from torch._C import device
 import torch.nn as nn
 
 class RNN_Encoder(nn.Module):

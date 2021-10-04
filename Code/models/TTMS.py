@@ -30,6 +30,13 @@ class TTMS(nn.Module):
         self.reducer = reducer
         self.bert = BERT_Encoder(manager)
 
+        self.newsUserProject = nn.Sequential(
+            nn.Linear(self.bert.hidden_dim, self.bert.hidden_dim),
+            nn.Tanh()
+        )
+
+        self.hidden_dim = self.bert.hidden_dim
+
         self.granularity = manager.granularity
         if self.granularity != 'token':
             self.register_buffer('cdd_dest', torch.zeros((self.batch_size, manager.impr_size, manager.signal_length * manager.signal_length)), persistent=False)
@@ -38,16 +45,6 @@ class TTMS(nn.Module):
             else:
                 self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, manager.signal_length * manager.signal_length)), persistent=False)
 
-        self.newsUserProject = nn.Sequential(
-            nn.Linear(self.bert.hidden_dim, self.bert.hidden_dim),
-            nn.Tanh()
-        )
-
-        if manager.debias:
-            self.userBias = nn.Parameter(torch.randn(1,self.bert.hidden_dim))
-            nn.init.xavier_normal_(self.userBias)
-
-        self.register_buffer('extra_cls_mask', torch.ones(1,1), persistent=False)
 
         manager.name = '__'.join(['ttms', manager.embedding, manager.encoderN, manager.encoderU, manager.reducer, manager.granularity])
 
@@ -62,8 +59,6 @@ class TTMS(nn.Module):
         Returns:
             score of each candidate news, [batch_size, cdd_size]
         """
-        if hasattr(self, 'userBias'):
-            user_repr = user_repr + self.userBias
         score = cdd_news_repr.matmul(user_repr.transpose(-2,-1)).squeeze(-1)/math.sqrt(self.embedding.embedding_dim)
         return score
 
@@ -93,6 +88,7 @@ class TTMS(nn.Module):
                 cdd_subword_prefix = cdd_dest.scatter(dim=-1, index=cdd_subword_index, value=1) * x["cdd_mask"].to(self.device)
             else:
                 cdd_subword_prefix = cdd_dest.scatter(dim=-1, index=cdd_subword_index, value=1)
+            # FIXME historical news not need this
             cdd_subword_prefix = cdd_subword_prefix.view(batch_size, cdd_size, self.signal_length, self.signal_length)
 
             his_subword_prefix = his_dest.scatter(dim=-1, index=his_subword_index, value=1) * x["his_mask"].to(self.device)
@@ -131,7 +127,7 @@ class TTMS(nn.Module):
         )
         # no need to calculate this if ps_terms are fixed in advance
         if self.reducer.name == 'matching':
-            user_repr = self.encoderU(his_news_repr, his_mask=x['his_mask'].to(self.device), user_index=x['user_index'].to(self.device))
+            user_repr = self.encoderU(his_news_repr, his_mask=x['his_mask'].to(self.device), user_index=x["user_id"].to(self.device))
         else:
             user_repr = None
 
@@ -139,6 +135,8 @@ class TTMS(nn.Module):
 
         _, user_cls = self.bert(ps_terms, ps_term_mask)
         user_repr = self.newsUserProject(user_cls)
+        if hasattr(self, 'userBias'):
+            user_repr = user_repr + self.userBias
 
         return self.clickPredictor(cdd_news_repr, user_repr), kid
 
