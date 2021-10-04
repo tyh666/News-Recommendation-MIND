@@ -161,6 +161,7 @@ python -m scripts.esm -m test -s large -is=120 -ck=150000 -ws=2
   - two tower with bow?
   - two tower with sequence input?
 - can only select tokens, rather than words
+- padded news: [CLS] [SEP] [PAD] [PAD] ... or [PAD] [PAD] ...
 
 ## Issue
 - the gradient after docReducer is sharp

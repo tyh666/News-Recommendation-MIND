@@ -23,7 +23,7 @@ class MIND(Dataset):
         shuffle(bool): whether to shuffle the order of impressions
     """
 
-    def __init__(self, manager):
+    def __init__(self, manager, mode=None):
         reducer_map = {
             "none": "news.pkl",
             "matching": "news.pkl",
@@ -43,7 +43,10 @@ class MIND(Dataset):
         self.reducer = manager.reducer
         self.granularity = manager.granularity
 
-        self.mode = manager.get_mode_for_path()
+        if mode is not None:
+            self.mode = mode
+        else:
+            self.mode = manager.get_mode_for_path()
         self.file_directory = manager.path + "MIND/"
         self.file_name = "MIND{}_{}/".format(manager.scale, self.mode)
 
@@ -75,7 +78,7 @@ class MIND(Dataset):
 
             if not (os.path.exists(self.cache_directory + "news.pkl") and os.path.exists(self.cache_directory + "bm25.pkl") and os.path.exists(self.cache_directory + "entity.pkl")):
                 from transformers import AutoTokenizer
-                self.tokenizer = AutoTokenizer.from_pretrained(manager.bert)#, cache_dir=manager.path + "bert_cache/")
+                self.tokenizer = AutoTokenizer.from_pretrained(manager.bert, cache_dir=manager.path + "bert_cache/")
 
                 self.news_file = self.file_directory + self.file_name + "news.tsv"
                 logger.info("encoding news of {}...".format(self.news_file))

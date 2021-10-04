@@ -52,6 +52,10 @@ class Manager():
 
             parser.add_argument("-bs", "--batch_size", dest="batch_size",
                                 help="batch size", type=int, default=25)
+            parser.add_argument("-bsn", "--batch_size_news", dest="batch_size_news",
+                                help="batch size of loader_news", type=int, default=100)
+            parser.add_argument("-bsh", "--batch_size_history", dest="batch_size_history",
+                                help="batch size of loader_history", type=int, default=100)
             parser.add_argument("-hs", "--his_size", dest="his_size",
                                 help="history size", type=int, default=50)
             parser.add_argument("-is", "--impr_size", dest="impr_size",
@@ -203,7 +207,7 @@ class Manager():
 
         if self.mode in ["train", "tune"]:
             dataset_train = MIND(self)
-            dataset_dev = MIND(self)
+            dataset_dev = MIND(self, 'dev')
 
             if self.world_size > 0:
                 sampler_train = DistributedSampler(dataset_train, num_replicas=self.world_size, rank=self.rank, shuffle=shuffle)
@@ -220,15 +224,27 @@ class Manager():
 
         elif self.mode in ["dev", "inspect"]:
             dataset_dev = MIND(self)
+            if self.fast:
+                dataset_news = MIND_news(self)
+                dataset_history = MIND_history(self)
 
             if self.world_size > 0:
                 sampler_dev = Partition_Sampler(dataset_dev, num_replicas=self.world_size, rank=self.rank)
             else:
                 sampler_dev = None
-            loader_dev = DataLoader(dataset_dev, batch_size=1, pin_memory=pin_memory,
-                                    num_workers=num_workers, drop_last=False, sampler=sampler_dev)
 
-            return loader_dev,
+            loader_dev = DataLoader(dataset_dev, batch_size=1, pin_memory=pin_memory,
+                        num_workers=num_workers, drop_last=False, sampler=sampler_dev)
+
+            if self.fast:
+                loader_news = DataLoader(dataset_news, batch_size=self.batch_size_news, pin_memory=pin_memory,
+                        num_workers=num_workers, drop_last=False)
+                loader_history = DataLoader(dataset_history, batch_size=self.batch_size_history, pin_memory=pin_memory,
+                            num_workers=num_workers, drop_last=False)
+
+                return loader_dev, loader_news, loader_history
+
+            return loader_dev
 
         elif self.mode == "test":
             dataset_test = MIND(self)
@@ -429,27 +445,33 @@ class Manager():
         cache_directory = "data/cache/{}/{}/".format(self.name, self.scale)
         os.makedirs(cache_directory, exist_ok=True)
 
-        logger.info("encoding news...")
-        # FIXME: process padded news
-        encoder = models[0]
-        news_reprs = torch.zeros(self.get_news_num() + 1, encoder.hidden_dim, device=encoder.device)
+        # logger.info("encoding news...")
+        # encoder = models[0]
 
-        for x in tqdm(loaders[1], smoothing=self.smoothing, ncols=120, leave=True):
-            news_repr = encoder(x)
-            news_reprs[x['cdd_id']] = news_repr
+        # news_reprs = torch.zeros(self.get_news_num() + 1, encoder.hidden_dim, device=encoder.device)
+        # padded_news = encoder({
+        #     "cdd_encoded_index": torch.zeros(1, self.signal_length, dtype=torch.long),
+        #     "cdd_attn_mask": torch.zeros(1, self.signal_length),
+        #     "cdd_subword_index": torch.zeros(1, self.signal_length, 2, dtype=torch.long)
+        # })
+        # news_reprs[0] = padded_news
 
-        torch.save(cache_directory + "news.pt")
-        del news_reprs
+        # for x in tqdm(loaders[1], smoothing=self.smoothing, ncols=120, leave=True):
+        #     news_repr = encoder(x)
+        #     news_reprs[x['cdd_id']] = news_repr
 
-        logger.info("encoding user...")
-        user_reprs = torch.zeros(self.get_user_num(), encoder.hidden_dim, device=encoder.device)
+        # torch.save(news_reprs, cache_directory + "news.pt")
+        # del news_reprs
 
-        for x in tqdm(loaders[2], smoothing=self.smoothing, ncols=120, leave=True):
-            user_repr = encoder(x)
-            user_reprs[x['user_id']] = user_repr
+        # logger.info("encoding user...")
+        # user_reprs = torch.zeros(self.get_user_num(), encoder.hidden_dim, device=encoder.device)
 
-        torch.save(cache_directory + "user.pt")
-        del user_reprs
+        # for x in tqdm(loaders[2], smoothing=self.smoothing, ncols=120, leave=True):
+        #     user_repr = encoder(x)
+        #     user_reprs[x['user_id']] = user_repr
+
+        # torch.save(user_reprs, cache_directory + "user.pt")
+        # del user_reprs
 
         tester = models[1]
 
@@ -457,6 +479,7 @@ class Manager():
         labels = []
         preds = []
         for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
+            print(x["impr_index"].shape, tester(x).shape, x["label"].shape)
             impr_indexes.extend(x["impr_index"].tolist())
             preds.extend(tester(x).tolist())
             labels.extend(x["label"].tolist())
@@ -480,7 +503,7 @@ class Manager():
         else:
             labels, preds = self._group_lists(impr_indexes, labels, preds)
 
-        return preds
+        return labels, preds
 
 
     @torch.no_grad()
@@ -495,8 +518,6 @@ class Manager():
             labels: labels
             preds: preds
         """
-
-        # FIXME: need to modify when distributed testing
         impr_indexes = []
         labels = []
         preds = []
@@ -604,97 +625,6 @@ class Manager():
         return res
 
 
-    def _train(self, model, dataloader, optimizer, loss_func, epochs, scheduler=None):
-        """ train model and print loss meanwhile
-        Args:
-            dataloader(torch.utils.data.DataLoader): provide data
-            optimizer(list of torch.nn.optim): optimizer for training
-            loss_func(torch.nn.Loss): loss function for training
-            epochs(int): training epochs
-            schedulers
-            writer(torch.utils.tensorboard.SummaryWriter): tensorboard writer
-            interval(int): within each epoch, the interval of training steps to display loss
-            save_step(int): how many steps to save the model
-        Returns:
-            model: trained model
-        """
-        steps = 0
-        interval = self.interval
-        save_step = self.step
-        distributed = self.world_size > 1
-
-        if self.rank in [0, -1]:
-            logger.info("training...{}".format(self.name))
-            logger.info("total training step: {}".format(self.epochs * len(dataloader)))
-
-        # if self.tb:
-        #     writer = SummaryWriter("data/tb/{}/{}/{}/".format(
-        #         self.name, self.scale, datetime.now().strftime("%Y%m%d-%H")))
-
-        for epoch in range(epochs):
-            epoch_loss = 0
-            if distributed:
-                dataloader.sampler.set_epoch(epoch)
-            tqdm_ = tqdm(dataloader, smoothing=self.smoothing, ncols=120, leave=True)
-
-            for step, x in enumerate(tqdm_):
-
-                optimizer.zero_grad(set_to_none=True)
-
-                pred = model(x)[0]
-                label = x["label"].to(model.device)
-
-                loss = loss_func(pred, label)
-
-                epoch_loss += float(loss)
-
-                loss.backward()
-
-                optimizer.step()
-
-                if scheduler:
-                    scheduler.step()
-
-                if step % interval == 0:
-                    tqdm_.set_description(
-                        "epoch: {:d}  step: {:d} total_step: {:d}  loss: {:.4f}".format(epoch + 1, step, steps, epoch_loss / step))
-                    # if writer:
-                    #     for name, param in model.named_parameters():
-                    #         writer.add_histogram(name, param, step)
-
-                    #     writer.add_scalar("data_loss",
-                    #                     total_loss/total_steps)
-
-                if save_step:
-                    if steps % save_step == 0 and steps > 0:
-                        self.save(model, steps, optimizer)
-
-                steps += 1
-
-
-    def train(self, model, loaders, tb=False):
-        """ wrap training process
-
-        Args:
-            model(torch.nn.Module): the model to be trained
-            loaders(list): list of torch.utils.data.DataLoader
-            en: shell parameter
-        """
-        model.train()
-
-        if self.rank in [0,-1]:
-            # in case the folder does not exists, create one
-            os.makedirs("data/model_params/{}".format(self.name), exist_ok=True)
-
-        loss_func = self._get_loss(model)
-        optimizer, scheduler = self._get_optim(model, len(loaders[0]))
-
-        if self.checkpoint:
-            self.load(model, self.checkpoint, optimizer)
-
-        self._train(model, loaders[0], optimizer, loss_func, self.epochs, scheduler=scheduler)
-
-
     def _tune(self, model, loaders, optimizer, loss_func, scheduler=None):
         """ train model and evaluate on validation set once every save_step
         Args:
@@ -764,7 +694,7 @@ class Manager():
                 if steps % save_step == 0 and steps > 0:
                     print("\n")
                     with torch.no_grad():
-                        result = self.evaluate(model, loaders[1], log=False)
+                        result = self.evaluate((model,), (loaders[1],), log=False)
 
                         if self.rank in [0,-1]:
                             result["step"] = steps

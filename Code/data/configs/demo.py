@@ -45,6 +45,7 @@ class config:
     debias = False
     full_attn = True
     ascend_history = False
+    shuffle_pos = False
     save_pos = False
     sep_his = False
     diversify = False

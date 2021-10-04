@@ -13,7 +13,6 @@ class EncoderContainer(nn.Module):
         super().__init__()
 
         self.scale = manager.scale
-        self.batch_size = manager.batch_size
         self.his_size = manager.his_size
         self.signal_length = manager.signal_length
         self.device = manager.device
@@ -36,11 +35,11 @@ class EncoderContainer(nn.Module):
 
         self.granularity = manager.granularity
         if self.granularity != 'token':
-            self.register_buffer('cdd_dest', torch.zeros((self.batch_size, manager.signal_length * manager.signal_length)), persistent=False)
+            self.register_buffer('cdd_dest', torch.zeros((manager.batch_size_news, manager.signal_length * manager.signal_length)), persistent=False)
             if manager.reducer in ["bm25", "entity", "first"]:
-                self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, (manager.k + 1) * (manager.k + 1))), persistent=False)
+                self.register_buffer('his_dest', torch.zeros((manager.batch_size_history, self.his_size, (manager.k + 1) * (manager.k + 1))), persistent=False)
             else:
-                self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, manager.signal_length * manager.signal_length)), persistent=False)
+                self.register_buffer('his_dest', torch.zeros((manager.batch_size_history, self.his_size, manager.signal_length * manager.signal_length)), persistent=False)
 
         manager.name = '__'.join(['ttms', manager.embedding, manager.encoderN, manager.encoderU, manager.reducer, manager.granularity])
 
@@ -81,14 +80,14 @@ class EncoderContainer(nn.Module):
             )
             # no need to calculate this if ps_terms are fixed in advance
             if self.reducer.name == 'matching':
-                user_repr = self.encoderU(his_news_repr, his_mask=x['his_mask'].to(self.device), user_index=x['user_index'].to(self.device))
+                user_repr = self.encoderU(his_news_repr, his_mask=x['his_mask'].to(self.device), user_index=x['user_id'].to(self.device))
             else:
                 user_repr = None
 
             ps_terms, ps_term_mask, _ = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, his_attn_mask, his_refined_mask)
 
             _, user_cls = self.bert(ps_terms, ps_term_mask)
-            user_repr = self.newsUserProject(user_cls)
+            user_repr = self.newsUserProject(user_cls.squeeze(1))
             if hasattr(self, 'userBias'):
                 user_repr = user_repr + self.userBias
             return user_repr
@@ -118,7 +117,7 @@ class EncoderContainer(nn.Module):
             _, cdd_news_repr = self.bert(
                 self.embedding(cdd_news, cdd_subword_prefix), cdd_attn_mask
             )
-            cdd_news_repr = self.newsUserProject(cdd_news_repr)
+            cdd_news_repr = self.newsUserProject(cdd_news_repr.squeeze(1))
 
             return cdd_news_repr
 
@@ -129,21 +128,22 @@ class TestContainer(nn.Module):
     """
     def __init__(self, manager):
         super().__init__()
+        self.device = manager.device
         self.cache_directory = "data/cache/{}/{}/".format(manager.name, manager.scale)
 
-    def _inti_embedding(self):
-        self.news_reprs = nn.Embedding.from_pretrained(torch.load(self.cache_directory + "news.pt"), freeze=False)
-        self.user_reprs = nn.Embedding.from_pretrained(torch.load(self.cache_directory + "user.pt"), freeze=False)
+    def _init_embedding(self):
+        self.news_reprs = nn.Embedding.from_pretrained(torch.load(self.cache_directory + "news.pt", map_location=torch.device(self.device)))
+        self.user_reprs = nn.Embedding.from_pretrained(torch.load(self.cache_directory + "user.pt", map_location=torch.device(self.device)))
 
     def forward(self, x):
         if not hasattr(self, 'news_reprs'):
-            self._inti_embedding()
+            self._init_embedding()
 
         # bs, 1, hd
-        user_repr = self.user_reprs(x['user_id']).unsqueeze(-1)
+        user_repr = self.user_reprs(x['user_id'].to(self.device)).unsqueeze(-1)
         # bs, cs, hd
-        news_repr = self.news_reprs(x['cdd_id'])
+        news_repr = self.news_reprs(x['cdd_id'].to(self.device))
 
-        scores = news_repr.matmul(user_repr)
+        scores = news_repr.matmul(user_repr).squeeze(-1)
         logits = torch.sigmoid(scores)
         return logits

@@ -73,7 +73,10 @@ def main(rank, manager):
         ttms = DDP(ttms, device_ids=[rank], output_device=rank, find_unused_parameters=False)
 
     if manager.mode == 'dev':
-        manager.evaluate(ttms, loaders[0], load=True)
+        if manager.fast:
+            manager.evaluate((encoder, tester), loaders, load=True)
+        else:
+            manager.evaluate((ttms,), loaders, load=True)
 
     elif manager.mode == 'train':
         manager.train(ttms, loaders)
