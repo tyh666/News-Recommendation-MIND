@@ -78,10 +78,10 @@ def main(rank, manager):
         manager.tune(ttms, loaders)
 
     elif manager.mode == 'test':
-        manager.test(ttms, loaders[0])
+        manager.test(ttms, loaders)
 
     elif manager.mode == 'inspect':
-        manager.inspect(ttms, loaders[0])
+        manager.inspect(ttms, loaders)
 
 
 if __name__ == "__main__":

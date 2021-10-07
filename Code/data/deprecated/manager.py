@@ -87,3 +87,30 @@ def _train(self, model, dataloader, optimizer, loss_func, epochs, scheduler=None
             self.load(model, self.checkpoint, optimizer)
 
         self._train(model, loaders[0], optimizer, loss_func, self.epochs, scheduler=scheduler)
+
+
+max_input = {
+            "cdd_id": torch.empty(1, self.impr_size).random_(0,10),
+            "his_id": torch.empty(1, self.his_size).random_(0,10),
+            "user_id": torch.tensor([1]),
+            "cdd_encoded_index": torch.empty(1, self.impr_size, self.signal_length, dtype=torch.long).random_(0,10),
+            "his_encoded_index": torch.empty(1, self.his_size, self.signal_length, dtype=torch.long).random_(0,10),
+            "cdd_attn_mask": torch.ones(1, self.impr_size, self.signal_length),
+            "his_attn_mask": torch.ones(1, self.his_size, self.signal_length),
+            "cdd_subword_index": torch.ones(1, self.impr_size, self.signal_length, 2, dtype=torch.int64),
+            "his_subword_index": torch.ones(1, self.his_size, self.signal_length, 2, dtype=torch.int64),
+            "cdd_mask": torch.ones((1, self.impr_size, 1)),
+            "his_mask": torch.ones((1, self.his_size, 1)),
+        }
+        if self.reducer == "matching":
+            max_input["his_refined_mask"] = torch.ones(1, self.his_size, self.signal_length)
+        elif self.reducer == "bow":
+            max_input["cdd_encoded_index"] = torch.rand(1, self.impr_size, self.signal_length, 2, dtype=torch.long).random_(0,10)
+            max_input["his_encoded_index"] = torch.rand(1, self.his_size, self.signal_length, 2, dtype=torch.long).random_(0,10)
+            max_input["his_refined_mask"] = max_input["his_attn_mask"]
+        elif self.reducer in ["bm25", "entity", "first"]:
+            max_input["his_encoded_index"] = max_input["his_encoded_index"][:, :, :self.k+1]
+            max_input["his_attn_mask"] = max_input["his_attn_mask"][:, :, :self.k+1]
+            max_input["his_subword_index"] = max_input["his_subword_index"][:, :, :self.k+1]
+
+        model(max_input)

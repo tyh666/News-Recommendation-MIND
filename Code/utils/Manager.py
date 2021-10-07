@@ -1,6 +1,5 @@
 import torch
 import re
-import sys
 import os
 import logging
 import argparse
@@ -242,7 +241,7 @@ class Manager():
 
             if self.fast:
                 dataset_news = MIND_news(self)
-                dataset_history = MIND_history(self)
+                # dataset_history = MIND_history(self)
 
                 # if self.world_size > 0:
                 #     sampler_dev_news = Partition_Sampler(dataset_news, num_replicas=self.world_size, rank=self.rank)
@@ -258,33 +257,34 @@ class Manager():
 
                 return loader_dev, loader_news#, loader_history
 
-            return loader_dev
+            return loader_dev,
 
         elif self.mode == "inspect":
             dataset_dev = MIND(self)
             loader_dev = DataLoader(dataset_dev, batch_size=1, pin_memory=pin_memory,
             num_workers=num_workers, drop_last=False)
 
-            return loader_dev
+            return loader_dev,
 
         elif self.mode == "test":
             dataset_test = MIND(self)
-            dataset_news = MIND_news(self)
-            dataset_history = MIND_history(self)
 
             if self.world_size > 0:
                 sampler_test = Partition_Sampler(dataset_test, num_replicas=self.world_size, rank=self.rank)
             else:
                 sampler_test = None
+
             loader_test = DataLoader(dataset_test, batch_size=1, pin_memory=pin_memory,
-                                    num_workers=num_workers, drop_last=False, sampler=sampler_test)
+                        num_workers=num_workers, drop_last=False, sampler=sampler_test)
 
-            loader_news = DataLoader(dataset_news, batch_size=self.batch_size_news, pin_memory=pin_memory,
-                        num_workers=num_workers, drop_last=False)
-            loader_history = DataLoader(dataset_history, batch_size=self.batch_size_history, pin_memory=pin_memory,
-                        num_workers=num_workers, drop_last=False)
+            if self.fast:
+                dataset_news = MIND_news(self)
 
-            return loader_test, loader_news, loader_history
+                loader_news = DataLoader(dataset_news, batch_size=self.batch_size_news, pin_memory=pin_memory,
+                        num_workers=num_workers, drop_last=False)
+                return loader_test, loader_news
+
+            return loader_test,
 
 
     def save(self, model, step, optimizer=None):
@@ -423,8 +423,7 @@ class Manager():
             associated_lists: list of lists, where list[i] is associated with the impr_indexes[i]
 
         Returns:
-            all_labels: grouped labels
-            all_preds: grouped preds
+            Iterable: grouped labels (if inputted) and preds
         """
         list_num = len(associated_lists)
         dicts = [defaultdict(list) for i in range(list_num)]
@@ -441,25 +440,67 @@ class Manager():
 
 
     @torch.no_grad()
+    def _eval(self, model, loader_dev):
+        """ making prediction and gather results into groups according to impression_id
+
+        Args:
+            loader_dev(torch.utils.data.DataLoader): provide data
+
+        Returns:
+            impr_indexes: impression ids
+            labels: labels
+            preds: preds
+        """
+        impr_indexes = []
+        labels = []
+        preds = []
+
+        for x in tqdm(loader_dev, smoothing=self.smoothing, ncols=120, leave=True):
+            impr_indexes.extend(x["impr_index"].tolist())
+            preds.extend(model(x)[0].tolist())
+            labels.extend(x["label"].tolist())
+
+        # collect result across gpus when distributed evaluating
+        if self.world_size > 1:
+            dist.barrier()
+            outputs = [None for i in range(self.world_size)]
+            dist.all_gather_object(outputs, (impr_indexes, preds, labels))
+
+            if self.rank == 0:
+                impr_indexes = []
+                labels = []
+                preds = []
+                for output in outputs:
+                    impr_indexes.extend(output[0])
+                    labels.extend(output[1])
+                    preds.extend(output[2])
+
+                labels, preds = self._group_lists(impr_indexes, labels, preds)
+
+        else:
+            labels, preds = self._group_lists(impr_indexes, labels, preds)
+
+
+        return labels, preds
+
+
+    @torch.no_grad()
     def _eval_fast(self, model, loaders):
         """
         1. encode and save news
-        3. compute scores by look-up tables and dot product
+        2. compute scores by look-up tables and dot product
 
         Args:
-            models
-                0: container
-                1: test model
+            model
             loaders
                 0: loader_test
                 1: loader_news
-                2: loader_history
         """
         model.eval()
 
         # if the model is an instance of DDP, then we have to access its module attribute
-        if self.world_size > 1:
-            model = model.module
+        # if self.world_size > 1:
+        #     model = model.module
 
         cache_directory = "data/cache/{}/{}/".format(self.name, self.scale)
         if self.rank in [-1, 0]:
@@ -520,77 +561,6 @@ class Manager():
         return labels, preds
 
 
-    @torch.no_grad()
-    def _eval(self, model, dataloader):
-        """ making prediction and gather results into groups according to impression_id
-
-        Args:
-            dataloader(torch.utils.data.DataLoader): provide data
-
-        Returns:
-            impr_indexes: impression ids
-            labels: labels
-            preds: preds
-        """
-        impr_indexes = []
-        labels = []
-        preds = []
-
-        max_input = {
-            "cdd_id": torch.empty(1, self.impr_size).random_(0,10),
-            "his_id": torch.empty(1, self.his_size).random_(0,10),
-            "user_id": torch.tensor([1]),
-            "cdd_encoded_index": torch.empty(1, self.impr_size, self.signal_length, dtype=torch.long).random_(0,10),
-            "his_encoded_index": torch.empty(1, self.his_size, self.signal_length, dtype=torch.long).random_(0,10),
-            "cdd_attn_mask": torch.ones(1, self.impr_size, self.signal_length),
-            "his_attn_mask": torch.ones(1, self.his_size, self.signal_length),
-            "cdd_subword_index": torch.ones(1, self.impr_size, self.signal_length, 2, dtype=torch.int64),
-            "his_subword_index": torch.ones(1, self.his_size, self.signal_length, 2, dtype=torch.int64),
-            "cdd_mask": torch.ones((1, self.impr_size, 1)),
-            "his_mask": torch.ones((1, self.his_size, 1)),
-        }
-        if self.reducer == "matching":
-            max_input["his_refined_mask"] = torch.ones(1, self.his_size, self.signal_length)
-        elif self.reducer == "bow":
-            max_input["cdd_encoded_index"] = torch.rand(1, self.impr_size, self.signal_length, 2, dtype=torch.long).random_(0,10)
-            max_input["his_encoded_index"] = torch.rand(1, self.his_size, self.signal_length, 2, dtype=torch.long).random_(0,10)
-            max_input["his_refined_mask"] = max_input["his_attn_mask"]
-        elif self.reducer in ["bm25", "entity", "first"]:
-            max_input["his_encoded_index"] = max_input["his_encoded_index"][:, :, :self.k+1]
-            max_input["his_attn_mask"] = max_input["his_attn_mask"][:, :, :self.k+1]
-            max_input["his_subword_index"] = max_input["his_subword_index"][:, :, :self.k+1]
-
-        model(max_input)
-
-        for x in tqdm(dataloader, smoothing=self.smoothing, ncols=120, leave=True):
-            impr_indexes.extend(x["impr_index"].tolist())
-            preds.extend(model(x)[0].tolist())
-            labels.extend(x["label"].tolist())
-
-        # collect result across gpus when distributed evaluating
-        if self.world_size > 1:
-            dist.barrier()
-            outputs = [None for i in range(self.world_size)]
-            dist.all_gather_object(outputs, (impr_indexes, preds, labels))
-
-            if self.rank == 0:
-                impr_indexes = []
-                labels = []
-                preds = []
-                for output in outputs:
-                    impr_indexes.extend(output[0])
-                    labels.extend(output[1])
-                    preds.extend(output[2])
-
-                labels, preds = self._group_lists(impr_indexes, labels, preds)
-
-        else:
-            labels, preds = self._group_lists(impr_indexes, labels, preds)
-
-
-        return labels, preds
-
-
     def evaluate(self, model, loaders, load=False, log=True, optimizer=None, scheduler=None):
         """Evaluate the given file and returns some evaluation metrics.
 
@@ -600,7 +570,6 @@ class Manager():
             loaders(torch.utils.data.DataLoader):
                 0: loader_dev
                 1: loader_news
-                2: loader_history
             loading(bool): whether to load model
             log(bool): whether to log
 
@@ -753,54 +722,13 @@ class Manager():
             self._log(res)
 
 
-    def _test(self, model, loaders):
-        pass
-
-    def _test_fast(self, model, loaders):
-        pass
-
-    def test(self, model, loaders):
-        """ test the model on test dataset of MINDlarge
-
-        Args:
-            model
-            loader_test: DataLoader of MINDlarge_test
+    def _test(self, model, loader_test):
         """
-        model.eval()
-
-        self.load(model, self.checkpoint)
-
-        if self.rank in [0,-1]:
-            logger.info("testing...")
-
-        max_input = {
-            "cdd_id": torch.empty(1, self.impr_size).random_(0,10),
-            "his_id": torch.empty(1, self.his_size).random_(0,10),
-            "user_id": torch.tensor([1]),
-            "cdd_encoded_index": torch.empty(1, self.impr_size, self.signal_length, dtype=torch.long).random_(0,10),
-            "his_encoded_index": torch.empty(1, self.his_size, self.signal_length, dtype=torch.long).random_(0,10),
-            "cdd_attn_mask": torch.ones(1, self.impr_size, self.signal_length),
-            "his_attn_mask": torch.ones(1, self.his_size, self.signal_length),
-            "cdd_subword_index": torch.ones(1, self.impr_size, self.signal_length, 2, dtype=torch.int64),
-            "his_subword_index": torch.ones(1, self.his_size, self.signal_length, 2, dtype=torch.int64),
-            "cdd_mask": torch.ones((1, self.impr_size, 1)),
-            "his_mask": torch.ones((1, self.his_size, 1)),
-        }
-        if self.reducer == "matching":
-            max_input["his_refined_mask"] = torch.ones(1, self.his_size, self.signal_length)
-        elif self.reducer == "bow":
-            max_input["cdd_encoded_index"] = torch.rand(1, self.impr_size, self.signal_length, 2, dtype=torch.long).random_(0,10)
-            max_input["his_encoded_index"] = torch.rand(1, self.his_size, self.signal_length, 2, dtype=torch.long).random_(0,10)
-            max_input["his_refined_mask"] = max_input["his_attn_mask"]
-        elif self.reducer in ["bm25", "entity", "first"]:
-            max_input["his_encoded_index"] = max_input["his_encoded_index"][:, :, :self.k+1]
-            max_input["his_attn_mask"] = max_input["his_attn_mask"][:, :, :self.k+1]
-            max_input["his_subword_index"] = max_input["his_subword_index"][:, :, :self.k+1]
-
-        model(max_input)
-
+        regular test without pre-encoding
+        """
         impr_indexes = []
         preds = []
+
         for x in tqdm(loader_test, smoothing=self.smoothing, ncols=120, leave=True):
             impr_indexes.extend(x["impr_index"].tolist())
             preds.extend(model(x)[0].tolist())
@@ -820,6 +748,68 @@ class Manager():
                 preds = self._group_lists(impr_indexes, preds)[0]
         else:
             preds = self._group_lists(impr_indexes, preds)[0]
+
+        return preds
+
+
+    def _test_fast(self, model, loaders):
+        """
+        1. encode and save news
+        2. compute scores by look-up tables and dot product
+
+        Args:
+            model
+            loaders
+                0: loader_test
+                1: loader_news
+        """
+        model.eval()
+
+        cache_directory = "data/cache/{}/{}/".format(self.name, self.scale)
+        if self.rank in [-1, 0]:
+            os.makedirs(cache_directory, exist_ok=True)
+            logger.info("encoding news...")
+
+        news_reprs = torch.zeros(len(loaders[1].dataset) + 1, model.hidden_dim, device=model.device)
+
+        for x in tqdm(loaders[1], smoothing=self.smoothing, ncols=120, leave=True):
+            news_repr = model.encode_news(x)
+            news_reprs[x['cdd_id']] = news_repr
+
+        torch.save(news_reprs, cache_directory + "news.pt")
+        del news_reprs
+
+        impr_indexes = []
+        preds = []
+        for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
+            impr_indexes.extend(x["impr_index"].tolist())
+            preds.extend(model.predict_fast(x).tolist())
+
+        preds = self._group_lists(impr_indexes, preds)[0]
+
+        return preds
+
+
+    def test(self, model, loaders):
+        """ test the model on test dataset of MINDlarge
+
+        Args:
+            model
+            loader_test: DataLoader of MINDlarge_test
+        """
+        model.eval()
+
+        self.load(model, self.checkpoint)
+
+        if self.rank in [0,-1]:
+            logger.info("testing...")
+
+        if self.fast:
+            # fast evaluate
+            preds = self._test_fast(model, loaders)
+        else:
+            # slow evaluate
+            preds = self._test(model, loaders[0])
 
         if self.rank in [0, -1]:
             save_directory = "data/results/{}".format(self.name + "/{}_step{}_[k={}]".format(self.scale, self.checkpoint, self.k))
@@ -894,7 +884,7 @@ class Manager():
 
 
     @torch.no_grad()
-    def inspect(self, model, loader):
+    def inspect(self, model, loaders):
         """
         inspect personalized terms
         """
@@ -904,11 +894,13 @@ class Manager():
         model.eval()
         logger.info("inspecting {}...".format(self.name))
 
-        with open(loader.dataset.cache_directory + "news.pkl", "rb") as f:
+        loader_inspect = loaders[0]
+
+        with open(loader_inspect.dataset.cache_directory + "news.pkl", "rb") as f:
             news = pickle.load(f)["encoded_news"][:, :self.signal_length]
-        with open(loader.dataset.cache_directory + "bm25.pkl", "rb") as f:
+        with open(loader_inspect.dataset.cache_directory + "bm25.pkl", "rb") as f:
             bm25_terms = pickle.load(f)["encoded_news"][:, :self.k + 1]
-        with open(loader.dataset.cache_directory + "entity.pkl", "rb") as f:
+        with open(loader_inspect.dataset.cache_directory + "entity.pkl", "rb") as f:
             entities = pickle.load(f)["encoded_news"][:, :self.k + 1]
 
         self.load(model, self.checkpoint)
@@ -917,7 +909,7 @@ class Manager():
         logger.info("press <ENTER> to continue")
 
         pre_id = None
-        for x in loader:
+        for x in loader_inspect:
             if x["user_id"][0] == pre_id:
                 continue
             pre_id = x["user_id"][0]
