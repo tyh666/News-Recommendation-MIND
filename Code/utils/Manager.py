@@ -444,7 +444,6 @@ class Manager():
     def _eval_fast(self, model, loaders):
         """
         1. encode and save news
-        2. encode user
         3. compute scores by look-up tables and dot product
 
         Args:
@@ -472,14 +471,14 @@ class Manager():
         #     outputs = [torch.]
         # don't need to encode padded news, because there are no padded news appearing in candidates
 
-        # news_reprs = torch.zeros(len(loaders[1].dataset) + 1, model.hidden_dim, device=model.device)
+        news_reprs = torch.zeros(len(loaders[1].dataset) + 1, model.hidden_dim, device=model.device)
 
-        # for x in tqdm(loaders[1], smoothing=self.smoothing, ncols=120, leave=True):
-        #     news_repr = model.encode_news(x)
-        #     news_reprs[x['cdd_id']] = news_repr
+        for x in tqdm(loaders[1], smoothing=self.smoothing, ncols=120, leave=True):
+            news_repr = model.encode_news(x)
+            news_reprs[x['cdd_id']] = news_repr
 
-        # torch.save(news_reprs, cache_directory + "news.pt")
-        # del news_reprs
+        torch.save(news_reprs, cache_directory + "news.pt")
+        del news_reprs
 
         # logger.info("encoding user...")
         # user_reprs = torch.zeros(self.get_user_num(), model.hidden_dim, device=model.device)
@@ -499,24 +498,24 @@ class Manager():
             preds.extend(model.predict_fast(x).tolist())
             labels.extend(x["label"].tolist())
 
-        if self.world_size > 1:
-            dist.barrier()
-            outputs = [None for i in range(self.world_size)]
-            dist.all_gather_object(outputs, (impr_indexes, preds, labels))
+        # if self.world_size > 1:
+        #     dist.barrier()
+        #     outputs = [None for i in range(self.world_size)]
+        #     dist.all_gather_object(outputs, (impr_indexes, preds, labels))
 
-            if self.rank == 0:
-                impr_indexes = []
-                labels = []
-                preds = []
-                for output in outputs:
-                    impr_indexes.extend(output[0])
-                    labels.extend(output[1])
-                    preds.extend(output[2])
+        #     if self.rank == 0:
+        #         impr_indexes = []
+        #         labels = []
+        #         preds = []
+        #         for output in outputs:
+        #             impr_indexes.extend(output[0])
+        #             labels.extend(output[1])
+        #             preds.extend(output[2])
 
-                labels, preds = self._group_lists(impr_indexes, labels, preds)
+        #         labels, preds = self._group_lists(impr_indexes, labels, preds)
 
-        else:
-            labels, preds = self._group_lists(impr_indexes, labels, preds)
+        # else:
+        labels, preds = self._group_lists(impr_indexes, labels, preds)
 
         return labels, preds
 
