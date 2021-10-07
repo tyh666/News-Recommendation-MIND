@@ -255,6 +255,8 @@ class Partition_Sampler():
         len_per_worker, extra_len = divmod(len(dataset), num_replicas)
         self.start = len_per_worker * rank
         self.end = self.start + len_per_worker + extra_len * (rank + 1 == num_replicas)
+        # store the partition points
+        self.partition_points = list(range(0, len(dataset) + 1, len_per_worker))
 
     def __iter__(self):
         start = self.start

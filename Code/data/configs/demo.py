@@ -3,6 +3,8 @@ class config:
     mode = 'tune'
     epochs = 8
     batch_size = 5
+    batch_size_news = 100
+    batch_size_history = 100
 
     k = 5
     threshold = -float('inf')
@@ -42,9 +44,9 @@ class config:
     interval = 10
 
     granularity = 'avg'
-    debias = False
+    debias = True
     full_attn = True
-    ascend_history = False
+    descend_history = False
     shuffle_pos = False
     save_pos = False
     sep_his = False
@@ -53,6 +55,7 @@ class config:
     no_order_embed = False
     no_rm_punc = False
 
+    fast = False
     scheduler = 'linear'
     warmup = 100
     pin_memory = False

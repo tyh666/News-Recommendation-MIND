@@ -3,9 +3,10 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from .BaseModel import BaseModel
 from .Encoders.BERT import BERT_Encoder
 
-class TTMS(nn.Module):
+class TTMS(BaseModel):
     """
     Tow tower model with selection
 
@@ -14,21 +15,7 @@ class TTMS(nn.Module):
     3. predict by scaled dot product
     """
     def __init__(self, manager, embedding, encoderN, encoderU, reducer):
-        super().__init__()
-
-        self.scale = manager.scale
-        self.cdd_size = manager.cdd_size
-
-        self.batch_size = manager.batch_size
-        # used for fast evaluate
-        self.batch_size_news = manager.batch_size_news
-        self.batch_size_history = manager.batch_size_history
-        # not enable fast evaluation mode
-        self.ready_encode = False
-
-        self.his_size = manager.his_size
-        self.signal_length = manager.signal_length
-        self.device = manager.device
+        super().__init__(manager)
 
         self.embedding = embedding
         self.encoderN = encoderN
@@ -58,6 +45,7 @@ class TTMS(nn.Module):
 
 
         manager.name = '__'.join(['ttms', manager.embedding, manager.encoderN, manager.encoderU, manager.reducer, manager.granularity])
+        self.name = manager.name
 
 
     def clickPredictor(self, cdd_news_repr, user_repr):
@@ -70,7 +58,7 @@ class TTMS(nn.Module):
         Returns:
             score of each candidate news, [batch_size, cdd_size]
         """
-        score = cdd_news_repr.matmul(user_repr.transpose(-2,-1)).squeeze(-1)/math.sqrt(self.embedding.embedding_dim)
+        score = cdd_news_repr.matmul(user_repr.transpose(-2,-1)).squeeze(-1)/math.sqrt(cdd_news_repr.size(-1))
         return score
 
 
@@ -166,22 +154,12 @@ class TTMS(nn.Module):
         return prob, kid
 
 
-    def _init_encode(self):
-        if self.granularity != 'token':
-            self.cdd_dest = torch.zeros((self.batch_size_news, self.signal_length * self.signal_length))
-            if self.reducer in ["bm25", "entity", "first"]:
-                self.his_dest = torch.zeros((self.batch_size_history, self.his_size, (self.k + 1) * (self.k + 1)))
-            else:
-                self.his_dest = torch.zeros((self.batch_size_history, self.his_size, self.signal_length * self.signal_length))
-        self.ready_encode = True
-
-
     def encode_news(self, x):
         """
         encode news of loader_news
         """
         if not self.ready_encode:
-            self._init_scatter()
+            self._init_encoding()
 
         # encode news with MIND_news
         if self.granularity != 'token':
@@ -212,12 +190,13 @@ class TTMS(nn.Module):
         return cdd_news_repr
 
 
-    def encode_user(self, x):
+    def predict_fast(self, x):
         """
-        encode user of loader_history
+        1. encode user
+        2. compute click probability
         """
-        if not self.ready_encode:
-            self._init_scatter()
+        if not hasattr(self, 'news_reprs'):
+            self._init_embedding()
 
         if self.granularity != 'token':
             batch_size = x['his_encoded_index'].size(0)
@@ -260,7 +239,13 @@ class TTMS(nn.Module):
         ps_terms, ps_term_mask, _ = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, his_attn_mask, his_refined_mask)
 
         _, user_cls = self.bert(ps_terms, ps_term_mask)
-        user_repr = self.newsUserProject(user_cls.squeeze(1))
+        user_repr = self.newsUserProject(user_cls)
         if hasattr(self, 'userBias'):
             user_repr = user_repr + self.userBias
-        return user_repr
+
+        # [bs, cs, hd]
+        news_repr = self.news_reprs(x['cdd_id'].to(self.device))
+
+        scores = news_repr.matmul(user_repr.transpose(-1, -2)).squeeze(-1)/math.sqrt(news_repr.size(-1))
+        logits = torch.sigmoid(scores)
+        return logits

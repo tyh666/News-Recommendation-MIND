@@ -1,5 +1,6 @@
 import torch
 import re
+import sys
 import os
 import logging
 import argparse
@@ -53,9 +54,9 @@ class Manager():
             parser.add_argument("-bs", "--batch_size", dest="batch_size",
                                 help="batch size", type=int, default=25)
             parser.add_argument("-bsn", "--batch_size_news", dest="batch_size_news",
-                                help="batch size of loader_news", type=int, default=100)
+                                help="batch size of loader_news", type=int, default=640)
             parser.add_argument("-bsh", "--batch_size_history", dest="batch_size_history",
-                                help="batch size of loader_history", type=int, default=100)
+                                help="batch size of loader_history", type=int, default=400)
             parser.add_argument("-hs", "--his_size", dest="his_size",
                                 help="history size", type=int, default=50)
             parser.add_argument("-is", "--impr_size", dest="impr_size",
@@ -83,7 +84,7 @@ class Manager():
                                 help="learning rate of bert based modules", type=float, default=1e-5)
 
             parser.add_argument("-div", "--diversify", dest="diversify", help="whether to diversify selection with news representation", action="store_true", default=False)
-            parser.add_argument("--ascend_history", dest="ascend_history", help="whether to order history by time in ascending", action="store_true", default=False)
+            parser.add_argument("--descend_history", dest="descend_history", help="whether to order history by time in descending", action="store_true", default=False)
             parser.add_argument("--save_pos", dest="save_pos", help="whether to save token positions", action="store_true", default=False)
             parser.add_argument("--sep_his", dest="sep_his", help="whether to separate personalized terms from different news with an extra token", action="store_true", default=False)
             parser.add_argument("--full_attn", dest="full_attn", help="whether to interact among personalized terms (only in one-pass bert models)", action="store_true", default=False)
@@ -128,14 +129,20 @@ class Manager():
 
             args = parser.parse_args()
 
+            # args.script = re.search("(\w*).py", sys.argv[0]).group(1)
             args.cdd_size = args.npratio + 1
             args.metrics = "auc,mean_mrr,ndcg@5,ndcg@10".split(",") + [i for i in args.metrics.split(",") if i]
-            # if args.fast:
-            #     args.mode = args.mode + '_fast'
+
+            # fast predict doesn't need to control impression size
+            if args.fast:
+                args.impr_size = 500
+
+            # -1 means cpu
             if args.device == -1:
                 args.device = "cpu"
                 args.pin_memory = False
 
+            # default deberta
             if args.embedding == 'deberta':
                 args.bert = 'microsoft/deberta-base'
 
@@ -222,11 +229,8 @@ class Manager():
 
             return loader_train, loader_dev
 
-        elif self.mode in ["dev", "inspect"]:
+        elif self.mode == "dev":
             dataset_dev = MIND(self)
-            if self.fast:
-                dataset_news = MIND_news(self)
-                dataset_history = MIND_history(self)
 
             if self.world_size > 0:
                 sampler_dev = Partition_Sampler(dataset_dev, num_replicas=self.world_size, rank=self.rank)
@@ -237,12 +241,29 @@ class Manager():
                         num_workers=num_workers, drop_last=False, sampler=sampler_dev)
 
             if self.fast:
+                dataset_news = MIND_news(self)
+                dataset_history = MIND_history(self)
+
+                # if self.world_size > 0:
+                #     sampler_dev_news = Partition_Sampler(dataset_news, num_replicas=self.world_size, rank=self.rank)
+                #     sampler_dev_history = Partition_Sampler(dataset_history, num_replicas=self.world_size, rank=self.rank)
+                # else:
+                #     sampler_dev_news = None
+                #     sampler_dev_history = None
+
                 loader_news = DataLoader(dataset_news, batch_size=self.batch_size_news, pin_memory=pin_memory,
                         num_workers=num_workers, drop_last=False)
-                loader_history = DataLoader(dataset_history, batch_size=self.batch_size_history, pin_memory=pin_memory,
-                            num_workers=num_workers, drop_last=False)
+                # loader_history = DataLoader(dataset_history, batch_size=self.batch_size_history, pin_memory=pin_memory,
+                #             num_workers=num_workers, drop_last=False)
 
-                return loader_dev, loader_news, loader_history
+                return loader_dev, loader_news#, loader_history
+
+            return loader_dev
+
+        elif self.mode == "inspect":
+            dataset_dev = MIND(self)
+            loader_dev = DataLoader(dataset_dev, batch_size=1, pin_memory=pin_memory,
+            num_workers=num_workers, drop_last=False)
 
             return loader_dev
 
@@ -284,7 +305,7 @@ class Manager():
         torch.save(save_dict, save_path)
 
 
-    def load(self, model, step, optimizer=None):
+    def load(self, model, step, optimizer=None, strict=True):
         """
             shortcut for loading model and optimizer parameters
         """
@@ -312,11 +333,7 @@ class Manager():
                 logger.warning("Loading a non-distributed model to a distributed one!")
                 model = model.module
 
-        if re.search("pipeline",self.name):
-            logger.info("loading in pipeline")
-            model.load_state_dict(model_dict, strict=False)
-        else:
-            model.load_state_dict(model_dict)
+        model.load_state_dict(model_dict, strict=strict)
 
         if optimizer:
             optimizer.load_state_dict(state_dict["optimizer"])
@@ -424,7 +441,7 @@ class Manager():
 
 
     @torch.no_grad()
-    def _eval_fast(self, models, loaders):
+    def _eval_fast(self, model, loaders):
         """
         1. encode and save news
         2. encode user
@@ -439,49 +456,47 @@ class Manager():
                 1: loader_news
                 2: loader_history
         """
-        for model in models:
-            model.eval()
+        model.eval()
+
+        # if the model is an instance of DDP, then we have to access its module attribute
+        if self.world_size > 1:
+            model = model.module
 
         cache_directory = "data/cache/{}/{}/".format(self.name, self.scale)
-        os.makedirs(cache_directory, exist_ok=True)
+        if self.rank in [-1, 0]:
+            os.makedirs(cache_directory, exist_ok=True)
+            logger.info("encoding news...")
 
-        # logger.info("encoding news...")
-        # encoder = models[0]
+        # if self.world_size > 1:
+        #     dist.barrier()
+        #     outputs = [torch.]
+        # don't need to encode padded news, because there are no padded news appearing in candidates
 
-        # news_reprs = torch.zeros(self.get_news_num() + 1, encoder.hidden_dim, device=encoder.device)
-        # padded_news = encoder({
-        #     "cdd_encoded_index": torch.zeros(1, self.signal_length, dtype=torch.long),
-        #     "cdd_attn_mask": torch.zeros(1, self.signal_length),
-        #     "cdd_subword_index": torch.zeros(1, self.signal_length, 2, dtype=torch.long)
-        # })
-        # news_reprs[0] = padded_news
+        # news_reprs = torch.zeros(len(loaders[1].dataset) + 1, model.hidden_dim, device=model.device)
 
         # for x in tqdm(loaders[1], smoothing=self.smoothing, ncols=120, leave=True):
-        #     news_repr = encoder(x)
+        #     news_repr = model.encode_news(x)
         #     news_reprs[x['cdd_id']] = news_repr
 
         # torch.save(news_reprs, cache_directory + "news.pt")
         # del news_reprs
 
         # logger.info("encoding user...")
-        # user_reprs = torch.zeros(self.get_user_num(), encoder.hidden_dim, device=encoder.device)
+        # user_reprs = torch.zeros(self.get_user_num(), model.hidden_dim, device=model.device)
 
         # for x in tqdm(loaders[2], smoothing=self.smoothing, ncols=120, leave=True):
-        #     user_repr = encoder(x)
+        #     user_repr = model.encode_user(x)
         #     user_reprs[x['user_id']] = user_repr
 
         # torch.save(user_reprs, cache_directory + "user.pt")
         # del user_reprs
 
-        tester = models[1]
-
         impr_indexes = []
         labels = []
         preds = []
         for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
-            print(x["impr_index"].shape, tester(x).shape, x["label"].shape)
             impr_indexes.extend(x["impr_index"].tolist())
-            preds.extend(tester(x).tolist())
+            preds.extend(model.predict_fast(x).tolist())
             labels.extend(x["label"].tolist())
 
         if self.world_size > 1:
@@ -577,11 +592,12 @@ class Manager():
         return labels, preds
 
 
-    def evaluate(self, models, loaders, load=False, log=True, optimizer=None, scheduler=None):
+    def evaluate(self, model, loaders, load=False, log=True, optimizer=None, scheduler=None):
         """Evaluate the given file and returns some evaluation metrics.
 
         Args:
             self(dict)
+            model
             loaders(torch.utils.data.DataLoader):
                 0: loader_dev
                 1: loader_news
@@ -592,12 +608,11 @@ class Manager():
         Returns:
             res(dict): A dictionary contains evaluation metrics.
         """
-        for model in models:
-            model.eval()
+        model.eval()
 
         # load saved model
         if load:
-            self.load(models[0], self.checkpoint, optimizer)
+            self.load(model, self.checkpoint, optimizer)
 
         if self.rank in [0,-1]:
             logger.info("evaluating...")
@@ -605,12 +620,12 @@ class Manager():
         # protect non-master node to return an object
         res = None
 
-        if len(models) > 1:
+        if self.fast:
             # fast evaluate
-            labels, preds = self._eval_fast(models, loaders)
+            labels, preds = self._eval_fast(model, loaders)
         else:
             # slow evaluate
-            labels, preds = self._eval(models[0], loaders[0])
+            labels, preds = self._eval(model, loaders[0])
 
         if self.rank in [0, -1]:
             res = cal_metric(labels, preds, self.metrics)
@@ -694,7 +709,7 @@ class Manager():
                 if steps % save_step == 0 and steps > 0:
                     print("\n")
                     with torch.no_grad():
-                        result = self.evaluate((model,), (loaders[1],), log=False)
+                        result = self.evaluate(model, (loaders[1],), log=False)
 
                         if self.rank in [0,-1]:
                             result["step"] = steps
@@ -740,6 +755,9 @@ class Manager():
 
 
     def _test(self, model, loaders):
+        pass
+
+    def _test_fast(self, model, loaders):
         pass
 
     def test(self, model, loaders):
@@ -1020,6 +1038,7 @@ class Manager():
             "train": "train",
             "tune": "train",
             "dev": "dev",
+            "inspect": "dev",
             "test": "test"
         }
         return mode_map[self.mode]

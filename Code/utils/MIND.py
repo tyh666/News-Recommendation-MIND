@@ -39,7 +39,7 @@ class MIND(Dataset):
         self.his_size = manager.his_size
         self.impr_size = manager.impr_size
         self.k = manager.k
-        self.ascend_history = manager.ascend_history
+        self.descend_history = manager.descend_history
         self.reducer = manager.reducer
         self.granularity = manager.granularity
 
@@ -190,37 +190,44 @@ class MIND(Dataset):
             attention_masks = []
             subwords_all = []
             subwords_first = []
-            for text in tqdm(texts, ncols=120, leave=True):
-                token_ouput = tokenizer(text, padding='max_length', truncation=True, max_length=max_length)
-                token_ids = token_ouput['input_ids']
+            for i, text in enumerate(tqdm(texts, ncols=120, leave=True)):
+                if i == 0:
+                    token_ids = [0] * max_length
+                    attn_mask = [0] * max_length
+                    subword_first = [[0,0]] * max_length
+                    subword_all = [[0,0]] * max_length
 
-                tokens = tokenizer.convert_ids_to_tokens(token_ids)
+                else:
+                    token_ouput = tokenizer(text, padding='max_length', truncation=True, max_length=max_length)
+                    token_ids = token_ouput['input_ids']
+                    attn_mask = token_ouput['attention_mask']
+                    tokens = tokenizer.convert_ids_to_tokens(token_ids)
 
-                # maintain subword entry
-                subword_all = []
-                # mask subword entry
-                subword_first = []
+                    # maintain subword entry
+                    subword_all = []
+                    # mask subword entry
+                    subword_first = []
 
-                i = -1
-                j = -1
-                for token in tokens:
-                    if token == '[PAD]':
-                        subword_all.append([0,0])
-                        subword_first.append([0,0])
+                    i = -1
+                    j = -1
+                    for token in tokens:
+                        if token == '[PAD]':
+                            subword_all.append([0,0])
+                            subword_first.append([0,0])
 
-                    elif token.startswith("##"):
-                        j += 1
-                        subword_all.append([i,j])
-                        subword_first.append([0,0])
+                        elif token.startswith("##"):
+                            j += 1
+                            subword_all.append([i,j])
+                            subword_first.append([0,0])
 
-                    else:
-                        i += 1
-                        j += 1
-                        subword_all.append([i,j])
-                        subword_first.append([i,j])
+                        else:
+                            i += 1
+                            j += 1
+                            subword_all.append([i,j])
+                            subword_first.append([i,j])
 
                 text_toks.append(token_ids)
-                attention_masks.append(token_ouput['attention_mask'])
+                attention_masks.append(attn_mask)
                 subwords_all.append(subword_all)
                 subwords_first.append(subword_first)
 
@@ -250,7 +257,13 @@ class MIND(Dataset):
             attention_masks = []
             subwords_all = []
             subwords_first = []
-            for text in texts:
+            for i, text in enumerate(texts):
+                if i == 0:
+                    token_ids = [0] * max_length
+                    attn_mask = [0] * max_length
+                    subword_first = [[0,0]] * max_length
+                    subword_all = [[0,0]] * max_length
+
                 token_ouput = tokenizer(text, padding='max_length', truncation=True, max_length=max_length)
                 token_ids = token_ouput['input_ids']
 
@@ -380,7 +393,7 @@ class MIND(Dataset):
             imprs = []
 
             with open(self.behaviors_file, "r", encoding="utf-8") as rd:
-                for idx in rd:
+                for idx in tqdm(rd, ncols=120, leave=True):
                     _, uid, time, history, impr = idx.strip("\n").split("\t")
 
                     history = [self.nid2index[i] for i in history.split()]
@@ -412,7 +425,7 @@ class MIND(Dataset):
             imprs = []
 
             with open(self.behaviors_file, "r", encoding="utf-8") as rd:
-                for idx in rd:
+                for idx in tqdm(rd, ncols=120, leave=True):
                     _, uid, time, history, impr = idx.strip("\n").split("\t")
 
                     history = [self.nid2index[i] for i in history.split()]
@@ -520,10 +533,10 @@ class MIND(Dataset):
             his_mask = torch.zeros((self.his_size, 1))
             his_mask[:len(his_ids)] = 1
 
-            if self.ascend_history:
-                his_ids = his_ids + [0] * (self.his_size - len(his_ids))
-            else:
+            if self.descend_history:
                 his_ids = his_ids[::-1] + [0] * (self.his_size - len(his_ids))
+            else:
+                his_ids = his_ids + [0] * (self.his_size - len(his_ids))
 
             cdd_encoded_index = self.encoded_news[cdd_ids]
             cdd_attn_mask = self.attn_mask[cdd_ids]
@@ -579,7 +592,7 @@ class MIND(Dataset):
             his_mask = torch.zeros((self.his_size, 1))
             his_mask[:len(his_ids)] = 1
 
-            if self.ascend_history:
+            if self.descend_history:
                 his_ids = his_ids + [0] * (self.his_size - len(his_ids))
             else:
                 his_ids = his_ids[::-1] + [0] * (self.his_size - len(his_ids))
@@ -636,7 +649,7 @@ class MIND(Dataset):
             his_mask = torch.zeros((self.his_size, 1))
             his_mask[:len(his_ids)] = 1
 
-            if self.ascend_history:
+            if self.descend_history:
                 his_ids = his_ids + [0] * (self.his_size - len(his_ids))
             else:
                 his_ids = his_ids[::-1] + [0] * (self.his_size - len(his_ids))
@@ -712,7 +725,7 @@ class MIND_news(Dataset):
         self.his_size = manager.his_size
         self.impr_size = manager.impr_size
         self.k = manager.k
-        self.ascend_history = manager.ascend_history
+        self.descend_history = manager.descend_history
         self.reducer = manager.reducer
         self.granularity = manager.granularity
 
@@ -822,7 +835,7 @@ class MIND_history(Dataset):
         self.his_size = manager.his_size
         self.impr_size = manager.impr_size
         self.k = manager.k
-        self.ascend_history = manager.ascend_history
+        self.descend_history = manager.descend_history
         self.reducer = manager.reducer
         self.granularity = manager.granularity
 
@@ -933,7 +946,7 @@ class MIND_history(Dataset):
         his_mask = torch.zeros((self.his_size, 1))
         his_mask[:len(his_ids)] = 1
 
-        if self.ascend_history:
+        if self.descend_history:
             his_ids = his_ids + [0] * (self.his_size - len(his_ids))
         else:
             his_ids = his_ids[::-1] + [0] * (self.his_size - len(his_ids))
