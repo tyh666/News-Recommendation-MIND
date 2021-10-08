@@ -732,7 +732,7 @@ class MIND_news(Dataset):
         self.reducer = manager.reducer
         self.granularity = manager.granularity
 
-        self.mode = manager.get_mode_for_path()
+        self.mode = 'dev' if manager.mode != 'test' else 'test'
         self.file_directory = manager.path + "MIND/"
         self.file_name = "MIND{}_{}/".format(manager.scale, self.mode)
 

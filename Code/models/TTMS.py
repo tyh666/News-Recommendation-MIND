@@ -166,9 +166,7 @@ class TTMS(BaseModel):
             cdd_subword_index = x['cdd_subword_index'].to(self.device)
             cdd_subword_index = cdd_subword_index[:, :, 0] * self.signal_length + cdd_subword_index[:, :, 1]
 
-            print(cdd_subword_index, self.cdd_dest.shape)
             cdd_subword_prefix = cdd_dest.scatter(dim=-1, index=cdd_subword_index, value=1)
-
             cdd_subword_prefix = cdd_subword_prefix.view(batch_size, self.signal_length, self.signal_length)
 
             if self.granularity == 'avg':
