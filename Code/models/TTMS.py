@@ -63,6 +63,8 @@ class TTMS(BaseModel):
 
 
     def _forward(self,x):
+        # destroy encoding and embedding outside of the model
+
         if self.granularity != 'token':
             batch_size = x['cdd_subword_index'].size(0)
             cdd_size = x['cdd_subword_index'].size(1)
@@ -158,9 +160,6 @@ class TTMS(BaseModel):
         """
         encode news of loader_news
         """
-        if not self.ready_encode:
-            self._init_encoding()
-
         # encode news with MIND_news
         if self.granularity != 'token':
             batch_size = x['cdd_subword_index'].size(0)
@@ -193,11 +192,9 @@ class TTMS(BaseModel):
     def predict_fast(self, x):
         """
         1. encode user
-        2. compute click probability
+        2. look up candidate representation in the embedding matrix
+        3. compute click probability
         """
-        if not hasattr(self, 'news_reprs'):
-            self._init_embedding()
-
         if self.granularity != 'token':
             batch_size = x['his_encoded_index'].size(0)
             his_dest = self.his_dest[:batch_size]

@@ -10,19 +10,19 @@ class BaseModel(nn.Module):
         self.scale = manager.scale
         self.cdd_size = manager.cdd_size
 
+        self.impr_size = manager.impr_size
         self.batch_size = manager.batch_size
-        # used for fast evaluate
+        # used for encoding
         self.batch_size_news = manager.batch_size_news
-        self.batch_size_history = manager.batch_size_history
-        # not enable fast evaluation mode
-        self.ready_encode = False
+        # encoding flag set to false
+        self.encoding = False
 
         self.his_size = manager.his_size
         self.signal_length = manager.signal_length
         self.device = manager.device
 
 
-    def _init_embedding(self):
+    def init_embedding(self):
         """
         prepare for fast inferring
         """
@@ -30,14 +30,21 @@ class BaseModel(nn.Module):
         self.news_reprs = nn.Embedding.from_pretrained(torch.load(self.cache_directory + "news.pt", map_location=torch.device(self.device)))
 
 
-    def _init_encoding(self):
+    def init_encoding(self):
         """
         prepare for fast encoding
         """
         if self.granularity != 'token':
             self.cdd_dest = torch.zeros((self.batch_size_news, self.signal_length * self.signal_length), device=self.device)
-            # if self.reducer in ["bm25", "entity", "first"]:
-            #     self.his_dest = torch.zeros((self.batch_size_history, self.his_size, (self.k + 1) * (self.k + 1)), device=self.device)
-            # else:
-            #     self.his_dest = torch.zeros((self.batch_size_history, self.his_size, self.signal_length * self.signal_length), device=self.device)
-        self.ready_encode = True
+        self.encoding = True
+
+
+    def destroy_encoding(self):
+        if self.granularity != 'token':
+            self.cdd_dest = torch.zeros((self.batch_size, self.impr_size, self.signal_length * self.signal_length), device=self.device)
+        self.encoding = False
+
+
+    def destroy_embedding(self):
+        self.news_reprs = None
+        del self.news_reprs

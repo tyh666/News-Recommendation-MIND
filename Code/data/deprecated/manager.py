@@ -114,3 +114,15 @@ max_input = {
             max_input["his_subword_index"] = max_input["his_subword_index"][:, :, :self.k+1]
 
         model(max_input)
+
+
+def _eval_fast:
+    # logger.info("encoding user...")
+            # user_reprs = torch.zeros(self.get_user_num(), model.hidden_dim, device=model.device)
+
+            # for x in tqdm(loaders[2], smoothing=self.smoothing, ncols=120, leave=True):
+            #     user_repr = model.encode_user(x)
+            #     user_reprs[x['user_id']] = user_repr
+
+            # torch.save(user_reprs, cache_directory + "user.pt")
+            # del user_reprs

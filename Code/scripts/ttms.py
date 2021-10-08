@@ -74,9 +74,6 @@ def main(rank, manager):
     elif manager.mode == 'train':
         manager.train(ttms, loaders)
 
-    elif manager.mode == 'tune':
-        manager.tune(ttms, loaders)
-
     elif manager.mode == 'test':
         manager.test(ttms, loaders)
 

@@ -47,19 +47,19 @@ fi
 ## Instruction
 ```bash
 cd /data/v-pezhang/Code/Document-Reduction/Code
-python -m scripts.esm -m tune -s large -ws=2
-python -m scripts.ttm -m tune -s large -encn=bert -sl=30 -bs=25 -is=10 --no_dedup -ws=2
-python -m scripts.ttms -m tune -s large -ws=2
+python -m scripts.esm -m train -s large -ws=2
+python -m scripts.ttm -m train -s large -encn=bert -sl=30 -bs=25 -is=10 --no_dedup -ws=2
+python -m scripts.ttms -m train -s large -ws=2
 
-python -m scripts.esm -m tune -s demo -bs=5 -is=10 -d=1
-python -m scripts.ttm -m tune -s demo -bs=5 -is=10 -d=1 -encn=bert -sl=30
-python -m scripts.ttms -m tune -s demo -bs=5 -is=10
-python -m scripts.sfi -m tune -s demo -k=5 -is=10 -sl=20 -bs=10 --no_dedup
+python -m scripts.esm -m train -s demo -bs=5 -is=10 -d=1
+python -m scripts.ttm -m train -s demo -bs=5 -is=10 -d=1 -encn=bert -sl=30
+python -m scripts.ttms -m train -s demo -bs=5 -is=10
+python -m scripts.sfi -m train -s demo -k=5 -is=10 -sl=20 -bs=10 --no_dedup
 
 python -m scripts.ttms -m inspect -s large -ck=60000 -d=-1
 
-python -m scripts.ttms -m test -s large -is=200 -ws=2 -ck=589
-python -m scripts.esm -m test -s large -is=120 -ck=150000 -ws=2
+python -m scripts.ttms -m test -s large -ck=589
+python -m scripts.esm -m test -s large -ck=150000
 ```
 ## Preprocess
 - [x] remove stop words

@@ -42,7 +42,7 @@ class Manager():
             parser.add_argument("-s", "--scale", dest="scale", help="data scale",
                                 choices=["demo", "small", "large", "whole"], required=True)
             parser.add_argument("-m", "--mode", dest="mode", help="train or test",
-                                choices=["train", "dev", "test", "tune", "encode", "inspect"], default="tune")
+                                choices=["train", "dev", "test", "encode", "inspect"], default="train")
             parser.add_argument("-e", "--epochs", dest="epochs",
                                 help="epochs to train the model", type=int, default=10)
             parser.add_argument("-d","--device", dest="device",
@@ -53,9 +53,9 @@ class Manager():
             parser.add_argument("-bs", "--batch_size", dest="batch_size",
                                 help="batch size", type=int, default=25)
             parser.add_argument("-bsn", "--batch_size_news", dest="batch_size_news",
-                                help="batch size of loader_news", type=int, default=640)
-            parser.add_argument("-bsh", "--batch_size_history", dest="batch_size_history",
-                                help="batch size of loader_history", type=int, default=400)
+                                help="batch size of loader_news", type=int, default=500)
+            # parser.add_argument("-bsh", "--batch_size_history", dest="batch_size_history",
+            #                     help="batch size of loader_history", type=int, default=400)
             parser.add_argument("-hs", "--his_size", dest="his_size",
                                 help="history size", type=int, default=50)
             parser.add_argument("-is", "--impr_size", dest="impr_size",
@@ -211,7 +211,7 @@ class Manager():
         pin_memory = self.pin_memory
         num_workers = self.num_workers
 
-        if self.mode in ["train", "tune"]:
+        if self.mode == "train":
             dataset_train = MIND(self)
             dataset_dev = MIND(self, 'dev')
 
@@ -221,10 +221,18 @@ class Manager():
             else:
                 sampler_train = None
                 sampler_dev = None
+
             loader_train = DataLoader(dataset_train, batch_size=self.batch_size, pin_memory=pin_memory,
                                     num_workers=num_workers, drop_last=False, shuffle=False, sampler=sampler_train)
             loader_dev = DataLoader(dataset_dev, batch_size=1, pin_memory=pin_memory,
                                     num_workers=num_workers, drop_last=False, sampler=sampler_dev)
+
+            if self.fast:
+                dataset_news = MIND_news(self)
+                loader_news = DataLoader(dataset_news, batch_size=self.batch_size_news, pin_memory=pin_memory,
+                        num_workers=num_workers, drop_last=False)
+
+                return loader_train, loader_dev, loader_news
 
             return loader_train, loader_dev
 
@@ -282,6 +290,7 @@ class Manager():
 
                 loader_news = DataLoader(dataset_news, batch_size=self.batch_size_news, pin_memory=pin_memory,
                         num_workers=num_workers, drop_last=False)
+
                 return loader_test, loader_news
 
             return loader_test,
@@ -451,6 +460,9 @@ class Manager():
             labels: labels
             preds: preds
         """
+        if self.rank in [-1, 0]:
+            logger.info("evaluating...")
+
         impr_indexes = []
         labels = []
         preds = []
@@ -496,70 +508,42 @@ class Manager():
                 0: loader_test
                 1: loader_news
         """
-        model.eval()
-
         # if the model is an instance of DDP, then we have to access its module attribute
         # if self.world_size > 1:
         #     model = model.module
-
         cache_directory = "data/cache/{}/{}/".format(self.name, self.scale)
         if self.rank in [-1, 0]:
             os.makedirs(cache_directory, exist_ok=True)
-            logger.info("encoding news...")
+            logger.info("fast evaluate, encoding news...")
 
-        # if self.world_size > 1:
-        #     dist.barrier()
-        #     outputs = [torch.]
-        # don't need to encode padded news, because there are no padded news appearing in candidates
+            model.init_encoding()
+            news_reprs = torch.zeros(self.get_news_num() + 1, model.hidden_dim, device=model.device)
 
-        news_reprs = torch.zeros(len(loaders[1].dataset) + 1, model.hidden_dim, device=model.device)
+            for x in tqdm(loaders[1], smoothing=self.smoothing, ncols=120, leave=True):
+                news_repr = model.encode_news(x)
+                news_reprs[x['cdd_id']] = news_repr
 
-        for x in tqdm(loaders[1], smoothing=self.smoothing, ncols=120, leave=True):
-            news_repr = model.encode_news(x)
-            news_reprs[x['cdd_id']] = news_repr
+            torch.save(news_reprs, cache_directory + "news.pt")
+            del news_reprs
+            model.destroy_encoding()
 
-        torch.save(news_reprs, cache_directory + "news.pt")
-        del news_reprs
+            model.init_embedding()
+            impr_indexes = []
+            labels = []
+            preds = []
+            for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
+                impr_indexes.extend(x["impr_index"].tolist())
+                preds.extend(model.predict_fast(x).tolist())
+                labels.extend(x["label"].tolist())
 
-        # logger.info("encoding user...")
-        # user_reprs = torch.zeros(self.get_user_num(), model.hidden_dim, device=model.device)
+            labels, preds = self._group_lists(impr_indexes, labels, preds)
+            model.destroy_embedding()
 
-        # for x in tqdm(loaders[2], smoothing=self.smoothing, ncols=120, leave=True):
-        #     user_repr = model.encode_user(x)
-        #     user_reprs[x['user_id']] = user_repr
+            return labels, preds
 
-        # torch.save(user_reprs, cache_directory + "user.pt")
-        # del user_reprs
-
-        impr_indexes = []
-        labels = []
-        preds = []
-        for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
-            impr_indexes.extend(x["impr_index"].tolist())
-            preds.extend(model.predict_fast(x).tolist())
-            labels.extend(x["label"].tolist())
-
-        # if self.world_size > 1:
-        #     dist.barrier()
-        #     outputs = [None for i in range(self.world_size)]
-        #     dist.all_gather_object(outputs, (impr_indexes, preds, labels))
-
-        #     if self.rank == 0:
-        #         impr_indexes = []
-        #         labels = []
-        #         preds = []
-        #         for output in outputs:
-        #             impr_indexes.extend(output[0])
-        #             labels.extend(output[1])
-        #             preds.extend(output[2])
-
-        #         labels, preds = self._group_lists(impr_indexes, labels, preds)
-
-        # else:
-        labels, preds = self._group_lists(impr_indexes, labels, preds)
-
-        return labels, preds
-
+        else:
+            # fast evaluation is not supported in DDP because only one DDP instance can run
+            return None, None
 
     def evaluate(self, model, loaders, load=False, log=True, optimizer=None, scheduler=None):
         """Evaluate the given file and returns some evaluation metrics.
@@ -582,9 +566,6 @@ class Manager():
         if load:
             self.load(model, self.checkpoint, optimizer)
 
-        if self.rank in [0,-1]:
-            logger.info("evaluating...")
-
         # protect non-master node to return an object
         res = None
 
@@ -595,6 +576,7 @@ class Manager():
             # slow evaluate
             labels, preds = self._eval(model, loaders[0])
 
+        # compute metrics only on the master node
         if self.rank in [0, -1]:
             res = cal_metric(labels, preds, self.metrics)
 
@@ -608,7 +590,7 @@ class Manager():
         return res
 
 
-    def _tune(self, model, loaders, optimizer, loss_func, scheduler=None):
+    def _train(self, model, loaders, optimizer, loss_func, scheduler=None):
         """ train model and evaluate on validation set once every save_step
         Args:
             dataloader(torch.utils.data.DataLoader): provide data
@@ -677,7 +659,7 @@ class Manager():
                 if steps % save_step == 0 and steps > 0:
                     print("\n")
                     with torch.no_grad():
-                        result = self.evaluate(model, (loaders[1],), log=False)
+                        result = self.evaluate(model, loaders[1:], log=False)
 
                         if self.rank in [0,-1]:
                             result["step"] = steps
@@ -694,7 +676,7 @@ class Manager():
         return best_res
 
 
-    def tune(self, model, loaders):
+    def train(self, model, loaders):
         """ train and evaluate sequentially
 
         Args:
@@ -715,13 +697,14 @@ class Manager():
         if self.checkpoint:
             self.load(model, self.checkpoint, optimizer)
 
-        res = self._tune(model, loaders, optimizer, loss_func, scheduler=scheduler)
+        res = self._train(model, loaders, optimizer, loss_func, scheduler=scheduler)
 
         if self.rank in [-1,0]:
             logger.info("Best result: {}".format(res))
             self._log(res)
 
 
+    @torch.no_grad()
     def _test(self, model, loader_test):
         """
         regular test without pre-encoding
@@ -752,6 +735,7 @@ class Manager():
         return preds
 
 
+    @torch.no_grad()
     def _test_fast(self, model, loaders):
         """
         1. encode and save news
@@ -763,14 +747,13 @@ class Manager():
                 0: loader_test
                 1: loader_news
         """
-        model.eval()
-
         cache_directory = "data/cache/{}/{}/".format(self.name, self.scale)
         if self.rank in [-1, 0]:
             os.makedirs(cache_directory, exist_ok=True)
             logger.info("encoding news...")
 
-        news_reprs = torch.zeros(len(loaders[1].dataset) + 1, model.hidden_dim, device=model.device)
+        model.init_encoding()
+        news_reprs = torch.zeros(self.get_news_num() + 1, model.hidden_dim, device=model.device)
 
         for x in tqdm(loaders[1], smoothing=self.smoothing, ncols=120, leave=True):
             news_repr = model.encode_news(x)
@@ -778,7 +761,9 @@ class Manager():
 
         torch.save(news_reprs, cache_directory + "news.pt")
         del news_reprs
+        model.destroy_encoding()
 
+        model.init_embedding()
         impr_indexes = []
         preds = []
         for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
@@ -786,6 +771,7 @@ class Manager():
             preds.extend(model.predict_fast(x).tolist())
 
         preds = self._group_lists(impr_indexes, preds)[0]
+        model.destroy_embedding()
 
         return preds
 
@@ -1001,19 +987,22 @@ class Manager():
 
 
     def get_news_num(self):
+        """
+        get the news number of validation/test set
+        """
         news_num_map = {
             "demo":{
-                "train": 51282,
+                "train": 42416,
                 "dev": 42416,
                 "test": 120961
             },
             "small":{
-                "train": 51282,
+                "train": 42416,
                 "dev": 42416,
                 "test": 120961
             },
             "large":{
-                "train": 101527,
+                "train": 72023,
                 "dev": 72023,
                 "test": 120961
             }
@@ -1023,11 +1012,10 @@ class Manager():
 
     def get_mode_for_path(self):
         """
-        transfer tune mode to train mode
+        transfer inspect mode to dev mode to load the right file
         """
         mode_map = {
             "train": "train",
-            "tune": "train",
             "dev": "dev",
             "inspect": "dev",
             "test": "test"
