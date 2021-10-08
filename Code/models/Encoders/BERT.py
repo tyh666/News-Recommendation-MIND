@@ -92,8 +92,8 @@ class BERT_Encoder(nn.Module):
 
         # [bs, sl/term_num+2, hd]
         bert_output = self.bert(bert_input, attention_mask=ext_attn_mask).last_hidden_state
-        news_repr = bert_output[:, 0].reshape(batch_size, -1, self.hidden_dim)
-        # news_repr = scaled_dp_attention(self.query, bert_output, bert_output, attn_mask=attn_mask.unsqueeze(1)).view(batch_size, -1, self.hidden_dim)
+        # news_repr = bert_output[:, 0].reshape(batch_size, -1, self.hidden_dim)
+        news_repr = scaled_dp_attention(self.query, bert_output, bert_output, attn_mask=attn_mask.unsqueeze(1)).view(batch_size, -1, self.hidden_dim)
 
         news_encoded_embedding = bert_output.view(batch_size, -1, bert_input.size(-2), self.hidden_dim)
 

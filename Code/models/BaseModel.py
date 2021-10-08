@@ -22,14 +22,6 @@ class BaseModel(nn.Module):
         self.device = manager.device
 
 
-    def init_embedding(self):
-        """
-        prepare for fast inferring
-        """
-        self.cache_directory = "data/cache/{}/{}/".format(self.name, self.scale)
-        self.news_reprs = nn.Embedding.from_pretrained(torch.load(self.cache_directory + "news.pt", map_location=torch.device(self.device)))
-
-
     def init_encoding(self):
         """
         prepare for fast encoding
@@ -37,6 +29,14 @@ class BaseModel(nn.Module):
         if self.granularity != 'token':
             self.cdd_dest = torch.zeros((self.batch_size_news, self.signal_length * self.signal_length), device=self.device)
         self.encoding = True
+
+
+    def init_embedding(self):
+        """
+        prepare for fast inferring
+        """
+        self.cache_directory = "data/cache/{}/{}/".format(self.name, self.scale)
+        self.news_reprs = nn.Embedding.from_pretrained(torch.load(self.cache_directory + "news.pt", map_location=torch.device(self.device)))
 
 
     def destroy_encoding(self):

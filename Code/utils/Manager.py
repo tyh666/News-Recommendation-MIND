@@ -132,10 +132,6 @@ class Manager():
             args.cdd_size = args.npratio + 1
             args.metrics = "auc,mean_mrr,ndcg@5,ndcg@10".split(",") + [i for i in args.metrics.split(",") if i]
 
-            # fast predict doesn't need to control impression size
-            if args.fast:
-                args.impr_size = 500
-
             # -1 means cpu
             if args.device == -1:
                 args.device = "cpu"
@@ -545,6 +541,7 @@ class Manager():
             # fast evaluation is not supported in DDP because only one DDP instance can run
             return None, None
 
+
     def evaluate(self, model, loaders, load=False, log=True, optimizer=None, scheduler=None):
         """Evaluate the given file and returns some evaluation metrics.
 
@@ -607,7 +604,8 @@ class Manager():
         interval = self.interval
 
         if self.scale == "demo":
-            save_step = len(loaders[0]) - 1
+            # save_step = len(loaders[0]) - 1
+            save_step = 1
         else:
             save_step = self.step
 

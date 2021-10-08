@@ -1,6 +1,6 @@
 class config:
     scale = 'demo'
-    mode = 'tune'
+    mode = 'train'
     epochs = 8
     batch_size = 5
     batch_size_news = 100

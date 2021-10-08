@@ -37,11 +37,11 @@ class TTMS(BaseModel):
 
         self.granularity = manager.granularity
         if self.granularity != 'token':
-            self.register_buffer('cdd_dest', torch.zeros((self.batch_size, manager.impr_size, manager.signal_length * manager.signal_length)), persistent=False)
+            self.register_buffer('cdd_dest', torch.zeros((self.batch_size, self.impr_size, self.signal_length * self.signal_length)), persistent=False)
             if manager.reducer in ["bm25", "entity", "first"]:
                 self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, (manager.k + 1) * (manager.k + 1))), persistent=False)
             else:
-                self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, manager.signal_length * manager.signal_length)), persistent=False)
+                self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, self.signal_length * self.signal_length)), persistent=False)
 
 
         manager.name = '__'.join(['ttms', manager.embedding, manager.encoderN, manager.encoderU, manager.reducer, manager.granularity])
@@ -166,6 +166,8 @@ class TTMS(BaseModel):
             cdd_dest = self.cdd_dest[:batch_size]
             cdd_subword_index = x['cdd_subword_index'].to(self.device)
             cdd_subword_index = cdd_subword_index[:, :, 0] * self.signal_length + cdd_subword_index[:, :, 1]
+
+            print(cdd_subword_index, self.cdd_dest.shape)
             cdd_subword_prefix = cdd_dest.scatter(dim=-1, index=cdd_subword_index, value=1)
 
             cdd_subword_prefix = cdd_subword_prefix.view(batch_size, self.signal_length, self.signal_length)
