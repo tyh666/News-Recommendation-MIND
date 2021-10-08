@@ -511,7 +511,7 @@ class Manager():
         # if DDP instance, access the module attribute
         if self.world_size > 1:
             model = model.module
-            
+
         if self.rank in [-1, 0]:
             os.makedirs(cache_directory, exist_ok=True)
             logger.info("fast evaluate, encoding news...")
