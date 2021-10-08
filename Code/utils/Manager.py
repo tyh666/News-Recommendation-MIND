@@ -577,9 +577,6 @@ class Manager():
             # slow evaluate
             labels, preds = self._eval(model, loaders[0])
 
-        if self.world_size > 1:
-            dist.barrier()
-
         # compute metrics only on the master node
         if self.rank in [0, -1]:
             res = cal_metric(labels, preds, self.metrics)
@@ -590,6 +587,9 @@ class Manager():
                 res["epoch"] = self.epochs
                 res["step"] = self.step
                 self._log(res)
+
+        if self.world_size > 1:
+            dist.barrier()
 
         return res
 
