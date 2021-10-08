@@ -508,6 +508,10 @@ class Manager():
         # if self.world_size > 1:
         #     model = model.module
         cache_directory = "data/cache/{}/{}/".format(self.name, self.scale)
+        # if DDP instance, access the module attribute
+        if self.world_size > 1:
+            model = model.module
+            
         if self.rank in [-1, 0]:
             os.makedirs(cache_directory, exist_ok=True)
             logger.info("fast evaluate, encoding news...")
@@ -750,28 +754,32 @@ class Manager():
             os.makedirs(cache_directory, exist_ok=True)
             logger.info("encoding news...")
 
-        model.init_encoding()
-        news_reprs = torch.zeros(self.get_news_num() + 1, model.hidden_dim, device=model.device)
+            model.init_encoding()
+            news_reprs = torch.zeros(self.get_news_num() + 1, model.hidden_dim, device=model.device)
 
-        for x in tqdm(loaders[1], smoothing=self.smoothing, ncols=120, leave=True):
-            news_repr = model.encode_news(x)
-            news_reprs[x['cdd_id']] = news_repr
+            for x in tqdm(loaders[1], smoothing=self.smoothing, ncols=120, leave=True):
+                news_repr = model.encode_news(x)
+                news_reprs[x['cdd_id']] = news_repr
 
-        torch.save(news_reprs, cache_directory + "news.pt")
-        del news_reprs
-        model.destroy_encoding()
+            torch.save(news_reprs, cache_directory + "news.pt")
+            del news_reprs
+            model.destroy_encoding()
 
-        model.init_embedding()
-        impr_indexes = []
-        preds = []
-        for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
-            impr_indexes.extend(x["impr_index"].tolist())
-            preds.extend(model.predict_fast(x).tolist())
+            logger.info("inferring...")
+            model.init_embedding()
+            impr_indexes = []
+            preds = []
+            for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
+                impr_indexes.extend(x["impr_index"].tolist())
+                preds.extend(model.predict_fast(x).tolist())
 
-        preds = self._group_lists(impr_indexes, preds)[0]
-        model.destroy_embedding()
+            preds = self._group_lists(impr_indexes, preds)[0]
+            model.destroy_embedding()
 
-        return preds
+            return preds
+
+        else:
+            return None
 
 
     def test(self, model, loaders):
@@ -812,59 +820,6 @@ class Manager():
                     index += 1
 
             logger.info("written to prediction at {}!".format(save_path))
-
-
-    @torch.no_grad()
-    def encode(self, model, loader):
-        """
-            Encode news of self.scale in self.mode
-        """
-
-        # very important
-        model.eval()
-        news_num_dict = {
-            "demo": {
-                "train": 51282,
-                "dev": 42416
-            },
-            "small": {
-                "train": 51282,
-                "dev": 42416
-            },
-            "large": {
-                "train": 101527,
-                "dev": 72023,
-                "test": 120961
-            }
-        }
-        scale = loader.dataset.scale
-        mode = loader.dataset.mode
-
-        news_num = news_num_dict[scale][mode]
-
-        news_reprs = torch.zeros((news_num + 1, model.hidden_dim))
-        news_embeddings = torch.zeros(
-            (news_num + 1, model.signal_length, model.embedding_dim))
-
-        start_pos = 0
-        for x in tqdm(loader, ncols=120, leave=True):
-            news = x["cdd_encoded_index"].long()
-            news_embedding = model.embedding(news)
-            news_repr,_ = model.encoder(news_embedding)
-
-            news_reprs[start_pos:start_pos+model.batch_size] = news_repr
-            news_embeddings[start_pos:start_pos+self.batch_size] = news_embedding
-
-        os.makedirs("data/tensors/news_reprs/{}/".format(self.name), exist_ok=True)
-        os.makedirs("data/tensors/news_embeddings/{}/".format(self.name), exist_ok=True)
-
-        torch.save(news_reprs, "data/tensors/news_reprs/{}/{}_{}.tensor".format(
-            self.name, scale, mode))
-        torch.save(news_embeddings, "data/tensors/news_embeddings/{}/{}_{}.tensor".format(
-            self.name, scale, mode))
-        del news_reprs
-        del news_embeddings
-        logging.info("encoded news saved in data/tensors/news_**_{}_{}-[{}].tensor".format(scale, mode, self.name))
 
 
     @torch.no_grad()
