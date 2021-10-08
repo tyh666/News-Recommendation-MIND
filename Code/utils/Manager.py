@@ -51,7 +51,7 @@ class Manager():
             parser.add_argument("-f", "--fast", dest="fast", help="enable fast evaluation/test", action='store_true', default=False)
 
             parser.add_argument("-bs", "--batch_size", dest="batch_size",
-                                help="batch size", type=int, default=25)
+                                help="batch size", type=int, default=32)
             parser.add_argument("-bsn", "--batch_size_news", dest="batch_size_news",
                                 help="batch size of loader_news", type=int, default=500)
             # parser.add_argument("-bsh", "--batch_size_history", dest="batch_size_history",
