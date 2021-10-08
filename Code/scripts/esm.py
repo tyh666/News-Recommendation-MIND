@@ -63,20 +63,17 @@ def main(rank, manager):
     if manager.world_size > 1:
         esm = DDP(esm, device_ids=[rank], output_device=rank, find_unused_parameters=False)
 
-    if manager.mode == 'dev':
-        manager.evaluate(esm, loaders[0], load=True)
-
-    elif manager.mode == 'train':
+    if manager.mode == 'train':
         manager.train(esm, loaders)
 
-    elif manager.mode == 'tune':
-        manager.tune(esm, loaders)
+    elif manager.mode == 'dev':
+        manager.evaluate(esm, loaders, load=True)
 
     elif manager.mode == 'test':
-        manager.test(esm, loaders[0])
+        manager.test(esm, loaders)
 
     elif manager.mode == 'inspect':
-        manager.inspect(esm, loaders[0])
+        manager.inspect(esm, loaders)
 
 
 if __name__ == "__main__":

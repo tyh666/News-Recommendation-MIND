@@ -2,19 +2,11 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from .BaseModel import BaseModel
 
-class ESM(nn.Module):
+class ESM(BaseModel):
     def __init__(self, manager, embedding, encoderN, encoderU, reducer, ranker):
-        super().__init__()
-
-        self.scale = manager.scale
-        self.cdd_size = manager.cdd_size
-        self.batch_size = manager.batch_size
-        self.his_size = manager.his_size
-        self.signal_length = manager.signal_length
-        self.device = manager.device
-
-        self.k = manager.k
+        super().__init__(manager)
 
         self.embedding = embedding
         self.encoderN = encoderN

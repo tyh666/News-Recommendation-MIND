@@ -604,8 +604,8 @@ class Manager():
         interval = self.interval
 
         if self.scale == "demo":
-            # save_step = len(loaders[0]) - 1
-            save_step = 1
+            save_step = len(loaders[0]) - 1
+            # save_step = 1
         else:
             save_step = self.step
 
@@ -1136,32 +1136,33 @@ class Manager():
         """
         gather the impression of the same user to one record
         """
-        behav_path = self.path + "MIND/MIND{}_{}/behaviors.tsv".format(self.scale, self.mode)
-        behaviors = defaultdict(list)
+        behav_paths = [self.path + "MIND/MINDlarge_dev/behaviors.tsv", self.path + "MIND/MINDsmall_dev/behaviors.tsv", self.path + "MIND/MINDdemo_dev/behaviors.tsv"]
 
-        with open(behav_path, "r", encoding="utf-8") as rd:
-            for idx in rd:
-                impr_index, uid, time, history, impr = idx.strip("\n").split("\t")
-                # important to subtract 1 because all list related to behaviors start from 0
+        for behav_path in behav_paths:
+            logging.info("gathering behavior log of {}".format(behav_path))
+            behaviors = defaultdict(list)
 
-                behaviors[uid].append([impr_index, uid, time, history, impr])
+            with open(behav_path, "r", encoding="utf-8") as rd:
+                for idx in rd:
+                    impr_index, uid, time, history, impr = idx.strip("\n").split("\t")
+                    behaviors[uid].append([impr_index, uid, time, history, impr])
 
-        for k,v in behaviors.items():
-            behaviors[k] = sorted(v,key=lambda x: datetime.strptime(x[2], "%m/%d/%Y %X %p"))
+            for k,v in behaviors.items():
+                behaviors[k] = sorted(v,key=lambda x: datetime.strptime(x[2], "%m/%d/%Y %X %p"))
 
-        behavs = []
-        for k,v in behaviors.items():
-            record = []
-            imprs = []
-            record.extend(v[0][:4])
-            for i,behav in enumerate(v):
-                imprs.append(behav[4])
-            record.append(" ".join(imprs))
-            behavs.append(record)
+            behavs = []
+            for k,v in behaviors.items():
+                record = []
+                imprs = []
+                record.extend(v[0][:4])
+                for i,behav in enumerate(v):
+                    imprs.append(behav[4])
+                record.append(" ".join(imprs))
+                behavs.append(record)
 
-        with open(behav_path,"w",encoding="utf-8") as f:
-            for record in behavs:
-                f.write('\t'.join(record) + '\n')
+            with open(behav_path,"w",encoding="utf-8") as f:
+                for record in behavs:
+                    f.write('\t'.join(record) + '\n')
 
 
 def mrr_score(y_true, y_score):

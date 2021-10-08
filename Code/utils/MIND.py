@@ -703,7 +703,6 @@ class MIND(Dataset):
             raise ValueError("Mode {} not defined".format(self.mode))
 
 
-# FIXME: refactor with bm25
 class MIND_news(Dataset):
     """ Map Dataset for MIND, return each news for encoding
 
@@ -815,7 +814,7 @@ class MIND_news(Dataset):
 
 
 class MIND_history(Dataset):
-    """ Map Dataset for MIND, return each news for encoding
+    """ Map Dataset for MIND, return each user's browsing history for encoding
 
     Args:
         manager
