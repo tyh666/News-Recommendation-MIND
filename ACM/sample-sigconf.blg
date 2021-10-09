@@ -1,0 +1,92 @@
+This is BibTeX, Version 0.99d (TeX Live 2021/W32TeX)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: sample-sigconf.aux
+The style file: ACM-Reference-Format.bst
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated wiz_functions (elt_size=4) to 6000 items from 3000.
+Database file #1: sample-base.bib
+Warning--I didn't find a database entry for ""
+Warning--I didn't find a database entry for "zpt"
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated glb_str_ptr (elt_size=4) to 20 items from 10.
+Reallocated global_strs (elt_size=200001) to 20 items from 10.
+Reallocated glb_str_end (elt_size=4) to 20 items from 10.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Warning--empty address in wu_LSTUR
+Warning--page numbers missing in both pages and numpages fields in SparTerm
+Warning--page numbers missing in both pages and numpages fields in Longformer
+Warning--empty address in cheng_Wide&Deep
+Warning--page numbers missing in both pages and numpages fields in DeepCT
+Warning--empty address in HDCT
+Warning--empty address in das_CF
+Warning--empty address in Bert
+Warning--empty publisher in gallagher_joint_cascade
+Warning--empty address in gallagher_joint_cascade
+Warning--empty address in COIL
+Warning--empty address in Intra-Document-Cascading
+Warning--empty address in hu_GNN_disentanglement
+Warning--empty address in li_contextual_bandit
+Warning--empty address in li_SCENE
+Warning--empty address in LightRec
+Warning--empty address in liu_bayesian_news_trend
+Warning--empty address in liu_Hifi-ark
+Warning--empty address in DeepImpact
+Warning--empty address in query_likelihood
+Warning--page numbers missing in both pages and numpages fields in Doc2Query
+Warning--empty address in ali_SIM
+Warning--empty address in rendle_FM
+Warning--empty address in wang_DKN
+Warning--empty address in wu_NAML
+Warning--empty address in wu_NPA
+Warning--empty address in wu_topic-aware
+Warning--empty address in wu_heterogeneous
+Warning--empty address in wu_NRMS
+Warning--empty address in wu_GNN
+Warning--empty address in wu_newsPLM
+Warning--empty address in wu_MIND
+Warning--no number and no volume in xiao_speedy
+Warning--page numbers missing in both pages and numpages fields in xiao_speedy
+Warning--empty address in SNRM
+You've used 37 entries,
+            5959 wiz_defined-function locations,
+            1740 strings with 25851 characters,
+and the built_in function-call counts, 52937 in all, are:
+= -- 5850
+> -- 2542
+< -- 0
++ -- 860
+- -- 832
+* -- 4302
+:= -- 5610
+add.period$ -- 185
+call.type$ -- 37
+change.case$ -- 334
+chr.to.int$ -- 32
+cite$ -- 72
+duplicate$ -- 4504
+empty$ -- 3134
+format.name$ -- 971
+if$ -- 12395
+int.to.chr$ -- 7
+int.to.str$ -- 1
+missing$ -- 176
+newline$ -- 358
+num.names$ -- 307
+pop$ -- 1833
+preamble$ -- 1
+purify$ -- 657
+quote$ -- 0
+skip$ -- 1625
+stack$ -- 0
+substring$ -- 3809
+swap$ -- 522
+text.length$ -- 0
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 954
+warning$ -- 35
+while$ -- 272
+width$ -- 0
+write$ -- 720
+(There were 37 warnings)
