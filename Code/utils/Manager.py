@@ -14,7 +14,7 @@ import torch.optim as optim
 import torch.distributed as dist
 
 from data.configs.email import email,password
-from datetime import datetime
+from datetime import datetime, timedelta
 from tqdm.auto import tqdm
 from typing import OrderedDict
 from collections import defaultdict
@@ -59,7 +59,7 @@ class Manager():
             parser.add_argument("-hs", "--his_size", dest="his_size",
                                 help="history size", type=int, default=50)
             parser.add_argument("-is", "--impr_size", dest="impr_size",
-                                help="impression size for evaluating", type=int, default=50)
+                                help="impression size for evaluating", type=int, default=100)
             # parser.add_argument("-tl", "--title_length", dest="title_length",
             #                     help="news title size", type=int, default=20)
             # parser.add_argument("-as", "--abs_length", dest="abs_length",
@@ -171,11 +171,16 @@ class Manager():
         if self.world_size > 1:
             os.environ["MASTER_ADDR"] = "localhost"
             os.environ["MASTER_PORT"] = str(12355 + self.base_rank)
+            # prevent warning of transformers
+            os.environ["TOKENIZERS_PARALLELISM"] = "True"
 
             # initialize the process group
-            dist.init_process_group("nccl", rank=rank, world_size=self.world_size)
+            # set timeout to inf to prevent timeout error
+            dist.init_process_group("nccl", rank=rank, world_size=self.world_size, timeout=timedelta(0, 1000000))
 
-            os.environ["TOKENIZERS_PARALLELISM"] = "True"
+            # if self.fast:
+            #     os.environ["NCCL_ASYNC_ERROR_HANDLING"] = '0'
+
             # manager.rank will be invoked in creating DistributedSampler
             self.rank = rank
             # manager.device will be invoked in the model
@@ -508,9 +513,6 @@ class Manager():
         if self.world_size > 1:
             model = model.module
         cache_directory = "data/cache/{}/{}/dev/".format(self.name, self.scale)
-        # if DDP instance, access the module attribute
-        if self.world_size > 1:
-            model = model.module
 
         if self.rank in [-1, 0]:
             os.makedirs(cache_directory, exist_ok=True)

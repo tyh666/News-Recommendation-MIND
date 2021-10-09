@@ -1,0 +1,616 @@
+%%% -*-BibTeX-*-
+%%% Do NOT edit. File created by BibTeX with style
+%%% ACM-Reference-Format-Journals [18-Jan-2012].
+
+\begin{thebibliography}{37}
+
+%%% ====================================================================
+%%% NOTE TO THE USER: you can override these defaults by providing
+%%% customized versions of any of these macros before the \bibliography
+%%% command.  Each of them MUST provide its own final punctuation,
+%%% except for \shownote{}, \showDOI{}, and \showURL{}.  The latter two
+%%% do not use final punctuation, in order to avoid confusing it with
+%%% the Web address.
+%%%
+%%% To suppress output of a particular field, define its macro to expand
+%%% to an empty string, or better, \unskip, like this:
+%%%
+%%% \newcommand{\showDOI}[1]{\unskip}   % LaTeX syntax
+%%%
+%%% \def \showDOI #1{\unskip}           % plain TeX syntax
+%%%
+%%% ====================================================================
+
+\ifx \showCODEN    \undefined \def \showCODEN     #1{\unskip}     \fi
+\ifx \showDOI      \undefined \def \showDOI       #1{#1}\fi
+\ifx \showISBNx    \undefined \def \showISBNx     #1{\unskip}     \fi
+\ifx \showISBNxiii \undefined \def \showISBNxiii  #1{\unskip}     \fi
+\ifx \showISSN     \undefined \def \showISSN      #1{\unskip}     \fi
+\ifx \showLCCN     \undefined \def \showLCCN      #1{\unskip}     \fi
+\ifx \shownote     \undefined \def \shownote      #1{#1}          \fi
+\ifx \showarticletitle \undefined \def \showarticletitle #1{#1}   \fi
+\ifx \showURL      \undefined \def \showURL       {\relax}        \fi
+% The following commands are used for tagged output and should be
+% invisible to TeX
+\providecommand\bibfield[2]{#2}
+\providecommand\bibinfo[2]{#2}
+\providecommand\natexlab[1]{#1}
+\providecommand\showeprint[2][]{arXiv:#2}
+
+\bibitem[\protect\citeauthoryear{An, Wu, Wu, Zhang, Liu, and Xie}{An
+  et~al\mbox{.}}{2019}]%
+        {wu_LSTUR}
+\bibfield{author}{\bibinfo{person}{Mingxiao An}, \bibinfo{person}{Fangzhao Wu},
+  \bibinfo{person}{Chuhan Wu}, \bibinfo{person}{Kun Zhang},
+  \bibinfo{person}{Zheng Liu}, {and} \bibinfo{person}{Xing Xie}.}
+  \bibinfo{year}{2019}\natexlab{}.
+\newblock \showarticletitle{Neural News Recommendation with Long- and
+  Short-term User Representations}. In \bibinfo{booktitle}{\emph{{ACL},2019}}.
+  \bibinfo{publisher}{Association for Computational Linguistics},
+  \bibinfo{pages}{336--345}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Bai, Li, Wang, Zhang, Shang, Xu, Wang, Wang,
+  and Liu}{Bai et~al\mbox{.}}{2020}]%
+        {SparTerm}
+\bibfield{author}{\bibinfo{person}{Yang Bai}, \bibinfo{person}{Xiaoguang Li},
+  \bibinfo{person}{Gang Wang}, \bibinfo{person}{Chaoliang Zhang},
+  \bibinfo{person}{Lifeng Shang}, \bibinfo{person}{Jun Xu},
+  \bibinfo{person}{Zhaowei Wang}, \bibinfo{person}{Fangshan Wang}, {and}
+  \bibinfo{person}{Qun Liu}.} \bibinfo{year}{2020}\natexlab{}.
+\newblock \showarticletitle{SparTerm: Learning Term-based Sparse Representation
+  for Fast Text Retrieval}.
+\newblock \bibinfo{journal}{\emph{CoRR}}  \bibinfo{volume}{abs/2010.00768}
+  (\bibinfo{year}{2020}).
+\newblock
+\showeprint[arXiv]{2010.00768}
+\urldef\tempurl%
+\url{https://arxiv.org/abs/2010.00768}
+\showURL{%
+\tempurl}
+
+
+\bibitem[\protect\citeauthoryear{Beltagy, Peters, and Cohan}{Beltagy
+  et~al\mbox{.}}{2020}]%
+        {Longformer}
+\bibfield{author}{\bibinfo{person}{Iz Beltagy}, \bibinfo{person}{Matthew~E.
+  Peters}, {and} \bibinfo{person}{Arman Cohan}.}
+  \bibinfo{year}{2020}\natexlab{}.
+\newblock \showarticletitle{Longformer: The Long-Document Transformer}.
+\newblock \bibinfo{journal}{\emph{CoRR}}  \bibinfo{volume}{abs/2004.05150}
+  (\bibinfo{year}{2020}).
+\newblock
+\showeprint[arXiv]{2004.05150}
+\urldef\tempurl%
+\url{https://arxiv.org/abs/2004.05150}
+\showURL{%
+\tempurl}
+
+
+\bibitem[\protect\citeauthoryear{Bengio, Courville, and Vincent}{Bengio
+  et~al\mbox{.}}{2013}]%
+        {Bengio_representation_learning}
+\bibfield{author}{\bibinfo{person}{Yoshua Bengio}, \bibinfo{person}{Aaron~C.
+  Courville}, {and} \bibinfo{person}{Pascal Vincent}.}
+  \bibinfo{year}{2013}\natexlab{}.
+\newblock \showarticletitle{Representation Learning: {A} Review and New
+  Perspectives}.
+\newblock \bibinfo{journal}{\emph{{IEEE} Trans. Pattern Anal. Mach. Intell.}}
+  \bibinfo{volume}{35}, \bibinfo{number}{8} (\bibinfo{year}{2013}),
+  \bibinfo{pages}{1798--1828}.
+\newblock
+\urldef\tempurl%
+\url{https://doi.org/10.1109/TPAMI.2013.50}
+\showDOI{\tempurl}
+
+
+\bibitem[\protect\citeauthoryear{Cheng, Koc, Harmsen, Shaked, Chandra, Aradhye,
+  Anderson, Corrado, Chai, Ispir, Anil, Haque, Hong, Jain, Liu, and Shah}{Cheng
+  et~al\mbox{.}}{2016}]%
+        {cheng_Wide&Deep}
+\bibfield{author}{\bibinfo{person}{Heng{-}Tze Cheng}, \bibinfo{person}{Levent
+  Koc}, \bibinfo{person}{Jeremiah Harmsen}, \bibinfo{person}{Tal Shaked},
+  \bibinfo{person}{Tushar Chandra}, \bibinfo{person}{Hrishi Aradhye},
+  \bibinfo{person}{Glen Anderson}, \bibinfo{person}{Greg Corrado},
+  \bibinfo{person}{Wei Chai}, \bibinfo{person}{Mustafa Ispir},
+  \bibinfo{person}{Rohan Anil}, \bibinfo{person}{Zakaria Haque},
+  \bibinfo{person}{Lichan Hong}, \bibinfo{person}{Vihan Jain},
+  \bibinfo{person}{Xiaobing Liu}, {and} \bibinfo{person}{Hemal Shah}.}
+  \bibinfo{year}{2016}\natexlab{}.
+\newblock \showarticletitle{Wide {\&} Deep Learning for Recommender Systems}.
+  In \bibinfo{booktitle}{\emph{{DLRS@RecSys}, 2016}}.
+  \bibinfo{publisher}{{ACM}}, \bibinfo{pages}{7--10}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Dai and Callan}{Dai and Callan}{2019}]%
+        {DeepCT}
+\bibfield{author}{\bibinfo{person}{Zhuyun Dai} {and} \bibinfo{person}{Jamie
+  Callan}.} \bibinfo{year}{2019}\natexlab{}.
+\newblock \showarticletitle{Context-Aware Sentence/Passage Term Importance
+  Estimation For First Stage Retrieval}.
+\newblock \bibinfo{journal}{\emph{CoRR}}  \bibinfo{volume}{abs/1910.10687}
+  (\bibinfo{year}{2019}).
+\newblock
+\showeprint[arXiv]{1910.10687}
+\urldef\tempurl%
+\url{http://arxiv.org/abs/1910.10687}
+\showURL{%
+\tempurl}
+
+
+\bibitem[\protect\citeauthoryear{Dai and Callan}{Dai and Callan}{2020}]%
+        {HDCT}
+\bibfield{author}{\bibinfo{person}{Zhuyun Dai} {and} \bibinfo{person}{Jamie
+  Callan}.} \bibinfo{year}{2020}\natexlab{}.
+\newblock \showarticletitle{Context-Aware Document Term Weighting for Ad-Hoc
+  Search}. In \bibinfo{booktitle}{\emph{{WWW} '20: The Web Conference 2020,
+  Taipei, Taiwan, April 20-24, 2020}},
+  \bibfield{editor}{\bibinfo{person}{Yennun Huang}, \bibinfo{person}{Irwin
+  King}, \bibinfo{person}{Tie{-}Yan Liu}, {and} \bibinfo{person}{Maarten van
+  Steen}} (Eds.). \bibinfo{publisher}{{ACM} / {IW3C2}},
+  \bibinfo{pages}{1897--1907}.
+\newblock
+\urldef\tempurl%
+\url{https://doi.org/10.1145/3366423.3380258}
+\showDOI{\tempurl}
+
+
+\bibitem[\protect\citeauthoryear{Das, Datar, Garg, and Rajaram}{Das
+  et~al\mbox{.}}{2007}]%
+        {das_CF}
+\bibfield{author}{\bibinfo{person}{Abhinandan Das}, \bibinfo{person}{Mayur
+  Datar}, \bibinfo{person}{Ashutosh Garg}, {and} \bibinfo{person}{Shyamsundar
+  Rajaram}.} \bibinfo{year}{2007}\natexlab{}.
+\newblock \showarticletitle{Google news personalization: scalable online
+  collaborative filtering}. In \bibinfo{booktitle}{\emph{{WWW},2010}}.
+  \bibinfo{publisher}{{ACM}}, \bibinfo{pages}{271--280}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Devlin, Chang, Lee, and Toutanova}{Devlin
+  et~al\mbox{.}}{2019}]%
+        {Bert}
+\bibfield{author}{\bibinfo{person}{Jacob Devlin}, \bibinfo{person}{Ming{-}Wei
+  Chang}, \bibinfo{person}{Kenton Lee}, {and} \bibinfo{person}{Kristina
+  Toutanova}.} \bibinfo{year}{2019}\natexlab{}.
+\newblock \showarticletitle{{BERT:} Pre-training of Deep Bidirectional
+  Transformers for Language Understanding}. In
+  \bibinfo{booktitle}{\emph{{NAACL-HLT},2019}}. \bibinfo{publisher}{Association
+  for Computational Linguistics}, \bibinfo{pages}{4171--4186}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Gallagher, Chen, Blanco, and
+  Culpepper}{Gallagher et~al\mbox{.}}{2019}]%
+        {gallagher_joint_cascade}
+\bibfield{author}{\bibinfo{person}{Luke Gallagher}, \bibinfo{person}{Ruey-Cheng
+  Chen}, \bibinfo{person}{Roi Blanco}, {and} \bibinfo{person}{J~Shane
+  Culpepper}.} \bibinfo{year}{2019}\natexlab{}.
+\newblock \showarticletitle{Joint optimization of cascade ranking models}. In
+  \bibinfo{booktitle}{\emph{Proceedings of the Twelfth ACM International
+  Conference on Web Search and Data Mining}}. \bibinfo{pages}{15--23}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Gao, Dai, and Callan}{Gao
+  et~al\mbox{.}}{2021}]%
+        {COIL}
+\bibfield{author}{\bibinfo{person}{Luyu Gao}, \bibinfo{person}{Zhuyun Dai},
+  {and} \bibinfo{person}{Jamie Callan}.} \bibinfo{year}{2021}\natexlab{}.
+\newblock \showarticletitle{{COIL:} Revisit Exact Lexical Match in Information
+  Retrieval with Contextualized Inverted List}. In
+  \bibinfo{booktitle}{\emph{Proceedings of the 2021 Conference of the North
+  American Chapter of the Association for Computational Linguistics: Human
+  Language Technologies, {NAACL-HLT} 2021, Online, June 6-11, 2021}},
+  \bibfield{editor}{\bibinfo{person}{Kristina Toutanova}, \bibinfo{person}{Anna
+  Rumshisky}, \bibinfo{person}{Luke Zettlemoyer}, \bibinfo{person}{Dilek
+  Hakkani{-}T{\"{u}}r}, \bibinfo{person}{Iz~Beltagy}, \bibinfo{person}{Steven
+  Bethard}, \bibinfo{person}{Ryan Cotterell}, \bibinfo{person}{Tanmoy
+  Chakraborty}, {and} \bibinfo{person}{Yichao Zhou}} (Eds.).
+  \bibinfo{publisher}{Association for Computational Linguistics},
+  \bibinfo{pages}{3030--3042}.
+\newblock
+\urldef\tempurl%
+\url{https://doi.org/10.18653/v1/2021.naacl-main.241}
+\showDOI{\tempurl}
+
+
+\bibitem[\protect\citeauthoryear{Hofst{\"{a}}tter, Mitra, Zamani, Craswell, and
+  Hanbury}{Hofst{\"{a}}tter et~al\mbox{.}}{2021}]%
+        {Intra-Document-Cascading}
+\bibfield{author}{\bibinfo{person}{Sebastian Hofst{\"{a}}tter},
+  \bibinfo{person}{Bhaskar Mitra}, \bibinfo{person}{Hamed Zamani},
+  \bibinfo{person}{Nick Craswell}, {and} \bibinfo{person}{Allan Hanbury}.}
+  \bibinfo{year}{2021}\natexlab{}.
+\newblock \showarticletitle{Intra-Document Cascading: Learning to Select
+  Passages for Neural Document Ranking}. In \bibinfo{booktitle}{\emph{{SIGIR}
+  '21: The 44th International {ACM} {SIGIR} Conference on Research and
+  Development in Information Retrieval, Virtual Event, Canada, July 11-15,
+  2021}}, \bibfield{editor}{\bibinfo{person}{Fernando Diaz},
+  \bibinfo{person}{Chirag Shah}, \bibinfo{person}{Torsten Suel},
+  \bibinfo{person}{Pablo Castells}, \bibinfo{person}{Rosie Jones}, {and}
+  \bibinfo{person}{Tetsuya Sakai}} (Eds.). \bibinfo{publisher}{{ACM}},
+  \bibinfo{pages}{1349--1358}.
+\newblock
+\urldef\tempurl%
+\url{https://doi.org/10.1145/3404835.3462889}
+\showDOI{\tempurl}
+
+
+\bibitem[\protect\citeauthoryear{Hu, Xu, Li, Yang, Shi, Duan, Xie, and Zhou}{Hu
+  et~al\mbox{.}}{2020}]%
+        {hu_GNN_disentanglement}
+\bibfield{author}{\bibinfo{person}{Linmei Hu}, \bibinfo{person}{Siyong Xu},
+  \bibinfo{person}{Chen Li}, \bibinfo{person}{Cheng Yang},
+  \bibinfo{person}{Chuan Shi}, \bibinfo{person}{Nan Duan},
+  \bibinfo{person}{Xing Xie}, {and} \bibinfo{person}{Ming Zhou}.}
+  \bibinfo{year}{2020}\natexlab{}.
+\newblock \showarticletitle{Graph Neural News Recommendation with Unsupervised
+  Preference Disentanglement}. In \bibinfo{booktitle}{\emph{{ACL},2020}}.
+  \bibinfo{publisher}{Association for Computational Linguistics},
+  \bibinfo{pages}{4255--4264}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Koren, Bell, and Volinsky}{Koren
+  et~al\mbox{.}}{2009}]%
+        {koren_MF}
+\bibfield{author}{\bibinfo{person}{Yehuda Koren}, \bibinfo{person}{Robert~M.
+  Bell}, {and} \bibinfo{person}{Chris Volinsky}.}
+  \bibinfo{year}{2009}\natexlab{}.
+\newblock \showarticletitle{Matrix Factorization Techniques for Recommender
+  Systems}.
+\newblock \bibinfo{journal}{\emph{Computer}} \bibinfo{volume}{42},
+  \bibinfo{number}{8} (\bibinfo{year}{2009}), \bibinfo{pages}{30--37}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Lavie, Sela, Oppenheim, Inbar, and
+  Meyer}{Lavie et~al\mbox{.}}{2010}]%
+        {personalized_news_recommendation}
+\bibfield{author}{\bibinfo{person}{Talia Lavie}, \bibinfo{person}{Michal Sela},
+  \bibinfo{person}{Ilit Oppenheim}, \bibinfo{person}{Ohad Inbar}, {and}
+  \bibinfo{person}{Joachim Meyer}.} \bibinfo{year}{2010}\natexlab{}.
+\newblock \showarticletitle{User attitudes towards news content
+  personalization}.
+\newblock \bibinfo{journal}{\emph{Int. J. Hum. Comput. Stud.}}
+  \bibinfo{volume}{68}, \bibinfo{number}{8} (\bibinfo{year}{2010}),
+  \bibinfo{pages}{483--495}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Li, Chu, Langford, and Schapire}{Li
+  et~al\mbox{.}}{2010}]%
+        {li_contextual_bandit}
+\bibfield{author}{\bibinfo{person}{Lihong Li}, \bibinfo{person}{Wei Chu},
+  \bibinfo{person}{John Langford}, {and} \bibinfo{person}{Robert~E. Schapire}.}
+  \bibinfo{year}{2010}\natexlab{}.
+\newblock \showarticletitle{A contextual-bandit approach to personalized news
+  article recommendation}. In \bibinfo{booktitle}{\emph{{WWW}, 2010}}.
+  \bibinfo{publisher}{{ACM}}, \bibinfo{pages}{661--670}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Li, Wang, Li, Knox, and Padmanabhan}{Li
+  et~al\mbox{.}}{2011}]%
+        {li_SCENE}
+\bibfield{author}{\bibinfo{person}{Lei Li}, \bibinfo{person}{Dingding Wang},
+  \bibinfo{person}{Tao Li}, \bibinfo{person}{Daniel Knox}, {and}
+  \bibinfo{person}{Balaji Padmanabhan}.} \bibinfo{year}{2011}\natexlab{}.
+\newblock \showarticletitle{{SCENE:} a scalable two-stage personalized news
+  recommendation system}. In \bibinfo{booktitle}{\emph{{SIGIR},2011}}.
+  \bibinfo{publisher}{{ACM}}, \bibinfo{pages}{125--134}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Lian, Wang, Liu, Lian, Chen, and Xie}{Lian
+  et~al\mbox{.}}{2020}]%
+        {LightRec}
+\bibfield{author}{\bibinfo{person}{Defu Lian}, \bibinfo{person}{Haoyu Wang},
+  \bibinfo{person}{Zheng Liu}, \bibinfo{person}{Jianxun Lian},
+  \bibinfo{person}{Enhong Chen}, {and} \bibinfo{person}{Xing Xie}.}
+  \bibinfo{year}{2020}\natexlab{}.
+\newblock \showarticletitle{LightRec: {A} Memory and Search-Efficient
+  Recommender System}. In \bibinfo{booktitle}{\emph{{WWW},2020}}.
+  \bibinfo{publisher}{{ACM} / {IW3C2}}, \bibinfo{pages}{695--705}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Liu, Dolan, and Pedersen}{Liu
+  et~al\mbox{.}}{2010}]%
+        {liu_bayesian_news_trend}
+\bibfield{author}{\bibinfo{person}{Jiahui Liu}, \bibinfo{person}{Peter Dolan},
+  {and} \bibinfo{person}{Elin~R{\o}nby Pedersen}.}
+  \bibinfo{year}{2010}\natexlab{}.
+\newblock \showarticletitle{Personalized news recommendation based on click
+  behavior}. In \bibinfo{booktitle}{\emph{{IUI},2010}}.
+  \bibinfo{publisher}{{ACM}}, \bibinfo{pages}{31--40}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Liu, Xing, Wu, An, and Xie}{Liu
+  et~al\mbox{.}}{2019}]%
+        {liu_Hifi-ark}
+\bibfield{author}{\bibinfo{person}{Zheng Liu}, \bibinfo{person}{Yu Xing},
+  \bibinfo{person}{Fangzhao Wu}, \bibinfo{person}{Mingxiao An}, {and}
+  \bibinfo{person}{Xing Xie}.} \bibinfo{year}{2019}\natexlab{}.
+\newblock \showarticletitle{Hi-Fi Ark: Deep User Representation via
+  High-Fidelity Archive Network}. In \bibinfo{booktitle}{\emph{{IJCAI},2019}}.
+  \bibinfo{publisher}{ijcai.org}, \bibinfo{pages}{3059--3065}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Mallia, Khattab, Suel, and Tonellotto}{Mallia
+  et~al\mbox{.}}{2021}]%
+        {DeepImpact}
+\bibfield{author}{\bibinfo{person}{Antonio Mallia}, \bibinfo{person}{Omar
+  Khattab}, \bibinfo{person}{Torsten Suel}, {and} \bibinfo{person}{Nicola
+  Tonellotto}.} \bibinfo{year}{2021}\natexlab{}.
+\newblock \showarticletitle{Learning Passage Impacts for Inverted Indexes}. In
+  \bibinfo{booktitle}{\emph{{SIGIR} '21: The 44th International {ACM} {SIGIR}
+  Conference on Research and Development in Information Retrieval, Virtual
+  Event, Canada, July 11-15, 2021}},
+  \bibfield{editor}{\bibinfo{person}{Fernando Diaz}, \bibinfo{person}{Chirag
+  Shah}, \bibinfo{person}{Torsten Suel}, \bibinfo{person}{Pablo Castells},
+  \bibinfo{person}{Rosie Jones}, {and} \bibinfo{person}{Tetsuya Sakai}} (Eds.).
+  \bibinfo{publisher}{{ACM}}, \bibinfo{pages}{1723--1727}.
+\newblock
+\urldef\tempurl%
+\url{https://doi.org/10.1145/3404835.3463030}
+\showDOI{\tempurl}
+
+
+\bibitem[\protect\citeauthoryear{Metzler and Croft}{Metzler and Croft}{2005}]%
+        {query_likelihood}
+\bibfield{author}{\bibinfo{person}{Donald Metzler} {and}
+  \bibinfo{person}{W.~Bruce Croft}.} \bibinfo{year}{2005}\natexlab{}.
+\newblock \showarticletitle{A Markov random field model for term dependencies}.
+  In \bibinfo{booktitle}{\emph{{SIGIR} 2005: Proceedings of the 28th Annual
+  International {ACM} {SIGIR} Conference on Research and Development in
+  Information Retrieval, Salvador, Brazil, August 15-19, 2005}},
+  \bibfield{editor}{\bibinfo{person}{Ricardo~A. Baeza{-}Yates},
+  \bibinfo{person}{Nivio Ziviani}, \bibinfo{person}{Gary Marchionini},
+  \bibinfo{person}{Alistair Moffat}, {and} \bibinfo{person}{John Tait}} (Eds.).
+  \bibinfo{publisher}{{ACM}}, \bibinfo{pages}{472--479}.
+\newblock
+\urldef\tempurl%
+\url{https://doi.org/10.1145/1076034.1076115}
+\showDOI{\tempurl}
+
+
+\bibitem[\protect\citeauthoryear{Nogueira, Yang, Lin, and Cho}{Nogueira
+  et~al\mbox{.}}{2019}]%
+        {Doc2Query}
+\bibfield{author}{\bibinfo{person}{Rodrigo Nogueira}, \bibinfo{person}{Wei
+  Yang}, \bibinfo{person}{Jimmy Lin}, {and} \bibinfo{person}{Kyunghyun Cho}.}
+  \bibinfo{year}{2019}\natexlab{}.
+\newblock \showarticletitle{Document Expansion by Query Prediction}.
+\newblock \bibinfo{journal}{\emph{CoRR}}  \bibinfo{volume}{abs/1904.08375}
+  (\bibinfo{year}{2019}).
+\newblock
+\showeprint[arXiv]{1904.08375}
+\urldef\tempurl%
+\url{http://arxiv.org/abs/1904.08375}
+\showURL{%
+\tempurl}
+
+
+\bibitem[\protect\citeauthoryear{Pi, Zhou, Zhang, Wang, Ren, Fan, Zhu, and
+  Gai}{Pi et~al\mbox{.}}{2020}]%
+        {ali_SIM}
+\bibfield{author}{\bibinfo{person}{Qi Pi}, \bibinfo{person}{Guorui Zhou},
+  \bibinfo{person}{Yujing Zhang}, \bibinfo{person}{Zhe Wang},
+  \bibinfo{person}{Lejian Ren}, \bibinfo{person}{Ying Fan},
+  \bibinfo{person}{Xiaoqiang Zhu}, {and} \bibinfo{person}{Kun Gai}.}
+  \bibinfo{year}{2020}\natexlab{}.
+\newblock \showarticletitle{Search-based User Interest Modeling with Lifelong
+  Sequential Behavior Data for Click-Through Rate Prediction}. In
+  \bibinfo{booktitle}{\emph{{CIKM} '20: The 29th {ACM} International Conference
+  on Information and Knowledge Management, Virtual Event, Ireland, October
+  19-23, 2020}}, \bibfield{editor}{\bibinfo{person}{Mathieu d'Aquin},
+  \bibinfo{person}{Stefan Dietze}, \bibinfo{person}{Claudia Hauff},
+  \bibinfo{person}{Edward Curry}, {and} \bibinfo{person}{Philippe
+  Cudr{\'{e}}{-}Mauroux}} (Eds.). \bibinfo{publisher}{{ACM}},
+  \bibinfo{pages}{2685--2692}.
+\newblock
+\urldef\tempurl%
+\url{https://doi.org/10.1145/3340531.3412744}
+\showDOI{\tempurl}
+
+
+\bibitem[\protect\citeauthoryear{Rendle}{Rendle}{2010}]%
+        {rendle_FM}
+\bibfield{author}{\bibinfo{person}{Steffen Rendle}.}
+  \bibinfo{year}{2010}\natexlab{}.
+\newblock \showarticletitle{Factorization Machines}. In
+  \bibinfo{booktitle}{\emph{{ICDM},2010}}. \bibinfo{publisher}{{IEEE} Computer
+  Society}, \bibinfo{pages}{995--1000}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Robertson and Zaragoza}{Robertson and
+  Zaragoza}{2009}]%
+        {BM25}
+\bibfield{author}{\bibinfo{person}{Stephen~E. Robertson} {and}
+  \bibinfo{person}{Hugo Zaragoza}.} \bibinfo{year}{2009}\natexlab{}.
+\newblock \showarticletitle{The Probabilistic Relevance Framework: {BM25} and
+  Beyond}.
+\newblock \bibinfo{journal}{\emph{Found. Trends Inf. Retr.}}
+  \bibinfo{volume}{3}, \bibinfo{number}{4} (\bibinfo{year}{2009}),
+  \bibinfo{pages}{333--389}.
+\newblock
+\urldef\tempurl%
+\url{https://doi.org/10.1561/1500000019}
+\showDOI{\tempurl}
+
+
+\bibitem[\protect\citeauthoryear{Wang, Zhang, Xie, and Guo}{Wang
+  et~al\mbox{.}}{2018}]%
+        {wang_DKN}
+\bibfield{author}{\bibinfo{person}{Hongwei Wang}, \bibinfo{person}{Fuzheng
+  Zhang}, \bibinfo{person}{Xing Xie}, {and} \bibinfo{person}{Minyi Guo}.}
+  \bibinfo{year}{2018}\natexlab{}.
+\newblock \showarticletitle{{DKN:} Deep Knowledge-Aware Network for News
+  Recommendation}. In \bibinfo{booktitle}{\emph{{WWW},2018}}.
+  \bibinfo{publisher}{{ACM}}, \bibinfo{pages}{1835--1844}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Wu, Wu, An, Huang, Huang, and Xie}{Wu
+  et~al\mbox{.}}{2019b}]%
+        {wu_NAML}
+\bibfield{author}{\bibinfo{person}{Chuhan Wu}, \bibinfo{person}{Fangzhao Wu},
+  \bibinfo{person}{Mingxiao An}, \bibinfo{person}{Jianqiang Huang},
+  \bibinfo{person}{Yongfeng Huang}, {and} \bibinfo{person}{Xing Xie}.}
+  \bibinfo{year}{2019}\natexlab{b}.
+\newblock \showarticletitle{Neural News Recommendation with Attentive
+  Multi-View Learning}. In \bibinfo{booktitle}{\emph{{IJCAI},2019}}.
+  \bibinfo{publisher}{ijcai.org}, \bibinfo{pages}{3863--3869}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Wu, Wu, An, Huang, Huang, and Xie}{Wu
+  et~al\mbox{.}}{2019c}]%
+        {wu_NPA}
+\bibfield{author}{\bibinfo{person}{Chuhan Wu}, \bibinfo{person}{Fangzhao Wu},
+  \bibinfo{person}{Mingxiao An}, \bibinfo{person}{Jianqiang Huang},
+  \bibinfo{person}{Yongfeng Huang}, {and} \bibinfo{person}{Xing Xie}.}
+  \bibinfo{year}{2019}\natexlab{c}.
+\newblock \showarticletitle{{NPA:} Neural News Recommendation with Personalized
+  Attention}. In \bibinfo{booktitle}{\emph{{SIGKDD},2019}}.
+  \bibinfo{publisher}{{ACM}}, \bibinfo{pages}{2576--2584}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Wu, Wu, An, Huang, and Xie}{Wu
+  et~al\mbox{.}}{2019a}]%
+        {wu_topic-aware}
+\bibfield{author}{\bibinfo{person}{Chuhan Wu}, \bibinfo{person}{Fangzhao Wu},
+  \bibinfo{person}{Mingxiao An}, \bibinfo{person}{Yongfeng Huang}, {and}
+  \bibinfo{person}{Xing Xie}.} \bibinfo{year}{2019}\natexlab{a}.
+\newblock \showarticletitle{Neural News Recommendation with Topic-Aware News
+  Representation}. In \bibinfo{booktitle}{\emph{{ACL},2019}}.
+  \bibinfo{publisher}{Association for Computational Linguistics},
+  \bibinfo{pages}{1154--1159}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Wu, Wu, An, Qi, Huang, Huang, and Xie}{Wu
+  et~al\mbox{.}}{2019d}]%
+        {wu_heterogeneous}
+\bibfield{author}{\bibinfo{person}{Chuhan Wu}, \bibinfo{person}{Fangzhao Wu},
+  \bibinfo{person}{Mingxiao An}, \bibinfo{person}{Tao Qi},
+  \bibinfo{person}{Jianqiang Huang}, \bibinfo{person}{Yongfeng Huang}, {and}
+  \bibinfo{person}{Xing Xie}.} \bibinfo{year}{2019}\natexlab{d}.
+\newblock \showarticletitle{Neural News Recommendation with Heterogeneous User
+  Behavior}. In \bibinfo{booktitle}{\emph{{EMNLP-IJCNLP},2019}}.
+  \bibinfo{publisher}{Association for Computational Linguistics},
+  \bibinfo{pages}{4873--4882}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Wu, Wu, Ge, Qi, Huang, and Xie}{Wu
+  et~al\mbox{.}}{2019e}]%
+        {wu_NRMS}
+\bibfield{author}{\bibinfo{person}{Chuhan Wu}, \bibinfo{person}{Fangzhao Wu},
+  \bibinfo{person}{Suyu Ge}, \bibinfo{person}{Tao Qi},
+  \bibinfo{person}{Yongfeng Huang}, {and} \bibinfo{person}{Xing Xie}.}
+  \bibinfo{year}{2019}\natexlab{e}.
+\newblock \showarticletitle{Neural News Recommendation with Multi-Head
+  Self-Attention}. In \bibinfo{booktitle}{\emph{{EMNLP-IJCNLP},2019}}.
+  \bibinfo{publisher}{Association for Computational Linguistics},
+  \bibinfo{pages}{6388--6393}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Wu, Wu, Qi, Ge, Huang, and Xie}{Wu
+  et~al\mbox{.}}{2019f}]%
+        {wu_GNN}
+\bibfield{author}{\bibinfo{person}{Chuhan Wu}, \bibinfo{person}{Fangzhao Wu},
+  \bibinfo{person}{Tao Qi}, \bibinfo{person}{Suyu Ge},
+  \bibinfo{person}{Yongfeng Huang}, {and} \bibinfo{person}{Xing Xie}.}
+  \bibinfo{year}{2019}\natexlab{f}.
+\newblock \showarticletitle{Reviews Meet Graphs: Enhancing User and Item
+  Representations for Recommendation with Hierarchical Attentive Graph Neural
+  Network}. In \bibinfo{booktitle}{\emph{{EMNLP-IJCNLP},2019}}.
+  \bibinfo{publisher}{Association for Computational Linguistics},
+  \bibinfo{pages}{4883--4892}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Wu, Wu, Qi, and Huang}{Wu
+  et~al\mbox{.}}{2021}]%
+        {wu_newsPLM}
+\bibfield{author}{\bibinfo{person}{Chuhan Wu}, \bibinfo{person}{Fangzhao Wu},
+  \bibinfo{person}{Tao Qi}, {and} \bibinfo{person}{Yongfeng Huang}.}
+  \bibinfo{year}{2021}\natexlab{}.
+\newblock \showarticletitle{Empowering News Recommendation with Pre-trained
+  Language Models}. In \bibinfo{booktitle}{\emph{{SIGIR} '21: The 44th
+  International {ACM} {SIGIR} Conference on Research and Development in
+  Information Retrieval, Virtual Event, Canada, July 11-15, 2021}},
+  \bibfield{editor}{\bibinfo{person}{Fernando Diaz}, \bibinfo{person}{Chirag
+  Shah}, \bibinfo{person}{Torsten Suel}, \bibinfo{person}{Pablo Castells},
+  \bibinfo{person}{Rosie Jones}, {and} \bibinfo{person}{Tetsuya Sakai}} (Eds.).
+  \bibinfo{publisher}{{ACM}}, \bibinfo{pages}{1652--1656}.
+\newblock
+\urldef\tempurl%
+\url{https://doi.org/10.1145/3404835.3463069}
+\showDOI{\tempurl}
+
+
+\bibitem[\protect\citeauthoryear{Wu, Qiao, Chen, Wu, Qi, Lian, Liu, Xie, Gao,
+  Wu, and Zhou}{Wu et~al\mbox{.}}{2020}]%
+        {wu_MIND}
+\bibfield{author}{\bibinfo{person}{Fangzhao Wu}, \bibinfo{person}{Ying Qiao},
+  \bibinfo{person}{Jiun{-}Hung Chen}, \bibinfo{person}{Chuhan Wu},
+  \bibinfo{person}{Tao Qi}, \bibinfo{person}{Jianxun Lian},
+  \bibinfo{person}{Danyang Liu}, \bibinfo{person}{Xing Xie},
+  \bibinfo{person}{Jianfeng Gao}, \bibinfo{person}{Winnie Wu}, {and}
+  \bibinfo{person}{Ming Zhou}.} \bibinfo{year}{2020}\natexlab{}.
+\newblock \showarticletitle{{MIND:} {A} Large-scale Dataset for News
+  Recommendation}. In \bibinfo{booktitle}{\emph{{ACL},2020}}.
+  \bibinfo{publisher}{Association for Computational Linguistics},
+  \bibinfo{pages}{3597--3606}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Xiao, Liu, Shao, Di, and Xie}{Xiao
+  et~al\mbox{.}}{2021}]%
+        {xiao_speedy}
+\bibfield{author}{\bibinfo{person}{Shitao Xiao}, \bibinfo{person}{Zheng Liu},
+  \bibinfo{person}{Yingxia Shao}, \bibinfo{person}{Tao Di}, {and}
+  \bibinfo{person}{Xing Xie}.} \bibinfo{year}{2021}\natexlab{}.
+\newblock \showarticletitle{Training Large-Scale News Recommenders with
+  Pretrained Language Models in the Loop}.
+\newblock \bibinfo{journal}{\emph{arXiv preprint arXiv:2102.09268}}
+  (\bibinfo{year}{2021}).
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Zamani, Dehghani, Croft, Learned{-}Miller, and
+  Kamps}{Zamani et~al\mbox{.}}{2018}]%
+        {SNRM}
+\bibfield{author}{\bibinfo{person}{Hamed Zamani}, \bibinfo{person}{Mostafa
+  Dehghani}, \bibinfo{person}{W.~Bruce Croft}, \bibinfo{person}{Erik~G.
+  Learned{-}Miller}, {and} \bibinfo{person}{Jaap Kamps}.}
+  \bibinfo{year}{2018}\natexlab{}.
+\newblock \showarticletitle{From Neural Re-Ranking to Neural Ranking: Learning
+  a Sparse Representation for Inverted Indexing}. In
+  \bibinfo{booktitle}{\emph{Proceedings of the 27th {ACM} International
+  Conference on Information and Knowledge Management, {CIKM} 2018, Torino,
+  Italy, October 22-26, 2018}}, \bibfield{editor}{\bibinfo{person}{Alfredo
+  Cuzzocrea}, \bibinfo{person}{James Allan}, \bibinfo{person}{Norman~W. Paton},
+  \bibinfo{person}{Divesh Srivastava}, \bibinfo{person}{Rakesh Agrawal},
+  \bibinfo{person}{Andrei~Z. Broder}, \bibinfo{person}{Mohammed~J. Zaki},
+  \bibinfo{person}{K.~Sel{\c{c}}uk Candan}, \bibinfo{person}{Alexandros
+  Labrinidis}, \bibinfo{person}{Assaf Schuster}, {and} \bibinfo{person}{Haixun
+  Wang}} (Eds.). \bibinfo{publisher}{{ACM}}, \bibinfo{pages}{497--506}.
+\newblock
+\urldef\tempurl%
+\url{https://doi.org/10.1145/3269206.3271800}
+\showDOI{\tempurl}
+
+
+\end{thebibliography}
