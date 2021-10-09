@@ -51,7 +51,7 @@ class MIND(Dataset):
         self.file_name = "MIND{}_{}/".format(manager.scale, self.mode)
 
         # fast predict doesn't need to control impression size, 500 is supposed to contain all candidates within one impression
-        if manager.fast and self.mode in ['dev', 'test']:
+        if manager.fast and self.mode != "train":
             self.impr_size = 500
 
         self.cache_directory = "/".join(["data/cache", manager.embedding, self.file_name])

@@ -988,6 +988,7 @@ class Manager():
         mode_map = {
             "train": "dev",
             "dev": "dev",
+            "inspect": "dev",
             "test": "test"
         }
         return mode_map[self.mode]
