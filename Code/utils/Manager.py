@@ -48,7 +48,7 @@ class Manager():
             parser.add_argument("-d","--device", dest="device",
                                 help="device to run on, -1 means cpu", choices=[i for i in range(-1,10)], type=int, default=0)
             parser.add_argument("-p", "--path", dest="path", type=str, default="../../../Data/", help="root path for large-scale reusable data")
-            parser.add_argument("-f", "--fast", dest="fast", help="enable fast evaluation/test", default=True)
+            parser.add_argument("-f", "--fast", dest="fast", help="enable fast evaluation/test", action="store_true", default=False)
 
             parser.add_argument("-bs", "--batch_size", dest="batch_size",
                                 help="batch size", type=int, default=32)
@@ -472,7 +472,7 @@ class Manager():
         if self.world_size > 1:
             dist.barrier()
             outputs = [None for i in range(self.world_size)]
-            dist.all_gather_object(outputs, (impr_indexes, preds, labels))
+            dist.all_gather_object(outputs, (impr_indexes, labels, preds))
 
             if self.rank == 0:
                 impr_indexes = []
@@ -588,9 +588,6 @@ class Manager():
                 res["step"] = self.step
                 self._log(res)
 
-        if self.world_size > 1:
-            dist.barrier()
-
         return res
 
 
@@ -611,10 +608,9 @@ class Manager():
         interval = self.interval
 
         if self.scale == "demo":
-            save_step = len(loaders[0]) - 1
+            # save_step = len(loaders[0]) - 1
             # do not fast evaluating when training demo dataset
-            self.fast = False
-            # save_step = 1
+            save_step = 1
         else:
             save_step = self.step
 
@@ -675,6 +671,10 @@ class Manager():
                                 best_res = result
                                 self.save(model, steps, optimizer)
                                 self._log(result)
+
+                        # prevent SIGABRT
+                        if distributed:
+                            dist.barrier()
                     # continue training
                     model.train()
 
