@@ -56,14 +56,15 @@ class MIND(Dataset):
 
         self.cache_directory = "/".join(["data/cache", manager.embedding, self.file_name])
         self.news_path = self.cache_directory + reducer_map[self.reducer]
-        self.behav_path = self.cache_directory + "{}/{}".format(self.impr_size, "behaviors.pkl")
+
+        self.behav_path_train = self.cache_directory + "behaviors.pkl"
+        self.behav_path_eval = self.cache_directory + "{}/{}".format(self.impr_size, "behaviors.pkl")
 
         # only preprocess on the master node, the worker can directly load the cache
         if manager.rank in [-1, 0]:
-            if not os.path.exists(self.behav_path):
+            if (self.mode == 'train' and not os.path.exists(self.behav_path_train)) or (self.mode != 'train' and not os.path.exists(self.behav_path_eval)):
                 self.behaviors_file = self.file_directory + self.file_name + "behaviors.tsv"
                 logger.info("encoding user behaviors of {}...".format(self.behaviors_file))
-                os.makedirs(self.cache_directory + str(self.impr_size), exist_ok=True)
                 try:
                     # VERY IMPORTANT!!!
                     # The nid2idx dictionary must follow the original order of news in news.tsv
@@ -101,8 +102,10 @@ class MIND(Dataset):
         if manager.world_size > 1:
             dist.barrier()
 
-        logger.info("process NO.{} loading cached user behavior from {}".format(manager.rank, self.behav_path))
-        with open(self.behav_path, "rb") as f:
+        behav_path = self.behav_path_train if self.mode == 'train' else self.behav_path_eval
+        logger.info("process NO.{} loading cached user behavior from {}".format(manager.rank, behav_path))
+
+        with open(behav_path, "rb") as f:
             behaviors = pickle.load(f)
             for k,v in behaviors.items():
                 setattr(self, k, v)
@@ -391,10 +394,15 @@ class MIND(Dataset):
                 "uindexes": uindexes
             }
 
+            with open(self.behav_path_train, "wb") as f:
+                pickle.dump(save_dict, f)
+
         # store every behavior
         elif self.mode == "dev":
             # list of every cdd news index along with its impression index and label
             imprs = []
+
+            os.makedirs(self.cache_directory + str(self.impr_size), exist_ok=True)
 
             with open(self.behaviors_file, "r", encoding="utf-8") as rd:
                 for idx in tqdm(rd, ncols=120, leave=True):
@@ -423,10 +431,15 @@ class MIND(Dataset):
                 "uindexes": uindexes
             }
 
+            with open(self.behav_path_eval, "wb") as f:
+                pickle.dump(save_dict, f)
+
         # store every behavior
         elif self.mode == "test":
             # list of every cdd news index along with its impression index and label
             imprs = []
+
+            os.makedirs(self.cache_directory + str(self.impr_size), exist_ok=True)
 
             with open(self.behaviors_file, "r", encoding="utf-8") as rd:
                 for idx in tqdm(rd, ncols=120, leave=True):
@@ -454,8 +467,8 @@ class MIND(Dataset):
                 "uindexes": uindexes
             }
 
-        with open(self.behav_path, "wb") as f:
-            pickle.dump(save_dict, f)
+            with open(self.behav_path_eval, "wb") as f:
+                pickle.dump(save_dict, f)
 
 
     def init_refinement(self, refiner):

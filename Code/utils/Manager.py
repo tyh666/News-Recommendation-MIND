@@ -59,7 +59,7 @@ class Manager():
             parser.add_argument("-hs", "--his_size", dest="his_size",
                                 help="history size", type=int, default=50)
             parser.add_argument("-is", "--impr_size", dest="impr_size",
-                                help="impression size for evaluating", type=int, default=50)
+                                help="impression size for evaluating", type=int, default=100)
             # parser.add_argument("-tl", "--title_length", dest="title_length",
             #                     help="news title size", type=int, default=20)
             # parser.add_argument("-as", "--abs_length", dest="abs_length",
@@ -508,9 +508,6 @@ class Manager():
         if self.world_size > 1:
             model = model.module
         cache_directory = "data/cache/{}/{}/dev/".format(self.name, self.scale)
-        # if DDP instance, access the module attribute
-        if self.world_size > 1:
-            model = model.module
 
         if self.rank in [-1, 0]:
             os.makedirs(cache_directory, exist_ok=True)
