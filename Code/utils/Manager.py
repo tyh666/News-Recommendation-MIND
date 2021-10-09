@@ -505,9 +505,9 @@ class Manager():
                 1: loader_news
         """
         # if the model is an instance of DDP, then we have to access its module attribute
-        # if self.world_size > 1:
-        #     model = model.module
-        cache_directory = "data/cache/{}/{}/".format(self.name, self.scale)
+        if self.world_size > 1:
+            model = model.module
+        cache_directory = "data/cache/{}/{}/dev/".format(self.name, self.scale)
         # if DDP instance, access the module attribute
         if self.world_size > 1:
             model = model.module
@@ -754,7 +754,7 @@ class Manager():
                 0: loader_test
                 1: loader_news
         """
-        cache_directory = "data/cache/{}/{}/".format(self.name, self.scale)
+        cache_directory = "data/cache/{}/{}/test/".format(self.name, self.scale)
         if self.rank in [-1, 0]:
             os.makedirs(cache_directory, exist_ok=True)
             logger.info("encoding news...")
@@ -976,6 +976,18 @@ class Manager():
             "train": "train",
             "dev": "dev",
             "inspect": "dev",
+            "test": "test"
+        }
+        return mode_map[self.mode]
+
+
+    def get_mode_for_cache(self):
+        """
+        transfer train mode to dev mode to load the right cache news encoding
+        """
+        mode_map = {
+            "train": "dev",
+            "dev": "dev",
             "test": "test"
         }
         return mode_map[self.mode]

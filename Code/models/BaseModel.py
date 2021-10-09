@@ -9,6 +9,7 @@ class BaseModel(nn.Module):
 
         self.scale = manager.scale
         self.cdd_size = manager.cdd_size
+        self.mode = manager.get_mode_for_cache()
 
         self.impr_size = manager.impr_size
         self.batch_size = manager.batch_size
@@ -35,7 +36,7 @@ class BaseModel(nn.Module):
         """
         prepare for fast inferring
         """
-        self.cache_directory = "data/cache/{}/{}/".format(self.name, self.scale)
+        self.cache_directory = "data/cache/{}/{}/{}/".format(self.name, self.scale, self.mode)
         self.news_reprs = nn.Embedding.from_pretrained(torch.load(self.cache_directory + "news.pt", map_location=torch.device(self.device)))
 
 
