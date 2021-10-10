@@ -7,7 +7,13 @@ then
   sudo apt-get install screen -y
   sudo apt-get install rsync -y
   conda init
-  echo 'alias nn="conda activate /data/v-pezhang/nn"' >> ~/.bashrc
+  if ! [ -n nn ]; then
+    echo 'alias nn="conda activate /data/v-pezhang/nn"' >> ~/.bashrc
+  fi
+
+  if ! [ -n pt ]; then
+    echo 'alias pt="screen -r -d pt"' >> ~/.bashrc
+  fi
   source ~/.bashrc
   nn
 
