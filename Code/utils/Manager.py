@@ -225,17 +225,22 @@ class Manager():
 
             loader_train = DataLoader(dataset_train, batch_size=self.batch_size, pin_memory=pin_memory,
                                     num_workers=num_workers, drop_last=False, shuffle=False, sampler=sampler_train)
-            loader_dev = DataLoader(dataset_dev, batch_size=1, pin_memory=pin_memory,
-                                    num_workers=num_workers, drop_last=False, sampler=sampler_dev)
 
             if self.fast:
+                # no sampler needed in fast evaluation
+                loader_dev = DataLoader(dataset_dev, batch_size=1, pin_memory=pin_memory,
+                                        num_workers=num_workers, drop_last=False)
+
                 dataset_news = MIND_news(self)
                 loader_news = DataLoader(dataset_news, batch_size=self.batch_size_news, pin_memory=pin_memory,
                         num_workers=num_workers, drop_last=False)
 
                 return loader_train, loader_dev, loader_news
 
-            return loader_train, loader_dev
+            else:
+                loader_dev = DataLoader(dataset_dev, batch_size=1, pin_memory=pin_memory,
+                                        num_workers=num_workers, drop_last=False, sampler=sampler_dev)
+                return loader_train, loader_dev
 
         elif self.mode == "dev":
             dataset_dev = MIND(self)
@@ -249,22 +254,13 @@ class Manager():
                         num_workers=num_workers, drop_last=False, sampler=sampler_dev)
 
             if self.fast:
+                assert self.world_size < 2, "do not enable fast test in DDP"
+
                 dataset_news = MIND_news(self)
-                # dataset_history = MIND_history(self)
-
-                # if self.world_size > 0:
-                #     sampler_dev_news = Partition_Sampler(dataset_news, num_replicas=self.world_size, rank=self.rank)
-                #     sampler_dev_history = Partition_Sampler(dataset_history, num_replicas=self.world_size, rank=self.rank)
-                # else:
-                #     sampler_dev_news = None
-                #     sampler_dev_history = None
-
                 loader_news = DataLoader(dataset_news, batch_size=self.batch_size_news, pin_memory=pin_memory,
                         num_workers=num_workers, drop_last=False)
-                # loader_history = DataLoader(dataset_history, batch_size=self.batch_size_history, pin_memory=pin_memory,
-                #             num_workers=num_workers, drop_last=False)
 
-                return loader_dev, loader_news#, loader_history
+                return loader_dev, loader_news
 
             return loader_dev,
 
@@ -287,6 +283,7 @@ class Manager():
                         num_workers=num_workers, drop_last=False, sampler=sampler_test)
 
             if self.fast:
+                assert self.world_size < 2, "do not enable fast test in DDP"
                 dataset_news = MIND_news(self)
 
                 loader_news = DataLoader(dataset_news, batch_size=self.batch_size_news, pin_memory=pin_memory,
