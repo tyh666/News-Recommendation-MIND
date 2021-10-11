@@ -49,7 +49,7 @@ class Manager():
             parser.add_argument("-d","--device", dest="device",
                                 help="device to run on, -1 means cpu", choices=[i for i in range(-1,10)], type=int, default=0)
             parser.add_argument("-p", "--path", dest="path", type=str, default="../../../Data/", help="root path for large-scale reusable data")
-            parser.add_argument("-f", "--fast", dest="fast", help="enable fast evaluation/test", action="store_true", default=False)
+            parser.add_argument("-f", "--fast", dest="fast", help="enable fast evaluation/test", default=True)
 
             parser.add_argument("-bs", "--batch_size", dest="batch_size",
                                 help="batch size", type=int, default=32)
@@ -142,8 +142,8 @@ class Manager():
             if args.embedding == 'deberta' and args.bert == 'bert-base-uncased':
                 args.bert = 'microsoft/deberta-base'
 
-            # if args.scale == 'demo':
-            #     args.fast = False
+            if args.scale == 'demo':
+                args.fast = False
 
         else:
             args = config
@@ -529,7 +529,7 @@ class Manager():
 
         if self.world_size > 1:
             dist.barrier()
-            
+
         model.init_embedding()
         impr_indexes = []
         labels = []

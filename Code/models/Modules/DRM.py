@@ -11,7 +11,7 @@ class Matching_Reducer(nn.Module):
     """
     def __init__(self, manager):
         super().__init__()
-
+        self.name = "matching"
         self.k = manager.k
         self.diversify = manager.diversify
         self.his_size = manager.his_size
@@ -111,6 +111,7 @@ class Slicing_Reducer(nn.Module):
     """
     def __init__(self, manager):
         super().__init__()
+        self.name = "slicing"
 
         self.k = manager.k
         self.his_size = manager.his_size
@@ -157,7 +158,7 @@ class Slicing_Reducer(nn.Module):
             ps_terms = torch.cat([ps_terms, self.sep_embedding.expand(batch_size, self.his_size, 1, self.embedding_dim)], dim=-2).view(batch_size, -1, self.embedding_dim)[:, :-1]
             ps_term_mask = torch.cat([ps_term_mask, self.extra_sep_mask.expand(batch_size, self.his_size, 1)], dim=-1).view(batch_size, -1)[:, :-1]
         else:
-            ps_terms = ps_terms.view(batch_size, -1, self.embedding_dim)
-            ps_term_mask = ps_term_mask.view(batch_size, -1)
+            ps_terms = ps_terms.reshape(batch_size, -1, self.embedding_dim)
+            ps_term_mask = ps_term_mask.reshape(batch_size, -1)
 
         return ps_terms, ps_term_mask, self.kid.expand(batch_size, self.his_size, self.k)

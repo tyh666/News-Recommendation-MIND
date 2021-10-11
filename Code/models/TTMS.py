@@ -39,7 +39,7 @@ class TTMS(BaseModel):
         if self.granularity != 'token':
             self.register_buffer('cdd_dest', torch.zeros((self.batch_size, self.impr_size, self.signal_length * self.signal_length)), persistent=False)
             if manager.reducer in ["bm25", "entity", "first"]:
-                self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, (manager.k + 1) * (manager.k + 1))), persistent=False)
+                self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, (manager.k + 2) * (manager.k + 2))), persistent=False)
             else:
                 self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, self.signal_length * self.signal_length)), persistent=False)
 
@@ -121,6 +121,7 @@ class TTMS(BaseModel):
         cdd_news_repr = self.newsUserProject(cdd_news_repr)
 
         his_news = x["his_encoded_index"].to(self.device)
+
         his_news_embedding = self.embedding(his_news, his_subword_prefix)
         his_news_encoded_embedding, his_news_repr = self.encoderN(
             his_news_embedding, his_attn_mask

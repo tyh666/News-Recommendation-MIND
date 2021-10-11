@@ -486,21 +486,25 @@ class MIND(Dataset):
         if not refiner:
             return
 
-        refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
         if self.reducer == "matching":
+            refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
             self.encoded_news = refined_news
             self.attn_mask_dedup = refined_mask
             # truncate the attention mask
             self.attn_mask = self.attn_mask[:, :self.signal_length]
 
         elif self.reducer in ["bm25", "entity", "first"]:
-            self.encoded_news = refined_news
-            self.attn_mask = refined_mask
+            # [CLS] and [SEP], actually, [SEP] is virtual
+            self.encoded_news = self.encoded_news[:, :self.k + 2]
+            self.attn_mask = self.attn_mask[:, :self.k + 2]
             # truncate the original text tokens
             self.encoded_news_original = self.encoded_news_original[:, :self.signal_length]
             self.attn_mask_original = self.attn_mask_original[:, :self.signal_length]
+            # [CLS] and [SEP]
+            self.subwords = self.subwords[:, :self.k + 2]
 
         elif self.reducer in ["bow","none"]:
+            refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
             self.encoded_news = refined_news
             self.attn_mask = refined_mask
 
@@ -582,7 +586,7 @@ class MIND(Dataset):
                 if self.reducer in ["bm25","entity","first"]:
                     # subwords of history news don't accord with candidate news
                     cdd_subword_index = self.subwords_original[cdd_ids]
-                    his_subword_index = self.subwords[his_ids][:, :self.k + 1]
+                    his_subword_index = self.subwords[his_ids]
                 else:
                     # matching
                     cdd_subword_index = self.subwords[cdd_ids]
@@ -597,6 +601,7 @@ class MIND(Dataset):
             elif self.reducer in ["bm25","entity","first"]:
                 back_dic["cdd_encoded_index"] = self.encoded_news_original[cdd_ids]
                 back_dic["cdd_attn_mask"] = self.attn_mask_original[cdd_ids]
+                back_dic["his_attn_mask"] = back_dic["his_attn_mask"][:, :self.k + 2]
 
             elif self.reducer == "bow":
                 back_dic["his_refined_mask"] = back_dic["his_attn_mask"]
@@ -641,7 +646,7 @@ class MIND(Dataset):
             if self.subwords is not None:
                 if self.reducer in ["bm25","entity","first"]:
                     cdd_subword_index = self.subwords_original[cdd_ids]
-                    his_subword_index = self.subwords[his_ids][:, :self.k + 1]
+                    his_subword_index = self.subwords[his_ids]
                 else:
                     cdd_subword_index = self.subwords[cdd_ids]
                     his_subword_index = self.subwords[his_ids]
@@ -655,6 +660,7 @@ class MIND(Dataset):
             elif self.reducer in ["bm25","entity","first"]:
                 back_dic["cdd_encoded_index"] = self.encoded_news_original[cdd_ids]
                 back_dic["cdd_attn_mask"] = self.attn_mask_original[cdd_ids]
+                back_dic["his_attn_mask"] = back_dic["his_attn_mask"][:, :self.k + 2]
 
             elif self.reducer == "bow":
                 back_dic["his_refined_mask"] = back_dic["his_attn_mask"]
@@ -696,7 +702,7 @@ class MIND(Dataset):
             if self.subwords is not None:
                 if self.reducer in ["bm25","entity","first"]:
                     cdd_subword_index = self.subwords_original[cdd_ids]
-                    his_subword_index = self.subwords[his_ids][:, :self.k + 1]
+                    his_subword_index = self.subwords[his_ids]
                 else:
                     cdd_subword_index = self.subwords[cdd_ids]
                     his_subword_index = self.subwords[his_ids]
@@ -710,6 +716,7 @@ class MIND(Dataset):
             elif self.reducer in ["bm25","entity","first"]:
                 back_dic["cdd_encoded_index"] = self.encoded_news_original[cdd_ids]
                 back_dic["cdd_attn_mask"] = self.attn_mask_original[cdd_ids]
+                back_dic["his_attn_mask"] = back_dic["his_attn_mask"][:, :self.k + 2]
 
             elif self.reducer == "bow":
                 back_dic["his_refined_mask"] = back_dic["his_attn_mask"]

@@ -159,6 +159,10 @@ python -m scripts.esm -m test -s large -ck=150000
 - [x] reverse history when learning user profile
 - [x] which part consumes time most?
 
+## Experiments
+- [ ] no order embedding, no scheduler, token level
+- [ ] 
+
 ## Questions
 - use bag-of-words to encode user history?
   - currently yes
