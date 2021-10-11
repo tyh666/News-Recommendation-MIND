@@ -64,7 +64,7 @@ python -m scripts.sfi -m train -s demo -k=5 -is=10 -sl=20 -bs=10 --no_dedup
 
 python -m scripts.ttms -m inspect -s large -ck=60000 -d=-1
 
-python -m scripts.ttms -m test -s large -f -ck=589
+python -m scripts.ttms -m test -s large -ck=589
 python -m scripts.esm -m test -s large -ck=150000
 ```
 ## Preprocess
@@ -161,7 +161,7 @@ python -m scripts.esm -m test -s large -ck=150000
 
 ## Experiments
 - [ ] no order embedding, no scheduler, token level
-- [ ] 
+- [ ]
 
 ## Questions
 - use bag-of-words to encode user history?
