@@ -527,6 +527,9 @@ class Manager():
             del news_reprs
             model.destroy_encoding()
 
+        if self.world_size > 1:
+            dist.barrier()
+            
         model.init_embedding()
         impr_indexes = []
         labels = []
