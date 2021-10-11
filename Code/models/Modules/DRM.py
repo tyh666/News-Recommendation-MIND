@@ -12,8 +12,6 @@ class Matching_Reducer(nn.Module):
     def __init__(self, manager):
         super().__init__()
 
-        self.name = "matching"
-
         self.k = manager.k
         self.diversify = manager.diversify
         self.his_size = manager.his_size
@@ -114,14 +112,13 @@ class Slicing_Reducer(nn.Module):
     def __init__(self, manager):
         super().__init__()
 
-        self.name = "slicing"
         self.k = manager.k
         self.his_size = manager.his_size
         self.embedding_dim = manager.embedding_dim
 
         manager.term_num = manager.k * manager.his_size
 
-        if not manager.no_sep_his:
+        if manager.sep_his:
             manager.term_num += (self.his_size - 1)
             self.sep_embedding = nn.Parameter(torch.randn(1, 1, 1, manager.embedding_dim))
             self.register_buffer('extra_sep_mask', torch.ones(1, 1, 1), persistent=False)
@@ -147,9 +144,9 @@ class Slicing_Reducer(nn.Module):
             ps_term_mask: attention mask of output terms, [batch_size, his_size, k]
             kid: the index of personalized terms
         """
-        # strip off [CLS]
-        ps_terms = news_embedding[:, :, 1:]
-        ps_term_mask = his_attn_mask[:, :, 1:]
+        # strip off [CLS] and [SEP]
+        ps_terms = news_embedding[:, :, 1:-1]
+        ps_term_mask = his_attn_mask[:, :, 1:-1]
 
         batch_size = ps_terms.size(0)
 
