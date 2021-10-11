@@ -271,38 +271,40 @@ class MIND(Dataset):
                     subword_first = [[0,0]] * max_length
                     subword_all = [[0,0]] * max_length
 
-                token_ouput = tokenizer(text, padding='max_length', truncation=True, max_length=max_length)
-                token_ids = token_ouput['input_ids']
+                else:
+                    token_ouput = tokenizer(text, padding='max_length', truncation=True, max_length=max_length)
+                    token_ids = token_ouput['input_ids']
+                    attn_mask = token_ouput['attention_mask']
 
-                tokens = tokenizer.convert_ids_to_tokens(token_ids)
+                    tokens = tokenizer.convert_ids_to_tokens(token_ids)
 
-                # maintain subword entry
-                subword_all = []
-                # mask subword entry
-                subword_first = []
+                    # maintain subword entry
+                    subword_all = []
+                    # mask subword entry
+                    subword_first = []
 
-                i = -1
-                j = -1
-                for index,token in enumerate(tokens):
-                    if token == '[PAD]':
-                        subword_all.append([0,0])
-                        subword_first.append([0,0])
+                    i = -1
+                    j = -1
+                    for index,token in enumerate(tokens):
+                        if token == '[PAD]':
+                            subword_all.append([0,0])
+                            subword_first.append([0,0])
 
-                    # not subword
-                    elif index in [0,1] or token.startswith("Ġ") or token in r"[.&*()+=/\<>,!?;:~`@#$%^]":
-                        i += 1
-                        j += 1
-                        subword_all.append([i,j])
-                        subword_first.append([i,j])
+                        # not subword
+                        elif index in [0,1] or token.startswith("Ġ") or token in r"[.&*()+=/\<>,!?;:~`@#$%^]":
+                            i += 1
+                            j += 1
+                            subword_all.append([i,j])
+                            subword_first.append([i,j])
 
-                    # subword
-                    else:
-                        j += 1
-                        subword_all.append([i,j])
-                        subword_first.append([0,0])
+                        # subword
+                        else:
+                            j += 1
+                            subword_all.append([i,j])
+                            subword_first.append([0,0])
 
                 text_toks.append(token_ids)
-                attention_masks.append(token_ouput['attention_mask'])
+                attention_masks.append(attn_mask)
                 subwords_all.append(subword_all)
                 subwords_first.append(subword_first)
 
@@ -359,6 +361,8 @@ class MIND(Dataset):
             # list of lists, each list represents a
             imprs = []
             negatives = []
+
+            os.makedirs(self.cache_directory, exist_ok=True)
 
             with open(self.behaviors_file, "r", encoding="utf-8") as rd:
                 for idx in tqdm(rd, ncols=120, leave=True):

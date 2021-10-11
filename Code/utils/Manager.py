@@ -12,6 +12,7 @@ import scipy.stats as ss
 import torch.nn as nn
 import torch.optim as optim
 import torch.distributed as dist
+from torch.utils.data import sampler
 
 from data.configs.email import email,password
 from datetime import datetime, timedelta
@@ -138,8 +139,11 @@ class Manager():
                 args.pin_memory = False
 
             # default deberta
-            if args.embedding == 'deberta':
+            if args.embedding == 'deberta' and args.bert == 'bert-base-uncased':
                 args.bert = 'microsoft/deberta-base'
+
+            # if args.scale == 'demo':
+            #     args.fast = False
 
         else:
             args = config
@@ -224,13 +228,11 @@ class Manager():
                 sampler_dev = None
 
             loader_train = DataLoader(dataset_train, batch_size=self.batch_size, pin_memory=pin_memory,
-                                    num_workers=num_workers, drop_last=False, shuffle=False, sampler=sampler_train)
+                                    num_workers=num_workers, drop_last=False, shuffle=shuffle, sampler=sampler_train)
+            loader_dev = DataLoader(dataset_dev, batch_size=1, pin_memory=pin_memory,
+                                    num_workers=num_workers, drop_last=False, shuffle=False, sampler=sampler_dev)
 
             if self.fast:
-                # no sampler needed in fast evaluation
-                loader_dev = DataLoader(dataset_dev, batch_size=1, pin_memory=pin_memory,
-                                        num_workers=num_workers, drop_last=False)
-
                 dataset_news = MIND_news(self)
                 loader_news = DataLoader(dataset_news, batch_size=self.batch_size_news, pin_memory=pin_memory,
                         num_workers=num_workers, drop_last=False)
@@ -254,8 +256,6 @@ class Manager():
                         num_workers=num_workers, drop_last=False, sampler=sampler_dev)
 
             if self.fast:
-                assert self.world_size < 2, "do not enable fast test in DDP"
-
                 dataset_news = MIND_news(self)
                 loader_news = DataLoader(dataset_news, batch_size=self.batch_size_news, pin_memory=pin_memory,
                         num_workers=num_workers, drop_last=False)
@@ -509,9 +509,10 @@ class Manager():
         # if the model is an instance of DDP, then we have to access its module attribute
         if self.world_size > 1:
             model = model.module
-        cache_directory = "data/cache/{}/{}/dev/".format(self.name, self.scale)
 
+        # encode and save news representations only on the master node
         if self.rank in [-1, 0]:
+            cache_directory = "data/cache/{}/{}/dev/".format(self.name, self.scale)
             os.makedirs(cache_directory, exist_ok=True)
             logger.info("fast evaluate, encoding news...")
 
@@ -526,23 +527,38 @@ class Manager():
             del news_reprs
             model.destroy_encoding()
 
-            model.init_embedding()
-            impr_indexes = []
-            labels = []
-            preds = []
-            for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
-                impr_indexes.extend(x["impr_index"].tolist())
-                preds.extend(model.predict_fast(x).tolist())
-                labels.extend(x["label"].tolist())
+        model.init_embedding()
+        impr_indexes = []
+        labels = []
+        preds = []
+        for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
+            impr_indexes.extend(x["impr_index"].tolist())
+            preds.extend(model.predict_fast(x).tolist())
+            labels.extend(x["label"].tolist())
 
-            labels, preds = self._group_lists(impr_indexes, labels, preds)
-            model.destroy_embedding()
+        model.destroy_embedding()
 
-            return labels, preds
+        # collect result across gpus when distributed evaluating
+        if self.world_size > 1:
+            dist.barrier()
+            outputs = [None for i in range(self.world_size)]
+            dist.all_gather_object(outputs, (impr_indexes, labels, preds))
+
+            if self.rank == 0:
+                impr_indexes = []
+                labels = []
+                preds = []
+                for output in outputs:
+                    impr_indexes.extend(output[0])
+                    labels.extend(output[1])
+                    preds.extend(output[2])
+
+                labels, preds = self._group_lists(impr_indexes, labels, preds)
 
         else:
-            # fast evaluation is not supported in DDP because only one DDP instance can run
-            return None, None
+            labels, preds = self._group_lists(impr_indexes, labels, preds)
+
+        return labels, preds
 
 
     def evaluate(self, model, loaders, load=False, log=True, optimizer=None, scheduler=None):
@@ -583,8 +599,7 @@ class Manager():
             logger.info("\nevaluation result of {} is {}".format(self.name, res))
 
             if log and self.rank in [0, -1]:
-                res["epoch"] = self.epochs
-                res["step"] = self.step
+                res["step"] = self.checkpoint
                 self._log(res)
 
         return res
@@ -607,9 +622,9 @@ class Manager():
         interval = self.interval
 
         if self.scale == "demo":
-            # save_step = len(loaders[0]) - 1
+            save_step = len(loaders[0]) - 1
             # do not fast evaluating when training demo dataset
-            save_step = 1
+            # save_step = 1
         else:
             save_step = self.step
 
