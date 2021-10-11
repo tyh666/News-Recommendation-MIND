@@ -169,6 +169,9 @@ python -m scripts.esm -m test -s large -ck=150000
 - can only select tokens, rather than words
 - padded news: [CLS] [SEP] [PAD] [PAD] ... or [PAD] [PAD] ...
 
+1. performance on dev is far better than test (71.8 vs 69.76)
+2. Can I write manuscipt now? Why should we select personalized terms?
+
 ## Issue
 - the gradient after docReducer is sharp
 - if we concat title with abstract, then there must be many duplicated words, how about removing them when preprocessing?
