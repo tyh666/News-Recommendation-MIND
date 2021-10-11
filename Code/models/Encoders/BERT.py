@@ -41,10 +41,10 @@ class BERT_Encoder(nn.Module):
         except:
             self.bert_pos_embedding = None
 
-        try:
-            self.bert_token_type_embedding = nn.Parameter(bert.embeddings.token_type_embeddings.weight)
-        except:
-            self.bert_token_type_embedding = None
+        # try:
+        #     self.bert_token_type_embedding = nn.Parameter(bert.embeddings.token_type_embeddings.weight)
+        # except:
+        #     self.bert_token_type_embedding = None
 
         self.register_buffer('extra_attn_mask', torch.ones(1, 1), persistent=False)
 
@@ -74,12 +74,12 @@ class BERT_Encoder(nn.Module):
             bert_input = torch.cat([self.bert_cls_embedding.expand(bs, 1, self.hidden_dim), bert_input, self.bert_sep_embedding.expand(bs, 1, self.hidden_dim)], dim=-2)
             attn_mask = torch.cat([self.extra_attn_mask.expand(bs, 1), attn_mask, self.extra_attn_mask.expand(bs, 1)], dim=-1)
 
-            if self.bert_token_type_embedding is not None:
-                bert_input += self.bert_token_type_embedding[1]
+        #     if self.bert_token_type_embedding is not None:
+        #         bert_input += self.bert_token_type_embedding[1]
 
-        else:
-            if self.bert_token_type_embedding is not None:
-                bert_input += self.bert_token_type_embedding[0]
+        # else:
+        #     if self.bert_token_type_embedding is not None:
+        #         bert_input += self.bert_token_type_embedding[0]
 
         if self.bert_pos_embedding is not None:
             bert_input += self.bert_pos_embedding[:bert_input.size(-2)]
