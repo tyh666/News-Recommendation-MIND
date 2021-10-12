@@ -173,7 +173,6 @@ class TTMS(BaseModel):
             if self.granularity == 'avg':
                 # average subword embeddings as the word embedding
                 cdd_subword_prefix = F.normalize(cdd_subword_prefix, p=1, dim=-1)
-
             cdd_attn_mask = cdd_subword_prefix.matmul(x['cdd_attn_mask'].to(self.device).float().unsqueeze(-1)).squeeze(-1)
 
         else:

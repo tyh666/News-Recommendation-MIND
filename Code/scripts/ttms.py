@@ -66,7 +66,7 @@ def main(rank, manager):
     ttms = TTMS(manager, embedding, encoderN, encoderU, reducer).to(rank)
 
     if manager.world_size > 1:
-        ttms = DDP(ttms, device_ids=[rank], output_device=rank, find_unused_parameters=False)
+        ttms = DDP(ttms, device_ids=[rank], output_device=rank, find_unused_parameters=True)
 
     if manager.mode == 'dev':
             manager.evaluate(ttms, loaders, load=True)
