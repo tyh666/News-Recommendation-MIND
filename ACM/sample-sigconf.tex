@@ -197,10 +197,14 @@
 \section{Introduction}
 \label{section:introduction}
 % news recommendation is important
-With the ever growing data and improving technologies, more and more news is overwhelming people with its countless topics and events. In this information torrent, an individual is nearly impossible to pick out small drops that she's interested in. Luckily, online news platforms e.g. MSN\footnote{https://www.msn.com/en-us/news} serve this function for each user, significantly alleviating the information overload problem~\cite{personalized_news_recommendation}. The core technology of such platforms is personlaized news recommendation.
+With the ever growing data and improving technologies, more and more news overwhelms people with its countless topics and events. In this information torrent, an individual is nearly impossible to pick out small drops that she's interested in. Luckily, online news platforms e.g. MSN\footnote{https://www.msn.com/en-us/news} serve that function for each user, significantly alleviating the information overload problem~\cite{personalized_news_recommendation}. The core technology of such platforms is personlaized news recommendation.
 
 % news recommender should be efficient
-News recommendation comprises of two major steps: recall and rerank: the former recalls a small subset of news that is relevant to the user's preference from the entire news collection; the latter reranks this subset in the descending order of click probability. In both stages, efficiency is the top concern~\cite{liu_Hifi-ark,LightRec}. As a result, two-tower structure~\cite{wu_NPA,wu_NRMS,wu_topic-aware,wang_DKN,lian_DFM}, which represents each news and user as a compact vector offline then quickly computes the similarity between them as the click probability online, prevails in news recommendation scenario.
+News recommendation comprises of two major steps: recall and rerank: the former recalls a small subset of news that is relevant to the user's preference from the entire news collection; the latter reranks this subset in the descending order of click probability. In both stages, efficiency is the top concern~\cite{liu_Hifi-ark,LightRec,Octopus}.
+
+The mainstream candidate recall methods rely on similarity search: they represent users and news articles as vectors in the same semantic space, where the top $K$ nearest neighbors of a user representation are retrieved as relevant candidates. In IR, the sparse counterpart against this dense method, which retrieves documents with exact match of the query by inverted index, is even more efficient~\cite{sparse_and_dense_recall} and more appealing to industry. At the same time, it improves interpretability since search agents can show the user some explicit terms that directly account for retrieving each candidate. However, due to lack of explicit queries, it is a tough challenge to implement sparse recall in recommendation scenario.
+
+When it comes to rerank stage, two-tower structures are the most popular. It represents each news and user as a compact vector, then computes the similarity between them as the click probability. 
 
 % why select personalized terms?
 
