@@ -113,8 +113,8 @@ class MIND(Dataset):
         logger.info("process NO.{} loading cached news tokenization from {}".format(manager.rank, self.news_path))
         with open(self.news_path, "rb") as f:
             news = pickle.load(f)
-            self.encoded_news = news["encoded_news"]
-            self.attn_mask = news["attn_mask"]
+            self.encoded_news = news["encoded_news"][:, :self.signal_length]
+            self.attn_mask = news["attn_mask"][:, :self.signal_length]
             if self.granularity in ["avg","sum"]:
                 self.subwords = news["subwords_all"][:, :self.signal_length]
             elif self.granularity == "first":
@@ -125,8 +125,8 @@ class MIND(Dataset):
         if self.reducer in ["bm25", "entity", "first"]:
             with open(self.cache_directory + "news.pkl", "rb") as f:
                 news = pickle.load(f)
-                self.encoded_news_original = news["encoded_news"]
-                self.attn_mask_original = news["attn_mask"]
+                self.encoded_news_original = news["encoded_news"][:, :self.signal_length]
+                self.attn_mask_original = news["attn_mask"][:, :self.signal_length]
                 if self.granularity in ["avg","sum"]:
                     self.subwords_original = news["subwords_all"][:, :self.signal_length]
                 elif self.granularity == "first":
@@ -140,8 +140,9 @@ class MIND(Dataset):
                 from utils.utils import DeDuplicate
                 refiner = DeDuplicate(manager)
         elif manager.reducer in ["bm25", "none", "entity", "first"]:
-            from utils.utils import Truncate
-            refiner = Truncate(manager)
+            # from utils.utils import Truncate
+            # refiner = Truncate(manager)
+            pass
         elif manager.reducer == "bow":
             from utils.utils import CountFreq
             refiner = CountFreq(manager)
@@ -483,23 +484,23 @@ class MIND(Dataset):
             bm25 -> truncate
             bow -> count
         """
-        if not refiner:
+        if refiner is None:
             return
-
+        
         if self.reducer == "matching":
             refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
             self.encoded_news = refined_news
             self.attn_mask_dedup = refined_mask
             # truncate the attention mask
-            self.attn_mask = self.attn_mask[:, :self.signal_length]
+            self.attn_mask = self.attn_mask
 
         elif self.reducer in ["bm25", "entity", "first"]:
             # [CLS] and [SEP], actually, [SEP] is virtual
             self.encoded_news = self.encoded_news[:, :self.k + 2]
             self.attn_mask = self.attn_mask[:, :self.k + 2]
             # truncate the original text tokens
-            self.encoded_news_original = self.encoded_news_original[:, :self.signal_length]
-            self.attn_mask_original = self.attn_mask_original[:, :self.signal_length]
+            self.encoded_news_original = self.encoded_news_original
+            self.attn_mask_original = self.attn_mask_original
             # [CLS] and [SEP]
             self.subwords = self.subwords[:, :self.k + 2]
 
@@ -594,7 +595,7 @@ class MIND(Dataset):
                 back_dic["cdd_subword_index"] = cdd_subword_index
                 back_dic["his_subword_index"] = his_subword_index
 
-            if self.reducer == "matching":
+            if self.reducer == "matching" and hasattr(self, "attn_mask_dedup"):
                 his_attn_mask_dedup = self.attn_mask_dedup[his_ids]
                 back_dic["his_refined_mask"] = his_attn_mask_dedup
 
@@ -769,8 +770,8 @@ class MIND_news(Dataset):
         logger.info("process NO.{} loading cached news tokenization from {}".format(manager.rank, self.news_path))
         with open(self.news_path, "rb") as f:
             news = pickle.load(f)
-            self.encoded_news = news["encoded_news"]
-            self.attn_mask = news["attn_mask"]
+            self.encoded_news = news["encoded_news"][:, :self.signal_length]
+            self.attn_mask = news["attn_mask"][:, :self.signal_length]
             if self.granularity in ["avg","sum"]:
                 self.subwords = news["subwords_all"][:, :self.signal_length]
             elif self.granularity == "first":
@@ -779,8 +780,9 @@ class MIND_news(Dataset):
                 self.subwords = None
 
         if manager.reducer in ["matching", "bm25", "none", "entity", "first"]:
-            from utils.utils import Truncate
-            refiner = Truncate(manager)
+            pass
+            # from utils.utils import Truncate
+            # refiner = Truncate(manager)
         elif manager.reducer == "bow":
             from utils.utils import CountFreq
             refiner = CountFreq(manager)

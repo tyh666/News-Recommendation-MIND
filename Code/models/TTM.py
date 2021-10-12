@@ -4,9 +4,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from .BaseModel import BaseModel
-from .Encoders.BERT import BERT_Encoder
 
-class TTMS(BaseModel):
+class TTM(BaseModel):
     """
     Tow tower model with selection
 
@@ -14,26 +13,23 @@ class TTMS(BaseModel):
     2. encode ps terms with the same bert, using [CLS] embedding as user representation
     3. predict by scaled dot product
     """
-    def __init__(self, manager, embedding, encoderN, encoderU, reducer, aggregator=None):
+    def __init__(self, manager, embedding, encoderN, encoderU):
         super().__init__(manager)
 
         self.embedding = embedding
         self.encoderN = encoderN
         self.encoderU = encoderU
-        self.reducer = reducer
-        self.aggregator = aggregator
-        self.bert = BERT_Encoder(manager)
 
-        self.newsUserProject = nn.Sequential(
-            nn.Linear(self.bert.hidden_dim, self.bert.hidden_dim),
+        self.newsProject = nn.Sequential(
+            nn.Linear(self.encoderN.hidden_dim, self.encoderN.hidden_dim),
             nn.Tanh()
         )
 
         if manager.debias:
-            self.userBias = nn.Parameter(torch.randn(1,self.bert.hidden_dim))
+            self.userBias = nn.Parameter(torch.randn(1,self.encoderN.hidden_dim))
             nn.init.xavier_normal_(self.userBias)
 
-        self.hidden_dim = self.bert.hidden_dim
+        self.hidden_dim = self.encoderN.hidden_dim
 
         self.granularity = manager.granularity
         if self.granularity != 'token':
@@ -44,7 +40,7 @@ class TTMS(BaseModel):
                 self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, self.signal_length * self.signal_length)), persistent=False)
 
 
-        manager.name = '__'.join(['ttms', manager.embedding, manager.encoderN, manager.encoderU, manager.reducer, manager.granularity])
+        manager.name = '__'.join(['ttm', manager.embedding, manager.encoderN, manager.encoderU, manager.reducer, manager.granularity])
         self.name = manager.name
 
 
@@ -101,50 +97,31 @@ class TTMS(BaseModel):
 
             cdd_attn_mask = cdd_subword_prefix.matmul(x['cdd_attn_mask'].to(self.device).float().unsqueeze(-1)).squeeze(-1)
             his_attn_mask = his_subword_prefix.matmul(x["his_attn_mask"].to(self.device).float().unsqueeze(-1)).squeeze(-1)
-            his_refined_mask = None
-            if 'his_refined_mask' in x:
-                his_refined_mask = his_subword_prefix.matmul(x["his_refined_mask"].to(self.device).float().unsqueeze(-1)).squeeze(-1)
 
         else:
             cdd_subword_prefix = None
             his_subword_prefix = None
             cdd_attn_mask = x['cdd_attn_mask'].to(self.device)
             his_attn_mask = x["his_attn_mask"].to(self.device)
-            his_refined_mask = None
-            if 'his_refined_mask' in x:
-                his_refined_mask = x["his_refined_mask"].to(self.device)
 
         cdd_news = x["cdd_encoded_index"].to(self.device)
-        _, cdd_news_repr = self.bert(
+        _, cdd_news_repr = self.encoderN(
             self.embedding(cdd_news, cdd_subword_prefix), cdd_attn_mask
         )
-        cdd_news_repr = self.newsUserProject(cdd_news_repr)
+        cdd_news_repr = self.newsProject(cdd_news_repr)
 
         his_news = x["his_encoded_index"].to(self.device)
-
-        his_news_embedding = self.embedding(his_news, his_subword_prefix)
-        his_news_encoded_embedding, his_news_repr = self.encoderN(
-            his_news_embedding, his_attn_mask
+        _, his_news_repr = self.encoderN(
+            self.embedding(his_news, his_subword_prefix), his_attn_mask
         )
-        # no need to calculate this if ps_terms are fixed in advance
-        if self.reducer.name == 'matching':
-            user_repr = self.encoderU(his_news_repr, his_mask=x['his_mask'].to(self.device), user_index=x["user_id"].to(self.device))
-        else:
-            user_repr = None
+        his_news_repr = self.newsProject(his_news_repr)
 
-        ps_terms, ps_term_mask, kid = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, his_attn_mask, his_refined_mask)
+        user_repr = self.encoderU(his_news_repr)
 
-        _, user_cls = self.bert(ps_terms, ps_term_mask)
-
-        if self.aggregator is not None:
-            user_repr = self.aggregator(user_cls)
-        else:
-            user_repr = self.newsUserProject(user_cls)
-            
         if hasattr(self, 'userBias'):
             user_repr = user_repr + self.userBias
 
-        return self.clickPredictor(cdd_news_repr, user_repr), kid
+        return self.clickPredictor(cdd_news_repr, user_repr), None
 
 
     def forward(self,x):
@@ -216,32 +193,19 @@ class TTMS(BaseModel):
                 his_subword_prefix = F.normalize(his_subword_prefix, p=1, dim=-1)
 
             his_attn_mask = his_subword_prefix.matmul(x["his_attn_mask"].to(self.device).float().unsqueeze(-1)).squeeze(-1)
-            his_refined_mask = None
-            if 'his_refined_mask' in x:
-                his_refined_mask = his_subword_prefix.matmul(x["his_refined_mask"].to(self.device).float().unsqueeze(-1)).squeeze(-1)
 
         else:
             his_subword_prefix = None
             his_attn_mask = x["his_attn_mask"].to(self.device)
-            his_refined_mask = None
-            if 'his_refined_mask' in x:
-                his_refined_mask = x["his_refined_mask"].to(self.device)
 
         his_news = x["his_encoded_index"].to(self.device)
-        his_news_embedding = self.embedding(his_news, his_subword_prefix)
-        his_news_encoded_embedding, his_news_repr = self.encoderN(
-            his_news_embedding, his_attn_mask
+        _, his_news_repr = self.encoderN(
+            self.embedding(his_news, his_subword_prefix), his_attn_mask
         )
-        # no need to calculate this if ps_terms are fixed in advance
-        if self.reducer.name == 'matching':
-            user_repr = self.encoderU(his_news_repr, his_mask=x['his_mask'].to(self.device), user_index=x['user_id'].to(self.device))
-        else:
-            user_repr = None
+        his_news_repr = self.newsProject(his_news_repr)
 
-        ps_terms, ps_term_mask, _ = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, his_attn_mask, his_refined_mask)
+        user_repr = self.encoderU(his_news_repr)
 
-        _, user_cls = self.bert(ps_terms, ps_term_mask)
-        user_repr = self.newsUserProject(user_cls)
         if hasattr(self, 'userBias'):
             user_repr = user_repr + self.userBias
 

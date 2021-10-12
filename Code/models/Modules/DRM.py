@@ -35,7 +35,7 @@ class Matching_Reducer(nn.Module):
         if manager.sep_his:
             manager.term_num += (self.his_size - 1)
             self.sep_embedding = nn.Parameter(torch.randn(1, 1, 1, manager.embedding_dim))
-            self.register_buffer('extra_sep_mask', torch.ones(1, 1, 1), persistent=False)
+            self.register_buffer('extra_token_mask', torch.ones(1, 1, 1), persistent=False)
             nn.init.xavier_normal_(self.sep_embedding)
 
         if not manager.no_order_embed:
@@ -43,7 +43,7 @@ class Matching_Reducer(nn.Module):
             nn.init.xavier_normal_(self.order_embedding)
 
 
-    def forward(self, news_selection_embedding, news_embedding, user_repr, news_repr, his_attn_mask, his_refined_mask):
+    def forward(self, news_selection_embedding, news_embedding, user_repr, news_repr, his_attn_mask, his_refined_mask, squeeze=True):
         """
         Extract words from news text according to the overall user interest
 
@@ -67,7 +67,8 @@ class Matching_Reducer(nn.Module):
             selection_query = user_repr.unsqueeze(-1)
 
         news_selection_embedding = news_selection_embedding[:, :, 1:-1]
-        news_embedding = news_embedding[:, :, 1:-1]
+
+        news_embedding_text = news_embedding[:, :, 1:-1]
         his_attn_mask = his_attn_mask[:, :, 1:-1]
 
         # [bs, hs, sl - 2]
@@ -79,7 +80,7 @@ class Matching_Reducer(nn.Module):
 
         score_k, score_kid = scores.topk(dim=-1, k=self.k)
 
-        ps_terms = news_embedding.gather(dim=-2,index=score_kid.unsqueeze(-1).expand(*score_kid.size(), news_embedding.size(-1)))
+        ps_terms = news_embedding_text.gather(dim=-2,index=score_kid.unsqueeze(-1).expand(*score_kid.size(), news_embedding_text.size(-1)))
         # [bs, hs, k]
         ps_term_mask = his_attn_mask.gather(dim=-1, index=score_kid)
 
@@ -94,13 +95,22 @@ class Matching_Reducer(nn.Module):
         if hasattr(self, 'order_embedding'):
             ps_terms += self.order_embedding
 
-        # add extra [SEP] token to separate terms from different history news
-        if hasattr(self, 'sep_embedding'):
-            ps_terms = torch.cat([ps_terms, self.sep_embedding.expand(batch_size, self.his_size, 1, self.embedding_dim)], dim=-2).view(batch_size, -1, self.embedding_dim)[:, :-1]
-            ps_term_mask = torch.cat([ps_term_mask, self.extra_sep_mask.expand(batch_size, self.his_size, 1)], dim=-1).view(batch_size, -1)[:, :-1]
+        if squeeze:
+            # squeeze the ps_terms of different historical news
+            if hasattr(self, 'sep_embedding'):
+                # add extra [SEP] token to separate terms from different history news
+                ps_terms = torch.cat([ps_terms, self.sep_embedding.expand(batch_size, self.his_size, 1, self.embedding_dim)], dim=-2).view(batch_size, -1, self.embedding_dim)[:, :-1]
+                ps_term_mask = torch.cat([ps_term_mask, self.extra_token_mask.expand(batch_size, self.his_size, 1)], dim=-1).view(batch_size, -1)[:, :-1]
+            else:
+                ps_terms = ps_terms.view(batch_size, -1, self.embedding_dim)
+                ps_term_mask = ps_term_mask.view(batch_size, -1)
+
         else:
-            ps_terms = ps_terms.view(batch_size, -1, self.embedding_dim)
-            ps_term_mask = ps_term_mask.view(batch_size, -1)
+            cls_embedding = news_embedding[:, :, 0]
+            sep_embedding = news_embedding[:, :, -1]
+            # concate [CLS] and ps_terms and [SEP]
+            ps_terms = torch.cat([cls_embedding, ps_terms, sep_embedding], dim=-2)
+            ps_term_mask = torch.cat([self.extra_token_mask.expand(batch_size, self.his_size, 1), ps_term_mask, self.extra_token_mask.expand(batch_size, self.his_size, 1)], dim=-1)
 
         return ps_terms, ps_term_mask, score_kid
 
@@ -122,7 +132,7 @@ class Slicing_Reducer(nn.Module):
         if manager.sep_his:
             manager.term_num += (self.his_size - 1)
             self.sep_embedding = nn.Parameter(torch.randn(1, 1, 1, manager.embedding_dim))
-            self.register_buffer('extra_sep_mask', torch.ones(1, 1, 1), persistent=False)
+            self.register_buffer('extra_token_mask', torch.ones(1, 1, 1), persistent=False)
             nn.init.xavier_normal_(self.sep_embedding)
 
         if not manager.no_order_embed:
@@ -156,7 +166,7 @@ class Slicing_Reducer(nn.Module):
 
         if hasattr(self, 'sep_embedding'):
             ps_terms = torch.cat([ps_terms, self.sep_embedding.expand(batch_size, self.his_size, 1, self.embedding_dim)], dim=-2).view(batch_size, -1, self.embedding_dim)[:, :-1]
-            ps_term_mask = torch.cat([ps_term_mask, self.extra_sep_mask.expand(batch_size, self.his_size, 1)], dim=-1).view(batch_size, -1)[:, :-1]
+            ps_term_mask = torch.cat([ps_term_mask, self.extra_token_mask.expand(batch_size, self.his_size, 1)], dim=-1).view(batch_size, -1)[:, :-1]
         else:
             ps_terms = ps_terms.reshape(batch_size, -1, self.embedding_dim)
             ps_term_mask = ps_term_mask.reshape(batch_size, -1)

@@ -58,7 +58,7 @@ python -m scripts.ttm -m train -s large -encn=bert -sl=30 -bs=25 -is=10 --no_ded
 python -m scripts.ttms -m train -s large -ws=2
 
 python -m scripts.esm -m train -s demo -bs=5 -is=10 -d=1
-python -m scripts.ttm -m train -s demo -bs=5 -is=10 -d=1 -encn=bert -sl=30
+python -m scripts.ttm -m train -s demo -bs=5 -is=10 --no_dedup -d=2
 python -m scripts.ttms -m train -s demo -bs=5 -is=10
 python -m scripts.sfi -m train -s demo -k=5 -is=10 -sl=20 -bs=10 --no_dedup
 

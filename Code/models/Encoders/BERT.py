@@ -68,7 +68,7 @@ class BERT_Encoder(nn.Module):
 
         attn_mask = attn_mask.view(-1, signal_length)
 
-        # bert_input = torch.cat([self.bert_cls_embedding.expand(bs, 1, self.hidden_dim), bert_input, self.bert_sep_embedding.expand(bs, 1, self.hidden_dim)], dim=-2)
+        # concatenated ps_terms
         if signal_length > self.signal_length:
             # add [CLS] and [SEP] to ps_terms
             bert_input = torch.cat([self.bert_cls_embedding.expand(bs, 1, self.hidden_dim), bert_input, self.bert_sep_embedding.expand(bs, 1, self.hidden_dim)], dim=-2)
