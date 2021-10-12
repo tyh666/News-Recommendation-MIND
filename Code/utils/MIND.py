@@ -741,14 +741,13 @@ class MIND_news(Dataset):
         reducer_map = {
             "none": "news.pkl",
             "matching": "news.pkl",
-            "bm25": "bm25.pkl",
+            "bm25": "news.pkl",
             "bow": "news.pkl",
-            "entity": "entity.pkl",
+            "entity": "news.pkl",
             "first": "news.pkl"
         }
         # initiate the whole iterator
         self.npratio = manager.npratio
-        self.shuffle_pos = manager.shuffle_pos
         self.signal_length = manager.signal_length
         self.his_size = manager.his_size
         self.impr_size = manager.impr_size
