@@ -45,8 +45,8 @@ def main(rank, manager):
         from models.Modules.DRM import Matching_Reducer
         reducer = Matching_Reducer(manager)
     elif manager.reducer in ['bm25', "entity", "first"]:
-        from models.Modules.DRM import Slicing_Reducer
-        reducer = Slicing_Reducer(manager)
+        from models.Modules.DRM import Identical_Reducer
+        reducer = Identical_Reducer(manager)
 
     if manager.ranker == 'onepass':
         from models.Rankers.BERT import BERT_Onepass_Ranker

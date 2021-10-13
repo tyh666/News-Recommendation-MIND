@@ -28,7 +28,7 @@ from torch.utils.data.distributed import DistributedSampler
 
 logger = logging.getLogger(__name__)
 
-hparam_list = ["epochs", "device", "path", "title_length", "step", "checkpoint", "smoothing", "num_workers", "pin_memory", "interval", "npratio", "metrics", "aggregator", "head_num", "rank"]
+hparam_list = ["epochs", "device", "path", "title_length", "step", "checkpoint", "smoothing", "num_workers", "pin_memory", "interval", "npratio", "metrics", "aggregator", "head_num", "rank", "unilm_path", "unilm_config_path"]
 
 class Manager():
     """
@@ -1027,6 +1027,19 @@ class Manager():
             "unilm": "bert-base-uncased"
         }
         return bert_map[self.bert]
+
+
+    def get_max_length_for_truncating(self):
+        """
+        get max length in Truncating_Reducer
+        """
+        length_map = {
+            "bert": 512,
+            "deberta": 512,
+            "unilm": 512,
+            "longformer": 4096,
+        }
+        return length_map[self.bert]
 
 
     def construct_nid2idx(self, scale=None, mode=None):
