@@ -54,7 +54,7 @@ fi
 ```bash
 cd /data/v-pezhang/Code/Document-Reduction/Code
 python -m scripts.esm -m train -s large -ws=2
-python -m scripts.ttm -m train -s large -encn=bert -sl=30 -bs=25 -is=10 --no_dedup -ws=2
+python -m scripts.ttm -m train -s large --no_dedup -ws=2
 python -m scripts.ttms -m train -s large -ws=2
 
 python -m scripts.esm -m train -s demo -bs=5 -is=10 -d=1

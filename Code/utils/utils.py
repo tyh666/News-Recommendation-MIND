@@ -441,3 +441,11 @@ class Truncate(object):
             only keep the first max_length tokens per article
         """
         return documents[:, :self.max_length], attn_masks[:, :self.max_length]
+
+
+class DoNothing(object):
+    def __init__(self):
+        super().__init__()
+
+    def __call__(self, documents, attn_masks):
+        return documents, attn_masks

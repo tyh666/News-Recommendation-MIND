@@ -138,6 +138,9 @@ class MIND(Dataset):
             if not manager.no_dedup:
                 from utils.utils import DeDuplicate
                 refiner = DeDuplicate(manager)
+            else:
+                from utils.utils import DoNothing
+                refiner = DoNothing()
         elif manager.reducer in ["bm25", "none", "entity", "first"]:
             # from utils.utils import Truncate
             # refiner = Truncate(manager)
