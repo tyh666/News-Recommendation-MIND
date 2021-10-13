@@ -17,7 +17,7 @@ class BERT_Embedding(nn.Module):
         manager.embedding_dim = self.embedding_dim
 
         bert = AutoModel.from_pretrained(
-            manager.bert,
+            manager.get_bert_for_load(),
             cache_dir=manager.path + 'bert_cache/'
         )
         self.bert_word_embedding = bert.embeddings.word_embeddings

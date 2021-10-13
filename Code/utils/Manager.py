@@ -118,7 +118,7 @@ class Manager():
 
             parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=5)
             parser.add_argument("-thr", "--threshold", dest="threshold", help="threshold to mask terms", default=-float("inf"), type=float)
-            parser.add_argument("--bert", dest="bert", help="choose bert model", choices=["bert-base-uncased"], default="bert-base-uncased")
+            parser.add_argument("-b", "--bert", dest="bert", help="choose bert model", choices=["bert", "deberta", "unilm"], default="bert")
 
             parser.add_argument("--tb", dest="tb", action="store_true", default=False)
             parser.add_argument("-sd","--seed", dest="seed", default=42, type=int)
@@ -138,9 +138,9 @@ class Manager():
                 args.device = "cpu"
                 args.pin_memory = False
 
-            # default deberta
-            if args.embedding == 'deberta' and args.bert == 'bert-base-uncased':
-                args.bert = 'microsoft/deberta-base'
+            if args.bert == 'unilm':
+                args.unilm_path = args.path + 'bert_cache/unilm2-base-uncased.bin'
+                args.unilm_config_path = args.path + 'bert_cache/unilm2-base-uncased-config.json'
 
             if args.scale == 'demo':
                 args.fast = False
@@ -940,14 +940,18 @@ class Manager():
 
     def get_special_token_id(self, token):
         special_token_map = {
-            "bert-base-uncased":{
+            "bert":{
                 "[CLS]": 101,
                 "[SEP]": 102,
             },
-            "microsoft/deberta-base":{
+            "deberta":{
                 "[CLS]": 1,
                 "[SEP]": 2,
-            }
+            },
+            "unilm":{
+                "[CLS]": 101,
+                "[SEP]": 102,
+            },
         }
         return special_token_map[self.bert][token]
 
@@ -1009,6 +1013,18 @@ class Manager():
             "test": "test"
         }
         return mode_map[self.mode]
+
+
+    def get_bert_for_load(self):
+        """
+        transfer unilm to bert
+        """
+        bert_map = {
+            "bert": "bert-base-uncased",
+            "deberta": "microsoft/deberta-base",
+            "unilm": "bert-base-uncased"
+        }
+        return bert_map[self.bert]
 
 
     def construct_nid2idx(self, scale=None, mode=None):

@@ -1,7 +1,11 @@
 import torch
+from torch._C import device
 import torch.nn as nn
 import re
+import torch.nn.functional as F
 from transformers import AutoModel
+from models.UniLM.configuration_tnlrv3 import TuringNLRv3Config
+from models.UniLM.modeling import TuringNLRv3ForSequenceClassification, relative_position_bucket
 from models.Modules.Attention import get_attn_mask, scaled_dp_attention
 
 class BERT_Encoder(nn.Module):
@@ -17,14 +21,25 @@ class BERT_Encoder(nn.Module):
         self.hidden_dim = 768
         self.signal_length = manager.signal_length
 
-        bert = AutoModel.from_pretrained(
-            manager.bert,
-            cache_dir=manager.path + 'bert_cache/'
-        )
+        if manager.bert == 'unilm':
+            config = TuringNLRv3Config.from_pretrained(manager.unilm_config_path)
+            bert = TuringNLRv3ForSequenceClassification.from_pretrained(manager.unilm_path, config=config).bert
+
+            self.rel_pos_bins = config.rel_pos_bins
+            self.max_rel_pos = config.max_rel_pos
+            # unique in UniLM
+            self.rel_pos_bias = bert.rel_pos_bias
+
+        else:
+            bert = AutoModel.from_pretrained(
+                manager.get_bert_for_load(),
+                cache_dir=manager.path + 'bert_cache/'
+            )
+
         self.bert = bert.encoder
 
 
-        if re.search('deberta-', manager.bert):
+        if manager.bert == 'deberta':
             self.extend_attn_mask = True
         else:
             self.extend_attn_mask = False
@@ -73,6 +88,7 @@ class BERT_Encoder(nn.Module):
             # add [CLS] and [SEP] to ps_terms
             bert_input = torch.cat([self.bert_cls_embedding.expand(bs, 1, self.hidden_dim), bert_input, self.bert_sep_embedding.expand(bs, 1, self.hidden_dim)], dim=-2)
             attn_mask = torch.cat([self.extra_attn_mask.expand(bs, 1), attn_mask, self.extra_attn_mask.expand(bs, 1)], dim=-1)
+            signal_length += 2
 
         #     if self.bert_token_type_embedding is not None:
         #         bert_input += self.bert_token_type_embedding[1]
@@ -90,8 +106,18 @@ class BERT_Encoder(nn.Module):
             ext_attn_mask = (1.0 - attn_mask) * -10000.0
             ext_attn_mask = attn_mask.view(bs, 1, 1, -1)
 
-        # [bs, sl/term_num+2, hd]
-        bert_output = self.bert(bert_input, attention_mask=ext_attn_mask).last_hidden_state
+        if hasattr(self, 'rel_pos_bias'):
+            position_ids = torch.arange(signal_length, dtype=torch.long, device=bert_input.device).unsqueeze(0).expand(bs, signal_length)
+            rel_pos_mat = position_ids.unsqueeze(-2) - position_ids.unsqueeze(-1)
+            rel_pos = relative_position_bucket(rel_pos_mat, num_buckets=self.rel_pos_bins, max_distance=self.max_rel_pos)
+            rel_pos = F.one_hot(rel_pos, num_classes=self.rel_pos_bins).float()
+            rel_pos = self.rel_pos_bias(rel_pos).permute(0, 3, 1, 2)
+            bert_output = self.bert(bert_input, attention_mask=ext_attn_mask, rel_pos=rel_pos)[0]
+
+        else:
+            # [bs, sl/term_num+2, hd]
+            bert_output = self.bert(bert_input, attention_mask=ext_attn_mask).last_hidden_state
+
         # news_repr = bert_output[:, 0].reshape(batch_size, -1, self.hidden_dim)
         news_repr = scaled_dp_attention(self.query, bert_output, bert_output, attn_mask=attn_mask.unsqueeze(1)).view(batch_size, -1, self.hidden_dim)
 

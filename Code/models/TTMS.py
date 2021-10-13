@@ -44,7 +44,7 @@ class TTMS(BaseModel):
                 self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, self.signal_length * self.signal_length)), persistent=False)
 
 
-        manager.name = '__'.join(['ttms', manager.embedding, manager.encoderN, manager.encoderU, manager.reducer, manager.granularity])
+        manager.name = '__'.join(['ttms', manager.bert, manager.encoderN, manager.encoderU, manager.reducer, manager.granularity])
         self.name = manager.name
 
 
