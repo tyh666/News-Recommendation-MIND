@@ -163,10 +163,10 @@ class TTM(BaseModel):
             cdd_attn_mask = x['cdd_attn_mask'].to(self.device)
 
         cdd_news = x["cdd_encoded_index"].to(self.device)
-        _, cdd_news_repr = self.bert(
+        _, cdd_news_repr = self.encoderN(
             self.embedding(cdd_news, cdd_subword_prefix), cdd_attn_mask
         )
-        cdd_news_repr = self.newsUserProject(cdd_news_repr.squeeze(1))
+        cdd_news_repr = self.newsProject(cdd_news_repr.squeeze(1))
 
         return cdd_news_repr
 
@@ -198,20 +198,15 @@ class TTM(BaseModel):
             his_subword_prefix = None
             his_attn_mask = x["his_attn_mask"].to(self.device)
 
-        his_news = x["his_encoded_index"].to(self.device)
-        _, his_news_repr = self.encoderN(
-            self.embedding(his_news, his_subword_prefix), his_attn_mask
-        )
-        his_news_repr = self.newsProject(his_news_repr)
+        # [bs, cs, hd]
+        cdd_news_repr = self.news_reprs(x['cdd_id'].to(self.device))
 
+        his_news_repr = self.news_reprs(x['his_id'].to(self.device))
         user_repr = self.encoderU(his_news_repr)
 
         if hasattr(self, 'userBias'):
             user_repr = user_repr + self.userBias
 
-        # [bs, cs, hd]
-        news_repr = self.news_reprs(x['cdd_id'].to(self.device))
-
-        scores = news_repr.matmul(user_repr.transpose(-1, -2)).squeeze(-1)/math.sqrt(news_repr.size(-1))
+        scores = cdd_news_repr.matmul(user_repr.transpose(-1, -2)).squeeze(-1)/math.sqrt(cdd_news_repr.size(-1))
         logits = torch.sigmoid(scores)
         return logits
