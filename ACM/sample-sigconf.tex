@@ -204,13 +204,15 @@ News recommendation comprises of two major steps: recall and rerank: the former 
 
 The mainstream candidate recall methods rely on similarity search: they represent users and news articles as vectors in the same semantic space, where the top $K$ nearest neighbors of a user representation are retrieved as relevant candidates. In IR, the sparse counterpart against this dense method, which retrieves documents with exact match of the query by inverted index, is even more efficient~\cite{sparse_and_dense_recall} and more appealing to industry. At the same time, it improves interpretability since search agents can show the user some explicit terms that directly account for retrieving each candidate. However, due to lack of explicit queries, it is a tough challenge to implement sparse recall in recommendation scenario.
 
-When it comes to rerank stage, two-tower structures are the most popular. It represents each news and user as a compact vector, then computes the similarity between them as the click probability. 
+When it comes to rerank stage, the two-tower structure are the most popular. It encodes each news article and each user into a compact vector respectively, then computes the similarity between them as the click probability. Under this setting, various news/user encoder has been explored, such as RNN~\cite{lian_DFM}, CNN~\cite{wu_NAML}, a number of attentive methods~\cite{wu_NRMS, NPA, NAML}.
+% Recently, large-scale pretrained language models (PLM in short) e.g. BERT~\cite{Bert} greatly outperforms shallow and light-weighted neural models in NLP field, which implies their potential to improve news recommendation accuracy. Under the two-tower setting,
+Recently, Wu et al.~\cite{wu_newsPLM} first integrates PLMs to be the news encoder and validates their effectiveness. However, due to their deep and large-scale structure, PLMs consume much more time and space in training. This problem is even worse in news recommendation: the model must encode all of the user's historical news and every candidate news for a single impression, which may contain thousands of words in total.
 
 % why select personalized terms?
 
 
 % PLMs can improve effectiveness
-Recently, large-scale pretrained language models (PLM in short) e.g. BERT~\cite{Bert} greatly outperforms shallow and light-weighted neural models in NLP field, which implies their potential to improve news recommendation accuracy. Under the two-tower setting, Wu et al.~\cite{wu_newsPLM} first integrates PLMs to be the news encoder and validates their effectiveness. However, due to their deep and large-scale structure, PLMs consume much more time and space in training. This problem is even worse in news recommendation: the model must encode all of the user's historical news and every candidate news for a single impression, which may contain thousands of words in total.
+
 
 % Efforts that have been made
 
