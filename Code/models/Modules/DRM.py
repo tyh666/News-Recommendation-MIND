@@ -105,12 +105,10 @@ class Matching_Reducer(nn.Module):
                 ps_terms = ps_terms.view(batch_size, -1, self.embedding_dim)
                 ps_term_mask = ps_term_mask.view(batch_size, -1)
 
-        else:
-            cls_embedding = news_embedding[:, :, 0]
-            sep_embedding = news_embedding[:, :, -1]
-            # concate [CLS] and ps_terms and [SEP]
-            ps_terms = torch.cat([cls_embedding, ps_terms, sep_embedding], dim=-2)
-            ps_term_mask = torch.cat([self.extra_token_mask.expand(batch_size, self.his_size, 1), ps_term_mask, self.extra_token_mask.expand(batch_size, self.his_size, 1)], dim=-1)
+        # else:
+        #     concate [CLS] and ps_terms and [SEP]
+        #     ps_terms = torch.cat([cls_embedding, ps_terms, sep_embedding], dim=-2)
+        #     ps_term_mask = torch.cat([self.extra_token_mask.expand(batch_size, self.his_size, 1), ps_term_mask, self.extra_token_mask.expand(batch_size, self.his_size, 1)], dim=-1)
 
         return ps_terms, ps_term_mask, score_kid
 

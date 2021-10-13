@@ -144,7 +144,8 @@ class MIND(Dataset):
         elif manager.reducer in ["bm25", "none", "entity", "first"]:
             # from utils.utils import Truncate
             # refiner = Truncate(manager)
-            refiner = None
+            from utils.utils import DoNothing
+            refiner = DoNothing()
         elif manager.reducer == "bow":
             from utils.utils import CountFreq
             refiner = CountFreq(manager)

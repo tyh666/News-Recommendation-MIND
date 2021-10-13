@@ -134,7 +134,7 @@ class TTMS(BaseModel):
 
         ps_terms, ps_term_mask, kid = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, his_attn_mask, his_refined_mask)
 
-        _, user_cls = self.bert(ps_terms, ps_term_mask)
+        _, user_cls = self.bert(ps_terms, ps_term_mask, ps_term_input=True)
 
         if self.aggregator is not None:
             user_repr = self.aggregator(user_cls)

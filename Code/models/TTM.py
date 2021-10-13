@@ -121,21 +121,21 @@ class TTM(BaseModel):
         if hasattr(self, 'userBias'):
             user_repr = user_repr + self.userBias
 
-        return self.clickPredictor(cdd_news_repr, user_repr), None
+        return self.clickPredictor(cdd_news_repr, user_repr),
 
 
     def forward(self,x):
         """
         Decoupled function, score is unormalized click score
         """
-        score, kid = self._forward(x)
+        score, = self._forward(x)
 
         if self.training:
             prob = nn.functional.log_softmax(score, dim=1)
         else:
             prob = torch.sigmoid(score)
 
-        return prob, kid
+        return prob, None
 
 
     def encode_news(self, x):

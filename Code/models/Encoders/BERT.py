@@ -38,15 +38,16 @@ class BERT_Encoder(nn.Module):
 
         self.bert = bert.encoder
 
-
         if manager.bert == 'deberta':
             self.extend_attn_mask = True
         else:
             self.extend_attn_mask = False
 
         word_embedding = bert.embeddings.word_embeddings
-        self.bert_cls_embedding = nn.Parameter(word_embedding.weight[manager.get_special_token_id('[CLS]')].view(1,1,self.hidden_dim))
-        self.bert_sep_embedding = nn.Parameter(word_embedding.weight[manager.get_special_token_id('[SEP]')].view(1,1,self.hidden_dim))
+
+        if manager.reducer != 'none':
+            self.bert_cls_embedding = nn.Parameter(word_embedding.weight[manager.get_special_token_id('[CLS]')].view(1,1,self.hidden_dim))
+            self.bert_sep_embedding = nn.Parameter(word_embedding.weight[manager.get_special_token_id('[SEP]')].view(1,1,self.hidden_dim))
 
         self.query = nn.Parameter(torch.randn(1, self.hidden_dim))
         nn.init.xavier_normal_(self.query)
@@ -63,7 +64,7 @@ class BERT_Encoder(nn.Module):
 
         self.register_buffer('extra_attn_mask', torch.ones(1, 1), persistent=False)
 
-    def forward(self, news_embedding, attn_mask):
+    def forward(self, news_embedding, attn_mask, ps_term_input=False):
         """ encode news with bert
 
         Args:
@@ -84,7 +85,7 @@ class BERT_Encoder(nn.Module):
         attn_mask = attn_mask.view(-1, signal_length)
 
         # concatenated ps_terms
-        if signal_length > self.signal_length:
+        if ps_term_input:
             # add [CLS] and [SEP] to ps_terms
             bert_input = torch.cat([self.bert_cls_embedding.expand(bs, 1, self.hidden_dim), bert_input, self.bert_sep_embedding.expand(bs, 1, self.hidden_dim)], dim=-2)
             attn_mask = torch.cat([self.extra_attn_mask.expand(bs, 1), attn_mask, self.extra_attn_mask.expand(bs, 1)], dim=-1)
