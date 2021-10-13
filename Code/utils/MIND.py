@@ -134,7 +134,6 @@ class MIND(Dataset):
                 else:
                     self.subwords_original = None
 
-        refiner = None
         if manager.reducer == "matching":
             if not manager.no_dedup:
                 from utils.utils import DeDuplicate
@@ -142,7 +141,7 @@ class MIND(Dataset):
         elif manager.reducer in ["bm25", "none", "entity", "first"]:
             # from utils.utils import Truncate
             # refiner = Truncate(manager)
-            pass
+            refiner = None
         elif manager.reducer == "bow":
             from utils.utils import CountFreq
             refiner = CountFreq(manager)
@@ -484,9 +483,6 @@ class MIND(Dataset):
             bm25 -> truncate
             bow -> count
         """
-        if refiner is None:
-            return
-        
         if self.reducer == "matching":
             refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
             self.encoded_news = refined_news
@@ -508,7 +504,6 @@ class MIND(Dataset):
             refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
             self.encoded_news = refined_news
             self.attn_mask = refined_mask
-
 
     def __len__(self):
         """
@@ -602,7 +597,7 @@ class MIND(Dataset):
             elif self.reducer in ["bm25","entity","first"]:
                 back_dic["cdd_encoded_index"] = self.encoded_news_original[cdd_ids]
                 back_dic["cdd_attn_mask"] = self.attn_mask_original[cdd_ids]
-                back_dic["his_attn_mask"] = back_dic["his_attn_mask"][:, :self.k + 2]
+                back_dic["his_attn_mask"] = back_dic["his_attn_mask"]
 
             elif self.reducer == "bow":
                 back_dic["his_refined_mask"] = back_dic["his_attn_mask"]
@@ -661,7 +656,7 @@ class MIND(Dataset):
             elif self.reducer in ["bm25","entity","first"]:
                 back_dic["cdd_encoded_index"] = self.encoded_news_original[cdd_ids]
                 back_dic["cdd_attn_mask"] = self.attn_mask_original[cdd_ids]
-                back_dic["his_attn_mask"] = back_dic["his_attn_mask"][:, :self.k + 2]
+                back_dic["his_attn_mask"] = back_dic["his_attn_mask"]
 
             elif self.reducer == "bow":
                 back_dic["his_refined_mask"] = back_dic["his_attn_mask"]
@@ -717,7 +712,7 @@ class MIND(Dataset):
             elif self.reducer in ["bm25","entity","first"]:
                 back_dic["cdd_encoded_index"] = self.encoded_news_original[cdd_ids]
                 back_dic["cdd_attn_mask"] = self.attn_mask_original[cdd_ids]
-                back_dic["his_attn_mask"] = back_dic["his_attn_mask"][:, :self.k + 2]
+                back_dic["his_attn_mask"] = back_dic["his_attn_mask"]
 
             elif self.reducer == "bow":
                 back_dic["his_refined_mask"] = back_dic["his_attn_mask"]
@@ -779,7 +774,7 @@ class MIND_news(Dataset):
                 self.subwords = None
 
         if manager.reducer in ["matching", "bm25", "none", "entity", "first"]:
-            pass
+            refiner = None
             # from utils.utils import Truncate
             # refiner = Truncate(manager)
         elif manager.reducer == "bow":
@@ -797,12 +792,10 @@ class MIND_news(Dataset):
             bm25 -> truncate
             bow -> count
         """
-        if not refiner:
-            return
-
-        refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
-        self.encoded_news = refined_news
-        self.attn_mask = refined_mask
+        if refiner is not None:
+            refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
+            self.encoded_news = refined_news
+            self.attn_mask = refined_mask
 
 
     def __len__(self):

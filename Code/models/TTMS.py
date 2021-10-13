@@ -140,7 +140,7 @@ class TTMS(BaseModel):
             user_repr = self.aggregator(user_cls)
         else:
             user_repr = self.newsUserProject(user_cls)
-            
+
         if hasattr(self, 'userBias'):
             user_repr = user_repr + self.userBias
 
