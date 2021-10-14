@@ -21,8 +21,11 @@ class BERT_Encoder(nn.Module):
         self.hidden_dim = 768
         self.signal_length = manager.signal_length
 
+        self.pooler = manager.pooler
+
         if manager.bert == 'unilm':
             config = TuringNLRv3Config.from_pretrained(manager.unilm_config_path)
+            config.pooler = None
             bert = TuringNLRv3ForSequenceClassification.from_pretrained(manager.unilm_path, config=config).bert
 
             self.rel_pos_bins = config.rel_pos_bins
@@ -119,8 +122,12 @@ class BERT_Encoder(nn.Module):
             # [bs, sl/term_num+2, hd]
             bert_output = self.bert(bert_input, attention_mask=ext_attn_mask).last_hidden_state
 
-        # news_repr = bert_output[:, 0].reshape(batch_size, -1, self.hidden_dim)
-        news_repr = scaled_dp_attention(self.query, bert_output, bert_output, attn_mask=attn_mask.unsqueeze(1)).view(batch_size, -1, self.hidden_dim)
+        if self.pooler == "cls":
+            news_repr = bert_output[:, 0].reshape(batch_size, -1, self.hidden_dim)
+        elif self.pooler == "attn":
+            news_repr = scaled_dp_attention(self.query, bert_output, bert_output, attn_mask=attn_mask.unsqueeze(1)).view(batch_size, -1, self.hidden_dim)
+        elif self.pooler == "avg":
+            news_repr = bert_output.mean(dim=-2).reshape(batch_size, -1, self.hidden_dim)
 
         news_encoded_embedding = bert_output.view(batch_size, -1, bert_input.size(-2), self.hidden_dim)
 

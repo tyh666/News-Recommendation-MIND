@@ -142,10 +142,7 @@ class MIND(Dataset):
                 from utils.utils import DoNothing
                 refiner = DoNothing()
         elif manager.reducer in ["bm25", "none", "entity", "first"]:
-            # from utils.utils import Truncate
-            # refiner = Truncate(manager)
-            from utils.utils import DoNothing
-            refiner = DoNothing()
+            refiner = None
         elif manager.reducer == "bow":
             from utils.utils import CountFreq
             refiner = CountFreq(manager)
@@ -489,7 +486,6 @@ class MIND(Dataset):
         """
         if self.reducer == "matching":
             refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
-            self.encoded_news = refined_news
             self.attn_mask_dedup = refined_mask
             # truncate the attention mask
             self.attn_mask = self.attn_mask
@@ -504,7 +500,7 @@ class MIND(Dataset):
             # [CLS] and [SEP]
             self.subwords = self.subwords[:, :self.k + 2]
 
-        elif self.reducer in ["bow","none"]:
+        elif self.reducer == "bow":
             refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
             self.encoded_news = refined_news
             self.attn_mask = refined_mask
@@ -779,8 +775,6 @@ class MIND_news(Dataset):
 
         if manager.reducer in ["matching", "bm25", "none", "entity", "first"]:
             refiner = None
-            # from utils.utils import Truncate
-            # refiner = Truncate(manager)
         elif manager.reducer == "bow":
             from utils.utils import CountFreq
             refiner = CountFreq(manager)

@@ -31,6 +31,7 @@ class config:
     selector = 'sfi'
     reducer = 'matching'
     ranker = 'onepass'
+    pooler = "attn"
 
     embedding_dim = 768
     hidden_dim = 384

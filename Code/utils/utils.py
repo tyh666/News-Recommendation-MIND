@@ -369,7 +369,6 @@ class DeDuplicate(object):
             2. only keep the first max_length tokens per article
         """
         # do not modify the orginal attention mask
-        documents = documents[:, :self.max_length]
         attn_masks = attn_masks.copy()[:, :self.max_length]
 
         logger.info("deduplicating...")
