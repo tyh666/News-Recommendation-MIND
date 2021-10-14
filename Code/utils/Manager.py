@@ -81,7 +81,7 @@ class Manager():
             parser.add_argument("-lr", dest="lr",
                                 help="learning rate of non-bert modules", type=float, default=1e-4)
             parser.add_argument("-blr", "--bert_lr", dest="bert_lr",
-                                help="learning rate of bert based modules", type=float, default=1e-5)
+                                help="learning rate of bert based modules", type=float, default=3e-6)
 
             parser.add_argument("-div", "--diversify", dest="diversify", help="whether to diversify selection with news representation", action="store_true", default=False)
             parser.add_argument("--descend_history", dest="descend_history", help="whether to order history by time in descending", action="store_true", default=False)
@@ -139,8 +139,8 @@ class Manager():
                 args.pin_memory = False
 
             if args.bert == 'unilm':
-                args.unilm_path = args.path + 'bert_cache/unilm2-base-uncased.bin'
-                args.unilm_config_path = args.path + 'bert_cache/unilm2-base-uncased-config.json'
+                args.unilm_path = args.path + 'bert_cache/UniLM/unilm2-base-uncased.bin'
+                args.unilm_config_path = args.path + 'bert_cache/UniLM/unilm2-base-uncased-config.json'
 
             if args.scale == 'demo':
                 args.fast = False

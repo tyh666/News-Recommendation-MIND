@@ -11,7 +11,7 @@ from models.Modules.Attention import get_attn_mask, scaled_dp_attention
 class BERT_Encoder(nn.Module):
     """
         1. for news input, encode it with BERT and output news- and word-level representations
-        2. for ps_term input, insert [CLS] token embedding at the  input sequences
+        2. for ps_term input, insert [CLS] token at the head and insert [SEP] token at the end
         3. add position embedding to the sequence, starting from 0 pos
     """
     def __init__(self, manager):
@@ -47,6 +47,7 @@ class BERT_Encoder(nn.Module):
 
         if manager.reducer != 'none':
             self.bert_cls_embedding = nn.Parameter(word_embedding.weight[manager.get_special_token_id('[CLS]')].view(1,1,self.hidden_dim))
+            self.bert_sep_embedding = nn.Parameter(word_embedding.weight[manager.get_special_token_id('[SEP]')].view(1,1,self.hidden_dim))
 
         self.query = nn.Parameter(torch.randn(1, self.hidden_dim))
         nn.init.xavier_normal_(self.query)
@@ -86,9 +87,9 @@ class BERT_Encoder(nn.Module):
         # concatenated ps_terms
         if ps_term_input:
             # add [CLS] and [SEP] to ps_terms
-            bert_input = torch.cat([self.bert_cls_embedding.expand(bs, 1, self.hidden_dim), bert_input], dim=-2)
-            attn_mask = torch.cat([self.extra_attn_mask.expand(bs, 1), attn_mask], dim=-1)
-            signal_length += 1
+            bert_input = torch.cat([self.bert_cls_embedding.expand(bs, 1, self.hidden_dim), bert_input, self.bert_sep_embedding.expand(bs, 1, self.hidden_dim)], dim=-2)
+            attn_mask = torch.cat([self.extra_attn_mask.expand(bs, 1), attn_mask, self.extra_attn_mask.expand(bs, 1)], dim=-1)
+            signal_length += 2
 
         #     if self.bert_token_type_embedding is not None:
         #         bert_input += self.bert_token_type_embedding[1]

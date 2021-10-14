@@ -26,7 +26,6 @@ class Matching_Reducer(nn.Module):
         keep_k_modifier = torch.zeros(1, manager.signal_length - 2)
         keep_k_modifier[:, :self.k] = 1
         self.register_buffer('keep_k_modifier', keep_k_modifier, persistent=False)
-        self.register_buffer('extra_sep_mask', torch.ones(1, 1, 1), persistent=False)
 
         if self.diversify:
             self.newsUserAlign = nn.Linear(manager.hidden_dim * 2, manager.hidden_dim)
@@ -37,7 +36,9 @@ class Matching_Reducer(nn.Module):
             self.register_buffer('threshold', threshold)
 
         if self.sep_his:
-            manager.term_num += self.his_size
+            manager.term_num += (self.his_size - 1)
+            self.sep_embedding = nn.Parameter(torch.randn(1, 1, self.embedding_dim))
+            self.register_buffer('extra_sep_mask', torch.ones(1, 1, 1), persistent=False)
 
         if not manager.no_order_embed:
             self.order_embedding = nn.Parameter(torch.randn(manager.his_size, 1, manager.embedding_dim))
@@ -101,26 +102,15 @@ class Matching_Reducer(nn.Module):
             # separate historical news only practical when squeeze=True
             if self.sep_his:
                 # [bs, hs, ed]
-                sep_embedding = news_embedding[:, :, [-1]]
-                # add extra [SEP] token to separate terms from different history news
-                ps_terms = torch.cat([ps_terms, sep_embedding], dim=-2).view(batch_size, -1, self.embedding_dim)
-                ps_term_mask = torch.cat([ps_term_mask, self.extra_sep_mask.expand(batch_size, self.his_size, 1)], dim=-1).view(batch_size, -1)
+                sep_embedding = self.sep_embedding.expand(batch_size, self.his_size, 1, self.embedding_dim)
+                # add extra [SEP] token to separate terms from different history news, slice to -1 to strip off the last [SEP]
+                ps_terms = torch.cat([ps_terms, sep_embedding], dim=-2).view(batch_size, -1, self.embedding_dim)[:, :-1]
+                ps_term_mask = torch.cat([ps_term_mask, self.extra_sep_mask.expand(batch_size, self.his_size, 1)], dim=-1).view(batch_size, -1)[:, :-1]
 
             else:
                 # [bs, 1, ed]
-                sep_embedding = news_embedding[:, [0], -1]
                 ps_terms = ps_terms.view(batch_size, -1, self.embedding_dim)
                 ps_term_mask = ps_term_mask.view(batch_size, -1)
-                # only add one [SEP] at the end of ps_terms
-                ps_terms = torch.cat([ps_terms, sep_embedding], dim=-2)
-                ps_term_mask = torch.cat([ps_term_mask, self.extra_sep_mask[0].expand(batch_size, 1)], dim=-1)
-
-        else:
-            # [bs, hs, 1, ed]
-            sep_embedding = news_embedding[:, :, [-1]]
-            # add extra [SEP] token to separate terms from different history news
-            ps_terms = torch.cat([ps_terms, sep_embedding], dim=-2)
-            ps_term_mask = torch.cat([ps_term_mask, self.extra_sep_mask.expand(batch_size, self.his_size, 1)], dim=-1)
 
         return ps_terms, ps_term_mask, score_kid
 
@@ -141,14 +131,15 @@ class Identical_Reducer(nn.Module):
 
         self.sep_his = manager.sep_his
 
-        if manager.sep_his:
-            manager.term_num += self.his_size
+        if self.sep_his:
+            manager.term_num += (self.his_size - 1)
+            self.sep_embedding = nn.Parameter(torch.randn(1, 1, self.embedding_dim))
+            self.register_buffer('extra_sep_mask', torch.ones(1, 1, 1), persistent=False)
 
         if not manager.no_order_embed:
             self.order_embedding = nn.Parameter(torch.randn(manager.his_size, 1, manager.embedding_dim))
             nn.init.xavier_normal_(self.order_embedding)
 
-        self.register_buffer('extra_sep_mask', torch.ones(1, 1, 1), persistent=False)
         self.register_buffer('kid', torch.arange(manager.k).unsqueeze(0).unsqueeze(0), persistent=False)
 
     def forward(self, news_selection_embedding, news_embedding, user_repr, news_repr, his_attn_mask, his_refined_mask=None, squeeze=True):
@@ -179,26 +170,15 @@ class Identical_Reducer(nn.Module):
             # separate historical news only practical when squeeze=True
             if self.sep_his:
                 # [bs, hs, ed]
-                sep_embedding = news_embedding[:, :, [-1]]
-                # add extra [SEP] token to separate terms from different history news
-                ps_terms = torch.cat([ps_terms, sep_embedding], dim=-2).view(batch_size, -1, self.embedding_dim)
-                ps_term_mask = torch.cat([ps_term_mask, self.extra_sep_mask.expand(batch_size, self.his_size, 1)], dim=-1).view(batch_size, -1)
+                sep_embedding = self.sep_embedding.expand(batch_size, self.his_size, 1, self.embedding_dim)
+                # add extra [SEP] token to separate terms from different history news, slice to -1 to strip off the last [SEP]
+                ps_terms = torch.cat([ps_terms, sep_embedding], dim=-2).view(batch_size, -1, self.embedding_dim)[:, :-1]
+                ps_term_mask = torch.cat([ps_term_mask, self.extra_sep_mask.expand(batch_size, self.his_size, 1)], dim=-1).view(batch_size, -1)[:, :-1]
 
             else:
                 # [bs, 1, ed]
-                sep_embedding = news_embedding[:, [0], -1]
                 ps_terms = ps_terms.view(batch_size, -1, self.embedding_dim)
                 ps_term_mask = ps_term_mask.view(batch_size, -1)
-                # only add one [SEP] at the end of ps_terms
-                ps_terms = torch.cat([ps_terms, sep_embedding], dim=-2)
-                ps_term_mask = torch.cat([ps_term_mask, self.extra_sep_mask[0].expand(batch_size, 1)], dim=-1)
-
-        else:
-            # [bs, hs, 1, ed]
-            sep_embedding = news_embedding[:, :, [-1]]
-            # add extra [SEP] token to separate terms from different history news
-            ps_terms = torch.cat([ps_terms, sep_embedding], dim=-2)
-            ps_term_mask = torch.cat([ps_term_mask, self.extra_sep_mask.expand(batch_size, self.his_size, 1)], dim=-1)
 
         return ps_terms, ps_term_mask, self.kid.expand(batch_size, self.his_size, self.k)
 
@@ -221,13 +201,14 @@ class Truncating_Reducer(nn.Module):
         manager.term_num = manager.k * manager.his_size
 
         if self.sep_his:
-            manager.term_num += self.his_size
+            manager.term_num += (self.his_size - 1)
+            self.sep_embedding = nn.Parameter(torch.randn(1, 1, self.embedding_dim))
+            self.register_buffer('extra_sep_mask', torch.ones(1, 1, 1), persistent=False)
 
         if not manager.no_order_embed:
             self.order_embedding = nn.Parameter(torch.randn(manager.his_size, 1, manager.embedding_dim))
             nn.init.xavier_normal_(self.order_embedding)
 
-        self.register_buffer('extra_sep_mask', torch.ones(1, 1, 1), persistent=False)
         self.register_buffer('kid', torch.arange(manager.k).unsqueeze(0).unsqueeze(0), persistent=False)
 
     def forward(self, news_selection_embedding, news_embedding, user_repr, news_repr, his_attn_mask, his_refined_mask=None, squeeze=True):
@@ -244,7 +225,7 @@ class Truncating_Reducer(nn.Module):
             ps_term_mask: attention mask of output terms, [batch_size, his_size, k]
             kid: the index of personalized terms
         """
-        assert squeeze == False, "squeeze must be True for XFormer models"
+        assert squeeze == True, "squeeze must be True for XFormer models"
         # strip off [CLS] and [SEP]
         ps_terms = news_embedding[:, :, 1:-1]
         ps_term_mask = his_attn_mask[:, :, 1:-1]
@@ -259,18 +240,14 @@ class Truncating_Reducer(nn.Module):
 
         if self.sep_his:
             # [bs, hs, ed]
-            sep_embedding = news_embedding[:, :, [-1]]
-            # add extra [SEP] token to separate terms from different history news
-            ps_terms = torch.cat([ps_terms, sep_embedding], dim=-2).view(batch_size, -1, self.embedding_dim)
-            ps_term_mask = torch.cat([ps_term_mask, self.extra_sep_mask.expand(batch_size, self.his_size, 1)], dim=-1).view(batch_size, -1)
+            sep_embedding = self.sep_embedding.expand(batch_size, self.his_size, 1, self.embedding_dim)
+            # add extra [SEP] token to separate terms from different history news, slice to -1 to strip off the last [SEP]
+            ps_terms = torch.cat([ps_terms, sep_embedding], dim=-2).view(batch_size, -1, self.embedding_dim)[:, :-1]
+            ps_term_mask = torch.cat([ps_term_mask, self.extra_sep_mask.expand(batch_size, self.his_size, 1)], dim=-1).view(batch_size, -1)[:, :-1]
 
         else:
             # [bs, 1, ed]
-            sep_embedding = news_embedding[:, [0], -1]
             ps_terms = ps_terms.view(batch_size, -1, self.embedding_dim)
             ps_term_mask = ps_term_mask.view(batch_size, -1)
-            # only add one [SEP] at the end of ps_terms
-            ps_terms = torch.cat([ps_terms, sep_embedding], dim=-2)
-            ps_term_mask = torch.cat([ps_term_mask, self.extra_sep_mask[0].expand(batch_size, 1)], dim=-1)
 
         return ps_terms, ps_term_mask, self.kid.expand(batch_size, self.his_size, self.k)
