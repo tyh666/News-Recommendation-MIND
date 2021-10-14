@@ -64,9 +64,9 @@ class config:
     num_workers = 0
     smoothing = 0.3
 
-    path = ../../../Data/
-    unilm_path = path + 'bert_cache/unilm2-base-uncased.bin'
-    unilm_config_path = path + 'bert_cache/unilm2-base-uncased-config.json'
+    path = "../../../Data/"
+    unilm_path = path + 'bert_cache/UniLM/unilm2-base-uncased.bin'
+    unilm_config_path = path + 'bert_cache/UniLM/unilm2-base-uncased-config.json'
 
 
     path = "../../../Data/"
