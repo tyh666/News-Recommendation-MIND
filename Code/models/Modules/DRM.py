@@ -109,8 +109,8 @@ class Matching_Reducer(nn.Module):
 
             else:
                 # [bs, 1, ed]
-                ps_terms = ps_terms.view(batch_size, -1, self.embedding_dim)
-                ps_term_mask = ps_term_mask.view(batch_size, -1)
+                ps_terms = ps_terms.reshape(batch_size, -1, self.embedding_dim)
+                ps_term_mask = ps_term_mask.reshape(batch_size, -1)
 
         return ps_terms, ps_term_mask, score_kid
 
@@ -177,8 +177,8 @@ class Identical_Reducer(nn.Module):
 
             else:
                 # [bs, 1, ed]
-                ps_terms = ps_terms.view(batch_size, -1, self.embedding_dim)
-                ps_term_mask = ps_term_mask.view(batch_size, -1)
+                ps_terms = ps_terms.reshape(batch_size, -1, self.embedding_dim)
+                ps_term_mask = ps_term_mask.reshape(batch_size, -1)
 
         return ps_terms, ps_term_mask, self.kid.expand(batch_size, self.his_size, self.k)
 
@@ -232,8 +232,8 @@ class Truncating_Reducer(nn.Module):
 
         batch_size = ps_terms.size(0)
 
-        ps_terms = ps_terms.view(batch_size, -1, self.embedding_dim)[:, :self.max_length]
-        ps_term_mask = ps_term_mask.view(batch_size, -1)[:, :self.max_length]
+        ps_terms = ps_terms.reshape(batch_size, -1, self.embedding_dim)[:, :self.max_length]
+        ps_term_mask = ps_term_mask.reshape(batch_size, -1)[:, :self.max_length]
 
         if hasattr(self, 'order_embedding'):
             ps_terms += self.order_embedding
@@ -247,7 +247,7 @@ class Truncating_Reducer(nn.Module):
 
         else:
             # [bs, 1, ed]
-            ps_terms = ps_terms.view(batch_size, -1, self.embedding_dim)
-            ps_term_mask = ps_term_mask.view(batch_size, -1)
+            ps_terms = ps_terms.reshape(batch_size, -1, self.embedding_dim)
+            ps_term_mask = ps_term_mask.reshape(batch_size, -1)
 
         return ps_terms, ps_term_mask, self.kid.expand(batch_size, self.his_size, self.k)
