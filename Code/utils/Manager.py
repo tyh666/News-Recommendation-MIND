@@ -1113,6 +1113,98 @@ class Manager():
         h.close()
 
 
+    def construct_whole_dataset(self):
+        """
+        join training set and validation set
+        """
+        logger.info("merging MINDlarge_train and MINDlarge_dev into MINDwhole_train")
+
+        whole_directory = self.path + "MIND/MINDwhole_train/"
+        os.makedirs(whole_directory, exist_ok=True)
+        whole_directory = self.path + "MIND/MINDwhole_dev/"
+        os.makedirs(whole_directory, exist_ok=True)
+
+        behav_path_train = self.path + "MIND/MINDlarge_train/behaviors.tsv"
+        behav_path_dev = self.path + "MIND/MINDlarge_dev/behaviors.tsv"
+        behav_path_whole_train = self.path + "MIND/MINDwhole_train/behaviors.tsv"
+        behav_path_whole_dev = self.path + "MIND/MINDwhole_dev/behaviors.tsv"
+
+        f = open(behav_path_whole_train, "w")
+        h = open(behav_path_whole_dev, "w")
+        with open(behav_path_train, "r") as g:
+            for line in g:
+                f.write(line)
+        with open(behav_path_dev, "r") as g:
+            count = 0
+            for line in g:
+                if count < 200000:
+                    f.write(line)
+                else:
+                    h.write(line)
+
+                count += 1
+
+        f.close()
+        h.close()
+
+        news_path_train = self.path + "MIND/MINDlarge_train/news.tsv"
+        news_path_dev = self.path + "MIND/MINDlarge_dev/news.tsv"
+        news_path_whole_train = self.path + "MIND/MINDwhole_train/news.tsv"
+        news_path_whole_dev = self.path + "MIND/MINDwhole_dev/news.tsv"
+
+        f = open(news_path_whole_train, "w")
+        h = open(news_path_whole_dev, "w")
+        with open(news_path_train, "r") as g:
+            with open(news_path_dev, "r") as l:
+                for line in g:
+                    f.write(line)
+                for line in l:
+                    f.write(line)
+
+        with open(news_path_dev, "r") as g:
+            with open(news_path_dev, "r") as l:
+                for line in g:
+                    h.write(line)
+                for line in l:
+                    h.write(line)
+
+        f.close()
+        h.close()
+
+
+    def gather_same_user_impr(self):
+        """
+        gather the impression of the same user to one record
+        """
+        behav_paths = [self.path + "MIND/MINDlarge_dev/behaviors.tsv", self.path + "MIND/MINDsmall_dev/behaviors.tsv", self.path + "MIND/MINDdemo_dev/behaviors.tsv"]
+
+        for behav_path in behav_paths:
+            logging.info("gathering behavior log of {}".format(behav_path))
+            behaviors = defaultdict(list)
+
+            with open(behav_path, "r", encoding="utf-8") as rd:
+                for idx in rd:
+                    impr_index, uid, time, history, impr = idx.strip("\n").split("\t")
+                    behaviors[uid].append([impr_index, uid, time, history, impr])
+
+            for k,v in behaviors.items():
+                behaviors[k] = sorted(v,key=lambda x: datetime.strptime(x[2], "%m/%d/%Y %X %p"))
+
+            behavs = []
+            for k,v in behaviors.items():
+                record = []
+                imprs = []
+                record.extend(v[0][:4])
+                for i,behav in enumerate(v):
+                    imprs.append(behav[4])
+                record.append(" ".join(imprs))
+                behavs.append(record)
+
+            with open(behav_path,"w",encoding="utf-8") as f:
+                for record in behavs:
+                    f.write('\t'.join(record) + '\n')
+
+
     def analyse(config):
         """
             analyse over MIND
@@ -1164,39 +1256,6 @@ class Manager():
 
         print("avg_title_length:{}\n avg_abstract_length:{}\n avg_his_length:{}\n avg_impr_length:{}\n cnt_his_lg_50:{}\n cnt_his_eq_0:{}\n cnt_imp_multi:{}".format(
             avg_title_length, avg_abstract_length, avg_his_length, avg_imp_length, cnt_his_lg_50, cnt_his_eq_0, cnt_imp_multi))
-
-
-    def gather_same_user_impr(self):
-        """
-        gather the impression of the same user to one record
-        """
-        behav_paths = [self.path + "MIND/MINDlarge_dev/behaviors.tsv", self.path + "MIND/MINDsmall_dev/behaviors.tsv", self.path + "MIND/MINDdemo_dev/behaviors.tsv"]
-
-        for behav_path in behav_paths:
-            logging.info("gathering behavior log of {}".format(behav_path))
-            behaviors = defaultdict(list)
-
-            with open(behav_path, "r", encoding="utf-8") as rd:
-                for idx in rd:
-                    impr_index, uid, time, history, impr = idx.strip("\n").split("\t")
-                    behaviors[uid].append([impr_index, uid, time, history, impr])
-
-            for k,v in behaviors.items():
-                behaviors[k] = sorted(v,key=lambda x: datetime.strptime(x[2], "%m/%d/%Y %X %p"))
-
-            behavs = []
-            for k,v in behaviors.items():
-                record = []
-                imprs = []
-                record.extend(v[0][:4])
-                for i,behav in enumerate(v):
-                    imprs.append(behav[4])
-                record.append(" ".join(imprs))
-                behavs.append(record)
-
-            with open(behav_path,"w",encoding="utf-8") as f:
-                for record in behavs:
-                    f.write('\t'.join(record) + '\n')
 
 
 def mrr_score(y_true, y_score):
