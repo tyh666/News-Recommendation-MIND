@@ -136,10 +136,10 @@ class TTMS(BaseModel):
 
         _, user_cls = self.bert(ps_terms, ps_term_mask, ps_term_input=True)
 
+        user_repr = self.newsUserProject(user_cls)
+
         if self.aggregator is not None:
-            user_repr = self.aggregator(user_cls)
-        else:
-            user_repr = self.newsUserProject(user_cls)
+            user_repr = self.aggregator(user_repr)
 
         if hasattr(self, 'userBias'):
             user_repr = user_repr + self.userBias

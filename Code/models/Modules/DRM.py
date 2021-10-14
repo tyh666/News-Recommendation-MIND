@@ -19,6 +19,8 @@ class Matching_Reducer(nn.Module):
 
         self.diversify = manager.diversify
         self.sep_his = manager.sep_his
+        # if aggregator is enabled, do not flatten the personalized terms
+        self.flatten = (manager.aggregator is None)
 
         manager.term_num = manager.k * manager.his_size
 
@@ -45,7 +47,7 @@ class Matching_Reducer(nn.Module):
             nn.init.xavier_normal_(self.order_embedding)
 
 
-    def forward(self, news_selection_embedding, news_embedding, user_repr, news_repr, his_attn_mask, his_refined_mask, squeeze=True):
+    def forward(self, news_selection_embedding, news_embedding, user_repr, news_repr, his_attn_mask, his_refined_mask):
         """
         Extract words from news text according to the overall user interest
 
@@ -98,7 +100,7 @@ class Matching_Reducer(nn.Module):
             ps_terms += self.order_embedding
 
         # flatten the selected terms into one dimension
-        if squeeze:
+        if self.flatten:
             # separate historical news only practical when squeeze=True
             if self.sep_his:
                 # [bs, hs, ed]
@@ -130,6 +132,8 @@ class Identical_Reducer(nn.Module):
         manager.term_num = manager.k * manager.his_size
 
         self.sep_his = manager.sep_his
+        # if aggregator is enabled, do not flatten the personalized terms
+        self.flatten = (manager.aggregator is None)
 
         if self.sep_his:
             manager.term_num += (self.his_size - 1)
@@ -166,7 +170,7 @@ class Identical_Reducer(nn.Module):
             ps_terms += self.order_embedding
 
         # flatten the selected terms into one dimension
-        if squeeze:
+        if self.flatten:
             # separate historical news only practical when squeeze=True
             if self.sep_his:
                 # [bs, hs, ed]
@@ -197,6 +201,8 @@ class Truncating_Reducer(nn.Module):
 
         self.sep_his = manager.sep_his
         self.max_length = manager.get_max_length_for_truncating()
+        # if aggregator is enabled, do not flatten the personalized terms
+        self.flatten = (manager.aggregator is None)
 
         manager.term_num = manager.k * manager.his_size
 
