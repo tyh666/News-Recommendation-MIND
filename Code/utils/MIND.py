@@ -54,7 +54,7 @@ class MIND(Dataset):
         if (manager.fast and self.mode != "train") or manager.mode == 'inspect':
             self.impr_size = 1000
 
-        self.cache_directory = "/".join(["data/cache", manager.embedding, self.file_name])
+        self.cache_directory = "/".join(["data/cache", manager.get_bert_for_cache(), self.file_name])
         self.news_path = self.cache_directory + reducer_map[self.reducer]
 
         self.behav_path_train = self.cache_directory + "behaviors.pkl"
@@ -759,7 +759,7 @@ class MIND_news(Dataset):
         self.file_directory = manager.path + "MIND/"
         self.file_name = "MIND{}_{}/".format(manager.scale, self.mode)
 
-        self.cache_directory = "/".join(["data/cache", manager.embedding, self.file_name])
+        self.cache_directory = "/".join(["data/cache", manager.get_bert_for_cache(), self.file_name])
         self.news_path = self.cache_directory + reducer_map[self.reducer]
 
         if not (os.path.exists(self.cache_directory + "news.pkl") and os.path.exists(self.cache_directory + "bm25.pkl") and os.path.exists(self.cache_directory + "entity.pkl")):
@@ -868,7 +868,7 @@ class MIND_history(Dataset):
         self.file_directory = manager.path + "MIND/"
         self.file_name = "MIND{}_{}/".format(manager.scale, self.mode)
 
-        self.cache_directory = "/".join(["data/cache", manager.embedding, self.file_name])
+        self.cache_directory = "/".join(["data/cache", manager.get_bert_for_cache(), self.file_name])
         self.news_path = self.cache_directory + reducer_map[self.reducer]
         self.behav_path = self.cache_directory + "{}/{}".format(self.impr_size, "behaviors.pkl")
 

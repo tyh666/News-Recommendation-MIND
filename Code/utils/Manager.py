@@ -1029,6 +1029,18 @@ class Manager():
         return bert_map[self.bert]
 
 
+    def get_bert_for_cache(self):
+        """
+        transfer unilm to bert
+        """
+        bert_map = {
+            "bert": "bert",
+            "deberta": "deberta",
+            "unilm": "bert"
+        }
+        return bert_map[self.bert]
+
+
     def get_max_length_for_truncating(self):
         """
         get max length in Truncating_Reducer
