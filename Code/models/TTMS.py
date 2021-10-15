@@ -24,10 +24,10 @@ class TTMS(BaseModel):
         self.aggregator = aggregator
         self.bert = BERT_Encoder(manager)
 
-        self.newsUserProject = nn.Sequential(
-            nn.Linear(self.bert.hidden_dim, self.bert.hidden_dim),
-            nn.Tanh()
-        )
+        # self.newsUserProject = nn.Sequential(
+        #     nn.Linear(self.bert.hidden_dim, self.bert.hidden_dim),
+        #     nn.Tanh()
+        # )
 
         if manager.debias:
             self.userBias = nn.Parameter(torch.randn(1,self.bert.hidden_dim))
@@ -188,7 +188,7 @@ class TTMS(BaseModel):
         _, cdd_news_repr = self.bert(
             self.embedding(cdd_news, cdd_subword_prefix), cdd_attn_mask
         )
-        cdd_news_repr = self.newsUserProject(cdd_news_repr.squeeze(1))
+        # cdd_news_repr = self.newsUserProject(cdd_news_repr.squeeze(1))
 
         return cdd_news_repr
 
@@ -239,8 +239,11 @@ class TTMS(BaseModel):
 
         ps_terms, ps_term_mask, _ = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, his_attn_mask, his_refined_mask)
 
-        _, user_cls = self.bert(ps_terms, ps_term_mask)
-        user_repr = self.newsUserProject(user_cls)
+        _, user_repr = self.bert(ps_terms, ps_term_mask)
+
+        if self.aggregator is not None:
+            user_repr = self.aggregator(user_repr)
+        # user_repr = self.newsUserProject(user_cls)
         if hasattr(self, 'userBias'):
             user_repr = user_repr + self.userBias
 
