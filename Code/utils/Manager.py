@@ -683,7 +683,7 @@ class Manager():
                     #     writer.add_scalar("data_loss",
                     #                     total_loss/total_steps)
 
-                if steps % save_step == 0 and steps > 0:
+                if steps % save_step == 0 and steps > 30000:
                     print("\n")
                     with torch.no_grad():
                         result = self.evaluate(model, loaders[1:], log=False)
