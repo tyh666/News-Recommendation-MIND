@@ -49,6 +49,8 @@ class BERT_Encoder(nn.Module):
             self.extend_attn_mask = False
 
         word_embedding = bert.embeddings.word_embeddings
+        self.layerNorm = bert.embeddings.LayerNorm
+        self.dropOut = bert.embeddings.dropout
 
         if manager.reducer != 'none':
             self.bert_cls_embedding = nn.Parameter(word_embedding.weight[manager.get_special_token_id('[CLS]')].view(1,1,self.hidden_dim))
@@ -98,11 +100,13 @@ class BERT_Encoder(nn.Module):
             signal_length += 2
 
         if self.bert_token_type_embedding is not None:
-            bert_input += self.bert_token_type_embedding[0]
+            bert_input = bert_input + self.bert_token_type_embedding[0]
 
         if self.bert_pos_embedding is not None:
-            bert_input += self.bert_pos_embedding[:bert_input.size(-2)]
+            bert_input = bert_input + self.bert_pos_embedding[:bert_input.size(-2)]
 
+        bert_input = self.dropOut(self.layerNorm(bert_input))
+        
         if self.extend_attn_mask:
             ext_attn_mask = attn_mask
         else:
@@ -120,8 +124,6 @@ class BERT_Encoder(nn.Module):
         else:
             # [bs, sl/term_num+2, hd]
             bert_output = self.bert(bert_input, attention_mask=ext_attn_mask).last_hidden_state
-
-        # news_repr = self.pooler(bert_output).reshape(batch_size, -1, self.hidden_dim)
 
         if self.pooler == "cls":
             news_repr = bert_output[:, 0].reshape(batch_size, -1, self.hidden_dim)

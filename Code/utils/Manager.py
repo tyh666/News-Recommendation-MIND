@@ -212,7 +212,7 @@ class Manager():
         Returns:
             loaders(list of dataloaders): 0-loader_train/test/dev, 1-loader_dev
         """
-        from .MIND import MIND, MIND_news, MIND_history
+        from .MIND import MIND, MIND_news
         from .utils import Partition_Sampler
 
         if self.rank in [-1, 0]:

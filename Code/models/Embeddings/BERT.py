@@ -20,9 +20,6 @@ class BERT_Embedding(nn.Module):
         )
         self.bert_word_embedding = bert.embeddings.word_embeddings
 
-        self.layerNorm = bert.embeddings.LayerNorm
-        self.dropOut = bert.embeddings.dropout
-
         if manager.reducer == 'bow':
             self.freq_embedding = nn.Embedding(manager.signal_length // 2, self.embedding_dim)
             nn.init.xavier_normal_(self.freq_embedding.weight)
@@ -48,6 +45,4 @@ class BERT_Embedding(nn.Module):
         if subword_prefix is not None:
             word_embeds = subword_prefix.matmul(word_embeds)
 
-        embedding = self.dropOut(self.layerNorm(word_embeds))
-
-        return embedding
+        return word_embeds
