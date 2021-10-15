@@ -70,6 +70,8 @@ class Manager():
 
             parser.add_argument("-hd", "--hidden_dim", dest="hidden_dim",
                             help="number of hidden states", type=int, default=384)
+            parser.add_argument("-ed", "--embedding_dim", dest="embedding_dim",
+                            help="number of embedding states", type=int, default=768)
             parser.add_argument("-bd", "--bert_dim", dest="bert_dim",
                             help="number of hidden states in pre-trained language models", type=int, default=768)
             parser.add_argument("-dp", "--dropout_p", dest="dropout_p",
@@ -791,22 +793,37 @@ class Manager():
             torch.save(news_reprs, cache_directory + "news.pt")
             del news_reprs
             model.destroy_encoding()
-
             logger.info("inferring...")
-            model.init_embedding()
-            impr_indexes = []
-            preds = []
-            for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
-                impr_indexes.extend(x["impr_index"].tolist())
-                preds.extend(model.predict_fast(x).tolist())
 
-            preds = self._group_lists(impr_indexes, preds)[0]
-            model.destroy_embedding()
+        if self.world_size > 1:
+            dist.barrier()
 
-            return preds
+        model.init_embedding()
+        impr_indexes = []
+        preds = []
+        for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
+            impr_indexes.extend(x["impr_index"].tolist())
+            preds.extend(model.predict_fast(x).tolist())
 
+        model.destroy_embedding()
+
+        if self.world_size > 1:
+            dist.barrier()
+            outputs = [None for i in range(self.world_size)]
+            dist.all_gather_object(outputs, (impr_indexes, preds))
+
+            if self.rank == 0:
+                impr_indexes = []
+                preds = []
+                for output in outputs:
+                    impr_indexes.extend(output[0])
+                    preds.extend(output[1])
+
+                preds = self._group_lists(impr_indexes, preds)[0]
         else:
-            return None
+            preds = self._group_lists(impr_indexes, preds)[0]
+
+        return preds
 
 
     def test(self, model, loaders):
@@ -994,6 +1011,21 @@ class Manager():
         return news_num_map[self.scale][self.mode]
 
 
+    def get_news_file_for_load(self):
+        """
+        map different reducer to different news cache file
+        """
+        reducer_map = {
+            "none": "news.pkl",
+            "matching": "news.pkl",
+            "bm25": "bm25.pkl",
+            "bow": "news.pkl",
+            "entity": "entity.pkl",
+            "first": "news.pkl"
+        }
+        return reducer_map[self.reducer]
+
+
     def get_mode_for_path(self):
         """
         transfer inspect mode to dev mode to load the right file
@@ -1042,6 +1074,15 @@ class Manager():
             "unilm": "bert"
         }
         return bert_map[self.bert]
+
+
+    def get_activation_func(self):
+        act_map = {
+            "bert": torch.tanh,
+            "deberta": nn.functional.gelu,
+            "unilm": torch.tanh
+        }
+        return act_map[self.bert]
 
 
     def get_max_length_for_truncating(self):

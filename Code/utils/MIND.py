@@ -24,14 +24,6 @@ class MIND(Dataset):
     """
 
     def __init__(self, manager, mode=None):
-        reducer_map = {
-            "none": "news.pkl",
-            "matching": "news.pkl",
-            "bm25": "bm25.pkl",
-            "bow": "news.pkl",
-            "entity": "entity.pkl",
-            "first": "news.pkl"
-        }
         # initiate the whole iterator
         self.npratio = manager.npratio
         self.shuffle_pos = manager.shuffle_pos
@@ -55,7 +47,7 @@ class MIND(Dataset):
             self.impr_size = 1000
 
         self.cache_directory = "/".join(["data/cache", manager.get_bert_for_cache(), self.file_name])
-        self.news_path = self.cache_directory + reducer_map[self.reducer]
+        self.news_path = self.cache_directory + manager.get_news_file_for_load()
 
         self.behav_path_train = self.cache_directory + "behaviors.pkl"
         self.behav_path_eval = self.cache_directory + "{}/{}".format(self.impr_size, "behaviors.pkl")
@@ -733,14 +725,6 @@ class MIND_news(Dataset):
     """
 
     def __init__(self, manager):
-        reducer_map = {
-            "none": "news.pkl",
-            "matching": "news.pkl",
-            "bm25": "news.pkl",
-            "bow": "news.pkl",
-            "entity": "news.pkl",
-            "first": "news.pkl"
-        }
         # initiate the whole iterator
         self.npratio = manager.npratio
         self.signal_length = manager.signal_length
@@ -756,7 +740,7 @@ class MIND_news(Dataset):
         self.file_name = "MIND{}_{}/".format(manager.scale, self.mode)
 
         self.cache_directory = "/".join(["data/cache", manager.get_bert_for_cache(), self.file_name])
-        self.news_path = self.cache_directory + reducer_map[self.reducer]
+        self.news_path = self.cache_directory + manager.get_news_file_for_load()
 
         if not (os.path.exists(self.cache_directory + "news.pkl") and os.path.exists(self.cache_directory + "bm25.pkl") and os.path.exists(self.cache_directory + "entity.pkl")):
             raise ValueError("please initialize MIND dataset before initializing MIND_news")

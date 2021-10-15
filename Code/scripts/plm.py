@@ -51,6 +51,7 @@ def main(rank, manager):
 
 if __name__ == "__main__":
     manager = Manager()
+    manager.reducer = 'none'
     manager.hidden_dim = 768
 
     if manager.world_size > 1:

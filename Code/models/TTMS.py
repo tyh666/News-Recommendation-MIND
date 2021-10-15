@@ -118,7 +118,7 @@ class TTMS(BaseModel):
         _, cdd_news_repr = self.bert(
             self.embedding(cdd_news, cdd_subword_prefix), cdd_attn_mask
         )
-        cdd_news_repr = self.newsUserProject(cdd_news_repr)
+        # cdd_news_repr = self.newsUserProject(cdd_news_repr)
 
         his_news = x["his_encoded_index"].to(self.device)
 
@@ -134,9 +134,9 @@ class TTMS(BaseModel):
 
         ps_terms, ps_term_mask, kid = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, his_attn_mask, his_refined_mask)
 
-        _, user_cls = self.bert(ps_terms, ps_term_mask, ps_term_input=True)
+        _, user_repr = self.bert(ps_terms, ps_term_mask, ps_term_input=True)
 
-        user_repr = self.newsUserProject(user_cls)
+        # user_repr = self.newsUserProject(user_repr)
 
         if self.aggregator is not None:
             user_repr = self.aggregator(user_repr)

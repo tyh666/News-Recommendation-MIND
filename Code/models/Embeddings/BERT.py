@@ -12,9 +12,7 @@ class BERT_Embedding(nn.Module):
         super().__init__()
         self.name = 'bert'
 
-        # dimension for the final output embedding/representation
         self.embedding_dim = 768
-        manager.embedding_dim = self.embedding_dim
 
         bert = AutoModel.from_pretrained(
             manager.get_bert_for_load(),
