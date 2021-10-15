@@ -2,7 +2,7 @@ import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from utils.Manager import Manager
-from models.TTM import TTM
+from models.PLM import PLM
 
 def main(rank, manager):
     """ train/dev/test/tune the model (in distributed)
@@ -14,12 +14,6 @@ def main(rank, manager):
     """
     manager.setup(rank)
     loaders = manager.prepare()
-
-    from models.Embeddings.BERT import BERT_Embedding
-    embedding = BERT_Embedding(manager)
-
-    from models.Encoders.BERT import BERT_Encoder
-    encoderN = BERT_Encoder(manager)
 
     if manager.encoderU == 'rnn':
         from models.Encoders.RNN import RNN_User_Encoder
@@ -37,26 +31,27 @@ def main(rank, manager):
         from models.Encoders.RNN import LSTUR
         encoderU = LSTUR(manager)
 
-    ttm = TTM(manager, embedding, encoderN, encoderU).to(rank)
+    plm = PLM(manager, encoderU).to(rank)
 
     if manager.world_size > 1:
-        ttm = DDP(ttm, device_ids=[rank], output_device=rank, find_unused_parameters=False)
+        plm = DDP(plm, device_ids=[rank], output_device=rank, find_unused_parameters=False)
 
     if manager.mode == 'dev':
-        manager.evaluate(ttm, loaders, load=True)
+        manager.evaluate(plm, loaders, load=True)
 
     elif manager.mode == 'train':
-        manager.train(ttm, loaders)
+        manager.train(plm, loaders)
 
     elif manager.mode == 'test':
-        manager.test(ttm, loaders)
+        manager.test(plm, loaders)
 
     elif manager.mode == 'inspect':
-        manager.inspect(ttm, loaders)
+        manager.inspect(plm, loaders)
 
 
 if __name__ == "__main__":
     manager = Manager()
+    manager.hidden_dim = 768
 
     if manager.world_size > 1:
         mp.spawn(

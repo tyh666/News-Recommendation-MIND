@@ -52,18 +52,19 @@ class BERT_Encoder(nn.Module):
             self.bert_cls_embedding = nn.Parameter(word_embedding.weight[manager.get_special_token_id('[CLS]')].view(1,1,self.hidden_dim))
             self.bert_sep_embedding = nn.Parameter(word_embedding.weight[manager.get_special_token_id('[SEP]')].view(1,1,self.hidden_dim))
 
-        self.query = nn.Parameter(torch.randn(1, self.hidden_dim))
-        nn.init.xavier_normal_(self.query)
+        if manager.pooler == 'attn':
+            self.query = nn.Parameter(torch.randn(1, self.hidden_dim))
+            nn.init.xavier_normal_(self.query)
 
         try:
             self.bert_pos_embedding = nn.Parameter(bert.embeddings.position_embeddings.weight)
         except:
             self.bert_pos_embedding = None
 
-        # try:
-        #     self.bert_token_type_embedding = nn.Parameter(bert.embeddings.token_type_embeddings.weight)
-        # except:
-        #     self.bert_token_type_embedding = None
+        try:
+            self.bert_token_type_embedding = nn.Parameter(bert.embeddings.token_type_embeddings.weight)
+        except:
+            self.bert_token_type_embedding = None
 
         self.register_buffer('extra_attn_mask', torch.ones(1, 1), persistent=False)
 
@@ -94,12 +95,8 @@ class BERT_Encoder(nn.Module):
             attn_mask = torch.cat([self.extra_attn_mask.expand(bs, 1), attn_mask, self.extra_attn_mask.expand(bs, 1)], dim=-1)
             signal_length += 2
 
-        #     if self.bert_token_type_embedding is not None:
-        #         bert_input += self.bert_token_type_embedding[1]
-
-        # else:
-        #     if self.bert_token_type_embedding is not None:
-        #         bert_input += self.bert_token_type_embedding[0]
+        if self.bert_token_type_embedding is not None:
+            bert_input += self.bert_token_type_embedding[0]
 
         if self.bert_pos_embedding is not None:
             bert_input += self.bert_pos_embedding[:bert_input.size(-2)]

@@ -3,9 +3,12 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from transformers import AutoModel
 from .BaseModel import BaseModel
+from models.UniLM.configuration_tnlrv3 import TuringNLRv3Config
+from models.UniLM.modeling import TuringNLRv3ForSequenceClassification
 
-class TTM(BaseModel):
+class PLM(BaseModel):
     """
     Tow tower model with selection
 
@@ -13,17 +16,10 @@ class TTM(BaseModel):
     2. encode ps terms with the same bert, using [CLS] embedding as user representation
     3. predict by scaled dot product
     """
-    def __init__(self, manager, embedding, encoderN, encoderU):
+    def __init__(self, manager, encoderU):
         super().__init__(manager)
 
-        self.embedding = embedding
-        self.encoderN = encoderN
         self.encoderU = encoderU
-
-        self.newsProject = nn.Sequential(
-            nn.Linear(manager.bert_dim, manager.bert_dim),
-            nn.Tanh()
-        )
 
         if manager.debias:
             self.userBias = nn.Parameter(torch.randn(1,manager.bert_dim))
@@ -40,8 +36,20 @@ class TTM(BaseModel):
                 self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, self.signal_length * self.signal_length)), persistent=False)
 
 
-        manager.name = '__'.join(['ttm', manager.bert, manager.encoderU, manager.granularity])
+        manager.name = '__'.join(["plm", manager.bert, manager.encoderU, manager.granularity])
         self.name = manager.name
+
+        if manager.bert == 'unilm':
+            config = TuringNLRv3Config.from_pretrained(manager.unilm_config_path)
+            bert = TuringNLRv3ForSequenceClassification.from_pretrained(manager.unilm_path, config=config).bert
+
+        else:
+            bert = AutoModel.from_pretrained(
+                manager.get_bert_for_load(),
+                cache_dir=manager.path + 'bert_cache/'
+            )
+
+        self.bert = bert
 
 
     def clickPredictor(self, cdd_news_repr, user_repr):
@@ -61,8 +69,9 @@ class TTM(BaseModel):
     def _forward(self,x):
         # destroy encoding and embedding outside of the model
 
+        batch_size = x['cdd_encoded_index'].size(0)
+
         if self.granularity != 'token':
-            batch_size = x['cdd_subword_index'].size(0)
             cdd_size = x['cdd_subword_index'].size(1)
 
             if self.training:
@@ -104,17 +113,13 @@ class TTM(BaseModel):
             cdd_attn_mask = x['cdd_attn_mask'].to(self.device)
             his_attn_mask = x["his_attn_mask"].to(self.device)
 
-        cdd_news = x["cdd_encoded_index"].to(self.device)
-        _, cdd_news_repr = self.encoderN(
-            self.embedding(cdd_news, cdd_subword_prefix), cdd_attn_mask
-        )
-        cdd_news_repr = self.newsProject(cdd_news_repr)
+        cdd_news = x["cdd_encoded_index"].to(self.device).view(-1, self.signal_length)
+        cdd_attn_mask = cdd_attn_mask.view(-1, self.signal_length)
+        cdd_news_repr = self.bert(cdd_news, cdd_attn_mask)[-1].view(batch_size, -1, self.hidden_dim)
 
-        his_news = x["his_encoded_index"].to(self.device)
-        _, his_news_repr = self.encoderN(
-            self.embedding(his_news, his_subword_prefix), his_attn_mask
-        )
-        his_news_repr = self.newsProject(his_news_repr)
+        his_news = x["his_encoded_index"].to(self.device).view(-1, self.signal_length)
+        his_attn_mask = his_attn_mask.view(-1, self.signal_length)
+        his_news_repr = self.bert(his_news, his_attn_mask)[-1].view(batch_size, -1, self.hidden_dim)
 
         user_repr = self.encoderU(his_news_repr)
 
@@ -162,11 +167,9 @@ class TTM(BaseModel):
             cdd_subword_prefix = None
             cdd_attn_mask = x['cdd_attn_mask'].to(self.device)
 
-        cdd_news = x["cdd_encoded_index"].to(self.device)
-        _, cdd_news_repr = self.encoderN(
-            self.embedding(cdd_news, cdd_subword_prefix), cdd_attn_mask
-        )
-        cdd_news_repr = self.newsProject(cdd_news_repr.squeeze(1))
+        cdd_news = x["cdd_encoded_index"].to(self.device).view(-1, self.signal_length)
+        cdd_attn_mask = cdd_attn_mask.view(-1, self.signal_length)
+        cdd_news_repr = self.bert(cdd_news, cdd_attn_mask)[-1].view(batch_size, -1, self.hidden_dim)
 
         return cdd_news_repr
 

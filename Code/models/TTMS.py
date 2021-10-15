@@ -33,7 +33,7 @@ class TTMS(BaseModel):
             self.userBias = nn.Parameter(torch.randn(1,self.bert.hidden_dim))
             nn.init.xavier_normal_(self.userBias)
 
-        self.hidden_dim = self.bert.hidden_dim
+        self.hidden_dim = manager.bert_dim
 
         self.granularity = manager.granularity
         if self.granularity != 'token':

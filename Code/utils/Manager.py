@@ -70,6 +70,8 @@ class Manager():
 
             parser.add_argument("-hd", "--hidden_dim", dest="hidden_dim",
                             help="number of hidden states", type=int, default=384)
+            parser.add_argument("-bd", "--bert_dim", dest="bert_dim",
+                            help="number of hidden states in pre-trained language models", type=int, default=768)
             parser.add_argument("-dp", "--dropout_p", dest="dropout_p",
                             help="dropout probability", type=float, default=0.2)
 

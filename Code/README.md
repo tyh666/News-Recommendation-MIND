@@ -54,11 +54,13 @@ fi
 ```bash
 cd /data/v-pezhang/Code/Document-Reduction/Code
 python -m scripts.esm -m train -s large -ws=2
-python -m scripts.ttm -m train -s large --no_dedup -red=none -ws=2
+python -m scripts.ttm -m train -s large -red=none -ws=2
 python -m scripts.ttms -m train -s large -ws=2
+python -m scripts.plm -m train -s large -red=none -ws=2
 
 python -m scripts.esm -m train -s demo -bs=5 -is=10 -d=1
-python -m scripts.ttm -m train -s demo -bs=5 -is=10 --no_dedup -d=2
+python -m scripts.ttm -m train -s demo -bs=5 -is=10 -red=none -d=2
+python -m scripts.plm -m train -s demo -bs=5 -is=10 -red=none -d=2
 python -m scripts.ttms -m train -s demo -bs=5 -is=10
 python -m scripts.sfi -m train -s demo -k=5 -is=10 -sl=20 -bs=10 --no_dedup
 
@@ -96,7 +98,7 @@ python -m scripts.esm -m test -s large -ck=150000
 ## User Encoder
 - [x] RNN encoder
 - [x] NRMS
-- [ ] LSTUR
+- [x] LSTUR
 - [ ] Adaptive and time-aware LSTUR, see [29]
 
 ## Document Reducer
