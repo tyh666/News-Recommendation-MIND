@@ -166,8 +166,8 @@ class PLM(BaseModel):
         encode news of loader_news
         """
         # encode news with MIND_news
+        batch_size = x['cdd_encoded_index'].size(0)
         if self.granularity != 'token':
-            batch_size = x['cdd_subword_index'].size(0)
             cdd_dest = self.cdd_dest[:batch_size]
             cdd_subword_index = x['cdd_subword_index'].to(self.device)
             cdd_subword_index = cdd_subword_index[:, :, 0] * self.signal_length + cdd_subword_index[:, :, 1]
@@ -190,7 +190,7 @@ class PLM(BaseModel):
         cdd_news_repr = self.bert(cdd_news, cdd_attn_mask)[-1]
         if hasattr(self, 'pooler'):
             cdd_news_repr = self.pooler(cdd_news_repr[:, 0])
-        cdd_news_repr = cdd_news_repr.view(batch_size, -1, self.hidden_dim)
+        cdd_news_repr = cdd_news_repr.view(batch_size, self.hidden_dim)
         return cdd_news_repr
 
 
@@ -366,8 +366,8 @@ class PLM2(BaseModel):
         encode news of loader_news
         """
         # encode news with MIND_news
+        batch_size = x['cdd_encoded_index'].size(0)
         if self.granularity != 'token':
-            batch_size = x['cdd_subword_index'].size(0)
             cdd_dest = self.cdd_dest[:batch_size]
             cdd_subword_index = x['cdd_subword_index'].to(self.device)
             cdd_subword_index = cdd_subword_index[:, :, 0] * self.signal_length + cdd_subword_index[:, :, 1]
@@ -387,7 +387,7 @@ class PLM2(BaseModel):
 
         cdd_news = x["cdd_encoded_index"].to(self.device).view(-1, self.signal_length)
         cdd_attn_mask = cdd_attn_mask.view(-1, self.signal_length)
-        cdd_news_repr = self.bert(cdd_news, cdd_attn_mask)[-1].view(batch_size, -1, self.hidden_dim)
+        cdd_news_repr = self.bert(cdd_news, cdd_attn_mask)[-1].view(batch_size, self.hidden_dim)
 
         return cdd_news_repr
 
@@ -398,8 +398,8 @@ class PLM2(BaseModel):
         2. look up candidate representation in the embedding matrix
         3. compute click probability
         """
+        batch_size = x['his_encoded_index'].size(0)
         if self.granularity != 'token':
-            batch_size = x['his_encoded_index'].size(0)
             his_dest = self.his_dest[:batch_size]
 
             his_subword_index = x['his_subword_index'].to(self.device)

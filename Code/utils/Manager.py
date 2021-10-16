@@ -147,8 +147,8 @@ class Manager():
                 args.unilm_path = args.path + 'bert_cache/UniLM/unilm2-base-uncased.bin'
                 args.unilm_config_path = args.path + 'bert_cache/UniLM/unilm2-base-uncased-config.json'
 
-            if args.scale == 'demo':
-                args.fast = False
+            # if args.scale == 'demo':
+                # args.fast = False
 
         else:
             args = config
@@ -632,9 +632,8 @@ class Manager():
         interval = self.interval
 
         if self.scale == "demo":
-            save_step = len(loaders[0]) - 1
-            # do not fast evaluating when training demo dataset
-            # save_step = 1
+            # save_step = len(loaders[0]) - 1
+            save_step = 1
         else:
             save_step = self.step
 
@@ -683,7 +682,7 @@ class Manager():
                     #     writer.add_scalar("data_loss",
                     #                     total_loss/total_steps)
 
-                if steps % save_step == 0 and steps > 30000:
+                if steps % save_step == 0 and (steps > 30000 and self.scale != 'demo' or self.scale == 'demo'):
                     print("\n")
                     with torch.no_grad():
                         result = self.evaluate(model, loaders[1:], log=False)
