@@ -2,7 +2,7 @@ import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from utils.Manager import Manager
-from models.TTMS import TTMS
+from models.TESRec import TESRec
 
 def main(rank, manager):
     """ train/dev/test/tune the model (in distributed)
@@ -66,22 +66,22 @@ def main(rank, manager):
     else:
         aggregator = None
 
-    ttms = TTMS(manager, embedding, encoderN, encoderU, reducer, aggregator).to(rank)
+    tesrec = TESRec(manager, embedding, encoderN, encoderU, reducer, aggregator).to(rank)
 
     if manager.world_size > 1:
-        ttms = DDP(ttms, device_ids=[rank], output_device=rank, find_unused_parameters=False)
+        tesrec = DDP(tesrec, device_ids=[rank], output_device=rank, find_unused_parameters=False)
 
     if manager.mode == 'dev':
-            manager.evaluate(ttms, loaders, load=True)
+            manager.evaluate(tesrec, loaders, load=True)
 
     elif manager.mode == 'train':
-        manager.train(ttms, loaders)
+        manager.train(tesrec, loaders)
 
     elif manager.mode == 'test':
-        manager.test(ttms, loaders)
+        manager.test(tesrec, loaders)
 
     elif manager.mode == 'inspect':
-        manager.inspect(ttms, loaders)
+        manager.inspect(tesrec, loaders)
 
 
 if __name__ == "__main__":

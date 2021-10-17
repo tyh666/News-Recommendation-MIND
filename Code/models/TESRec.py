@@ -4,8 +4,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from .BaseModel import BaseModel
+from .Encoders.BERT import BERT_Encoder
 
-class TTM(BaseModel):
+class TESRec(BaseModel):
     """
     Tow tower model with selection
 
@@ -13,20 +14,23 @@ class TTM(BaseModel):
     2. encode ps terms with the same bert, using [CLS] embedding as user representation
     3. predict by scaled dot product
     """
-    def __init__(self, manager, embedding, encoderN, encoderU):
+    def __init__(self, manager, embedding, encoderN, encoderU, reducer, aggregator=None):
         super().__init__(manager)
 
         self.embedding = embedding
         self.encoderN = encoderN
         self.encoderU = encoderU
+        self.reducer = reducer
+        self.aggregator = aggregator
+        self.bert = BERT_Encoder(manager)
 
-        self.newsProject = nn.Sequential(
-            nn.Linear(manager.bert_dim, manager.bert_dim),
-            nn.Tanh()
-        )
+        # self.newsUserProject = nn.Sequential(
+        #     nn.Linear(self.bert.hidden_dim, self.bert.hidden_dim),
+        #     nn.Tanh()
+        # )
 
         if manager.debias:
-            self.userBias = nn.Parameter(torch.randn(1,manager.bert_dim))
+            self.userBias = nn.Parameter(torch.randn(1,self.bert.hidden_dim))
             nn.init.xavier_normal_(self.userBias)
 
         self.hidden_dim = manager.bert_dim
@@ -40,7 +44,11 @@ class TTM(BaseModel):
                 self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, self.signal_length * self.signal_length)), persistent=False)
 
 
-        manager.name = '__'.join(['ttm', manager.bert, manager.encoderU, manager.granularity])
+        if aggregator is not None:
+            manager.name = '__'.join(['tesrec', manager.bert, manager.encoderN, manager.encoderU, manager.reducer, manager.aggregator, manager.granularity])
+        else:
+            manager.name = '__'.join(['tesrec', manager.bert, manager.encoderN, manager.encoderU, manager.reducer, manager.granularity])
+
         self.name = manager.name
 
 
@@ -97,45 +105,64 @@ class TTM(BaseModel):
 
             cdd_attn_mask = cdd_subword_prefix.matmul(x['cdd_attn_mask'].to(self.device).float().unsqueeze(-1)).squeeze(-1)
             his_attn_mask = his_subword_prefix.matmul(x["his_attn_mask"].to(self.device).float().unsqueeze(-1)).squeeze(-1)
+            his_refined_mask = None
+            if 'his_refined_mask' in x:
+                his_refined_mask = his_subword_prefix.matmul(x["his_refined_mask"].to(self.device).float().unsqueeze(-1)).squeeze(-1)
 
         else:
             cdd_subword_prefix = None
             his_subword_prefix = None
             cdd_attn_mask = x['cdd_attn_mask'].to(self.device)
             his_attn_mask = x["his_attn_mask"].to(self.device)
+            his_refined_mask = None
+            if 'his_refined_mask' in x:
+                his_refined_mask = x["his_refined_mask"].to(self.device)
 
         cdd_news = x["cdd_encoded_index"].to(self.device)
-        _, cdd_news_repr = self.encoderN(
+        _, cdd_news_repr = self.bert(
             self.embedding(cdd_news, cdd_subword_prefix), cdd_attn_mask
         )
-        cdd_news_repr = self.newsProject(cdd_news_repr)
+        # cdd_news_repr = self.newsUserProject(cdd_news_repr)
 
         his_news = x["his_encoded_index"].to(self.device)
-        _, his_news_repr = self.encoderN(
-            self.embedding(his_news, his_subword_prefix), his_attn_mask
-        )
-        his_news_repr = self.newsProject(his_news_repr)
 
-        user_repr = self.encoderU(his_news_repr)
+        his_news_embedding = self.embedding(his_news, his_subword_prefix)
+        his_news_encoded_embedding, his_news_repr = self.encoderN(
+            his_news_embedding, his_attn_mask
+        )
+        # no need to calculate this if ps_terms are fixed in advance
+        if self.reducer.name == 'matching':
+            user_repr = self.encoderU(his_news_repr, his_mask=x['his_mask'].to(self.device), user_index=x["user_id"].to(self.device))
+        else:
+            user_repr = None
+
+        ps_terms, ps_term_mask, kid = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, his_attn_mask, his_refined_mask)
+
+        _, user_repr = self.bert(ps_terms, ps_term_mask, ps_term_input=True)
+
+        # user_repr = self.newsUserProject(user_repr)
+
+        if self.aggregator is not None:
+            user_repr = self.aggregator(user_repr)
 
         if hasattr(self, 'userBias'):
             user_repr = user_repr + self.userBias
 
-        return self.clickPredictor(cdd_news_repr, user_repr),
+        return self.clickPredictor(cdd_news_repr, user_repr), kid
 
 
     def forward(self,x):
         """
         Decoupled function, score is unormalized click score
         """
-        score, = self._forward(x)
+        score, kid = self._forward(x)
 
         if self.training:
             prob = nn.functional.log_softmax(score, dim=1)
         else:
             prob = torch.sigmoid(score)
 
-        return prob, None
+        return prob, kid
 
 
     def encode_news(self, x):
@@ -155,7 +182,6 @@ class TTM(BaseModel):
             if self.granularity == 'avg':
                 # average subword embeddings as the word embedding
                 cdd_subword_prefix = F.normalize(cdd_subword_prefix, p=1, dim=-1)
-
             cdd_attn_mask = cdd_subword_prefix.matmul(x['cdd_attn_mask'].to(self.device).float().unsqueeze(-1)).squeeze(-1)
 
         else:
@@ -163,12 +189,12 @@ class TTM(BaseModel):
             cdd_attn_mask = x['cdd_attn_mask'].to(self.device)
 
         cdd_news = x["cdd_encoded_index"].to(self.device)
-        _, cdd_news_repr = self.encoderN(
+        _, cdd_news_repr = self.bert(
             self.embedding(cdd_news, cdd_subword_prefix), cdd_attn_mask
         )
-        cdd_news_repr = self.newsProject(cdd_news_repr.squeeze(1))
+        # cdd_news_repr = self.newsUserProject(cdd_news_repr.squeeze(1))
 
-        return cdd_news_repr
+        return cdd_news_repr.squeeze(1)
 
 
     def predict_fast(self, x):
@@ -193,20 +219,41 @@ class TTM(BaseModel):
                 his_subword_prefix = F.normalize(his_subword_prefix, p=1, dim=-1)
 
             his_attn_mask = his_subword_prefix.matmul(x["his_attn_mask"].to(self.device).float().unsqueeze(-1)).squeeze(-1)
+            his_refined_mask = None
+            if 'his_refined_mask' in x:
+                his_refined_mask = his_subword_prefix.matmul(x["his_refined_mask"].to(self.device).float().unsqueeze(-1)).squeeze(-1)
 
         else:
             his_subword_prefix = None
             his_attn_mask = x["his_attn_mask"].to(self.device)
+            his_refined_mask = None
+            if 'his_refined_mask' in x:
+                his_refined_mask = x["his_refined_mask"].to(self.device)
 
-        # [bs, cs, hd]
-        cdd_news_repr = self.news_reprs(x['cdd_id'].to(self.device))
+        his_news = x["his_encoded_index"].to(self.device)
+        his_news_embedding = self.embedding(his_news, his_subword_prefix)
+        his_news_encoded_embedding, his_news_repr = self.encoderN(
+            his_news_embedding, his_attn_mask
+        )
+        # no need to calculate this if ps_terms are fixed in advance
+        if self.reducer.name == 'matching':
+            user_repr = self.encoderU(his_news_repr, his_mask=x['his_mask'].to(self.device), user_index=x['user_id'].to(self.device))
+        else:
+            user_repr = None
 
-        his_news_repr = self.news_reprs(x['his_id'].to(self.device))
-        user_repr = self.encoderU(his_news_repr)
+        ps_terms, ps_term_mask, _ = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, his_attn_mask, his_refined_mask)
 
+        _, user_repr = self.bert(ps_terms, ps_term_mask)
+
+        if self.aggregator is not None:
+            user_repr = self.aggregator(user_repr)
+        # user_repr = self.newsUserProject(user_cls)
         if hasattr(self, 'userBias'):
             user_repr = user_repr + self.userBias
 
-        scores = cdd_news_repr.matmul(user_repr.transpose(-1, -2)).squeeze(-1)/math.sqrt(cdd_news_repr.size(-1))
+        # [bs, cs, hd]
+        news_repr = self.news_reprs(x['cdd_id'].to(self.device))
+
+        scores = news_repr.matmul(user_repr.transpose(-1, -2)).squeeze(-1)/math.sqrt(news_repr.size(-1))
         logits = torch.sigmoid(scores)
         return logits

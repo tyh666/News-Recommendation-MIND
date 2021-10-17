@@ -119,7 +119,7 @@ class Manager():
             parser.add_argument("-fus", "--fuser", dest="fuser", help="choose term fuser", choices=["union"], default="union")
             parser.add_argument("-pl", "--pooler", dest="pooler", help="choose bert pooler", choices=["avg","attn","cls"], default="attn")
             parser.add_argument("-rk", "--ranker", dest="ranker", help="choose ranker", choices=["onepass","original","cnn","knrm"], default="onepass")
-            parser.add_argument("-agg", "--aggregator", dest="aggregator", help="choose history aggregator, only used in TTMS", choices=["avg","attn","cnn","rnn","lstur","mha"], default=None)
+            parser.add_argument("-agg", "--aggregator", dest="aggregator", help="choose history aggregator, only used in TESRec", choices=["avg","attn","cnn","rnn","lstur","mha"], default=None)
 
             parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=5)
             parser.add_argument("-thr", "--threshold", dest="threshold", help="threshold to mask terms", default=-float("inf"), type=float)
