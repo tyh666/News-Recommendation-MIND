@@ -178,6 +178,7 @@ python -m scripts.esm -m test -s large -ck=150000
 1. Performance on dev is far better than test (71.8 vs 69.76)
 2. Can I write manuscipt now? Why should we select personalized terms?
 3. Do I need to rerun fastformers?
+4. Do I need to compare a text summarization model?
 
 ## Issue
 - the gradient after docReducer is sharp
