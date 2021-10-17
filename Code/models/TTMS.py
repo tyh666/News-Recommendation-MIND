@@ -144,8 +144,6 @@ class TTMS(BaseModel):
         if hasattr(self, 'userBias'):
             user_repr = user_repr + self.userBias
 
-        print(cdd_news_repr.shape, user_repr.shape)
-
         return self.clickPredictor(cdd_news_repr, user_repr), kid
 
 
