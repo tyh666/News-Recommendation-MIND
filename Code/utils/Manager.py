@@ -886,7 +886,7 @@ class Manager():
             entities = pickle.load(f)["encoded_news"][:, :self.k + 1]
 
         self.load(model, self.checkpoint)
-        t = AutoTokenizer.from_pretrained(self.bert)
+        t = AutoTokenizer.from_pretrained(self.get_bert_for_load(), cache_dir=self.path + "bert_cache/")
 
         logger.info("press <ENTER> to continue")
 
