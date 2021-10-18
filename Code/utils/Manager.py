@@ -85,7 +85,7 @@ class Manager():
             parser.add_argument("-lr", dest="lr",
                                 help="learning rate of non-bert modules", type=float, default=1e-4)
             parser.add_argument("-blr", "--bert_lr", dest="bert_lr",
-                                help="learning rate of bert based modules", type=float, default=3e-6)
+                                help="learning rate of bert based modules", type=float, default=6e-6)
 
             parser.add_argument("-div", "--diversify", dest="diversify", help="whether to diversify selection with news representation", action="store_true", default=False)
             parser.add_argument("--descend_history", dest="descend_history", help="whether to order history by time in descending", action="store_true", default=False)
@@ -147,8 +147,8 @@ class Manager():
                 args.unilm_path = args.path + 'bert_cache/UniLM/unilm2-base-uncased.bin'
                 args.unilm_config_path = args.path + 'bert_cache/UniLM/unilm2-base-uncased-config.json'
 
-            # if args.scale == 'demo':
-                # args.fast = False
+            if args.scale == 'demo':
+                args.fast = False
 
         else:
             args = config
@@ -290,9 +290,7 @@ class Manager():
                         num_workers=num_workers, drop_last=False, sampler=sampler_test)
 
             if self.fast:
-                assert self.world_size < 2, "do not enable fast test in DDP"
                 dataset_news = MIND_news(self)
-
                 loader_news = DataLoader(dataset_news, batch_size=self.batch_size_news, pin_memory=pin_memory,
                         num_workers=num_workers, drop_last=False)
 
@@ -632,8 +630,8 @@ class Manager():
         interval = self.interval
 
         if self.scale == "demo":
-            # save_step = len(loaders[0]) - 1
-            save_step = 1
+            save_step = len(loaders[0]) - 1
+            # save_step = 1
         else:
             save_step = self.step
 
@@ -682,7 +680,7 @@ class Manager():
                     #     writer.add_scalar("data_loss",
                     #                     total_loss/total_steps)
 
-                if steps % save_step == 0 and (steps > 30000 and self.scale != 'demo' or self.scale == 'demo'):
+                if steps % save_step == 0 and (steps > 30000 and self.scale != 'demo' or steps > 0 and self.scale == 'demo'):
                     print("\n")
                     with torch.no_grad():
                         result = self.evaluate(model, loaders[1:], log=False)
@@ -777,6 +775,9 @@ class Manager():
                 0: loader_test
                 1: loader_news
         """
+        if self.world_size > 1:
+            model = model.module
+
         cache_directory = "data/cache/{}/{}/test/".format(self.name, self.scale)
         if self.rank in [-1, 0]:
             os.makedirs(cache_directory, exist_ok=True)
@@ -1025,6 +1026,19 @@ class Manager():
         return reducer_map[self.reducer]
 
 
+    def get_scale_for_load(self):
+        """
+        transfer whole to large
+        """
+        scale_map = {
+            "demo": "demo",
+            "small": "small",
+            "large": "large",
+            "whole": "large"
+        }
+        return scale_map[self.scale]
+
+
     def get_mode_for_path(self):
         """
         transfer inspect mode to dev mode to load the right file
@@ -1088,11 +1102,12 @@ class Manager():
         """
         get max length in Truncating_Reducer
         """
+        # subtract 2 because [CLS] and [SEP]
         length_map = {
-            "bert": 512,
-            "deberta": 512,
-            "unilm": 512,
-            "longformer": 4096,
+            "bert": 510,
+            "deberta": 510,
+            "unilm": 510,
+            "longformer": 4094,
         }
         return length_map[self.bert]
 
@@ -1212,6 +1227,14 @@ class Manager():
 
         f.close()
         h.close()
+
+
+    # def construct_autogressive_dataset(self):
+    #     """
+    #     collect user click behavior and append to the user's history by time
+    #     """
+    #     for k,v in behaviors.items():
+    #         behaviors[k] = sorted(v,key=lambda x: datetime.strptime(x[2], "%m/%d/%Y %X %p"))
 
 
     def gather_same_user_impr(self):

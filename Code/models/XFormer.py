@@ -7,7 +7,7 @@ from .BaseModel import BaseModel
 from .Encoders.BERT import BERT_Encoder
 from .Modules.DRM import Truncating_Reducer
 
-class TTMS(BaseModel):
+class XFormer(BaseModel):
     """
     Tow tower model with selection
 
@@ -15,19 +15,12 @@ class TTMS(BaseModel):
     2. encode ps terms with the same bert, using [CLS] embedding as user representation
     3. predict by scaled dot product
     """
-    def __init__(self, manager, embedding, encoderN, encoderU):
+    def __init__(self, manager, embedding):
         super().__init__(manager)
 
         self.embedding = embedding
-        self.encoderN = encoderN
-        self.encoderU = encoderU
         self.reducer = Truncating_Reducer(manager)
         self.bert = BERT_Encoder(manager)
-
-        self.newsUserProject = nn.Sequential(
-            nn.Linear(self.bert.hidden_dim, self.bert.hidden_dim),
-            nn.Tanh()
-        )
 
         if manager.debias:
             self.userBias = nn.Parameter(torch.randn(1,self.bert.hidden_dim))
@@ -44,7 +37,7 @@ class TTMS(BaseModel):
                 self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, self.signal_length * self.signal_length)), persistent=False)
 
 
-        manager.name = '__'.join(['xformers', manager.bert, manager.encoderN, manager.encoderU, manager.reducer, manager.granularity])
+        manager.name = '__'.join(['xformer', manager.bert, manager.encoderN, manager.encoderU, manager.reducer, manager.granularity])
         self.name = manager.name
 
 
@@ -118,16 +111,13 @@ class TTMS(BaseModel):
         _, cdd_news_repr = self.bert(
             self.embedding(cdd_news, cdd_subword_prefix), cdd_attn_mask
         )
-        cdd_news_repr = self.newsUserProject(cdd_news_repr)
 
         his_news = x["his_encoded_index"].to(self.device)
         his_news_embedding = self.embedding(his_news, his_subword_prefix)
 
         ps_terms, ps_term_mask, kid = self.reducer(None, his_news_embedding, None, None, his_attn_mask, None)
 
-        _, user_cls = self.bert(ps_terms, ps_term_mask, ps_term_input=True)
-
-        user_repr = self.newsUserProject(user_cls)
+        _, user_repr = self.bert(ps_terms, ps_term_mask, ps_term_input=True)
 
         if hasattr(self, 'userBias'):
             user_repr = user_repr + self.userBias
@@ -176,9 +166,8 @@ class TTMS(BaseModel):
         _, cdd_news_repr = self.bert(
             self.embedding(cdd_news, cdd_subword_prefix), cdd_attn_mask
         )
-        cdd_news_repr = self.newsUserProject(cdd_news_repr.squeeze(1))
 
-        return cdd_news_repr
+        return cdd_news_repr.squeeze(1)
 
 
     def predict_fast(self, x):
@@ -217,11 +206,9 @@ class TTMS(BaseModel):
         his_news = x["his_encoded_index"].to(self.device)
         his_news_embedding = self.embedding(his_news, his_subword_prefix)
 
-        ps_terms, ps_term_mask, kid = self.reducer(None, his_news_embedding, None, None, his_attn_mask, None)
+        ps_terms, ps_term_mask, _ = self.reducer(None, his_news_embedding, None, None, his_attn_mask, None)
 
-        _, user_cls = self.bert(ps_terms, ps_term_mask, ps_term_input=True)
-
-        user_repr = self.newsUserProject(user_cls)
+        _, user_repr = self.bert(ps_terms, ps_term_mask, ps_term_input=True)
 
         if hasattr(self, 'userBias'):
             user_repr = user_repr + self.userBias

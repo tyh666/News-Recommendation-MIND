@@ -10,7 +10,6 @@ def main(rank, manager):
     Args:
         rank: current process id
         world_size: total gpus
-        conig
     """
     manager.setup(rank)
     loaders = manager.prepare()
