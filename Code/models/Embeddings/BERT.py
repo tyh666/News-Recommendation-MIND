@@ -12,7 +12,7 @@ class BERT_Embedding(nn.Module):
         super().__init__()
         self.name = 'bert'
 
-        self.embedding_dim = 768
+        self.hidden_dim = manager.bert_dim
 
         bert = AutoModel.from_pretrained(
             manager.get_bert_for_load(),
@@ -21,7 +21,7 @@ class BERT_Embedding(nn.Module):
         self.bert_word_embedding = bert.embeddings.word_embeddings
 
         if manager.reducer == 'bow':
-            self.freq_embedding = nn.Embedding(manager.signal_length // 2, self.embedding_dim)
+            self.freq_embedding = nn.Embedding(manager.signal_length // 2, self.hidden_dim)
             nn.init.xavier_normal_(self.freq_embedding.weight)
 
     def forward(self, news_batch, subword_prefix=None):

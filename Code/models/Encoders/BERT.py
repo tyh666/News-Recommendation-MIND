@@ -40,8 +40,10 @@ class BERT_Encoder(nn.Module):
         self.bert = bert.encoder
         self.pooler = manager.pooler
         # project news representations into the same semantic space
-        self.projector = nn.Linear(manager.bert_dim, manager.bert_dim)
-        self.activation = manager.get_activation_func()
+        # self.projector = nn.Linear(manager.bert_dim, manager.bert_dim)
+        # self.activation = manager.get_activation_func()
+
+        self.projector = bert.pooler
 
         if manager.bert == 'deberta':
             self.extend_attn_mask = True
@@ -61,7 +63,8 @@ class BERT_Encoder(nn.Module):
             nn.init.xavier_normal_(self.query)
 
         try:
-            self.bert_pos_embedding = nn.Parameter(bert.embeddings.position_embeddings.weight)
+            # self.bert_pos_embedding = nn.Parameter(bert.embeddings.position_embeddings.weight)
+            self.bert_pos_embedding = nn.Embedding.from_pretrained(bert.embeddings.position_embeddings.weight, freeze=False)
         except:
             self.bert_pos_embedding = None
 
@@ -103,10 +106,11 @@ class BERT_Encoder(nn.Module):
             bert_input = bert_input + self.bert_token_type_embedding[0]
 
         if self.bert_pos_embedding is not None:
-            bert_input = bert_input + self.bert_pos_embedding[:bert_input.size(-2)]
+            pos_ids = torch.arange(signal_length, device=news_embedding.device)
+            bert_input = bert_input + self.bert_pos_embedding(pos_ids)
 
         bert_input = self.dropOut(self.layerNorm(bert_input))
-        
+
         if self.extend_attn_mask:
             ext_attn_mask = attn_mask
         else:
@@ -125,14 +129,15 @@ class BERT_Encoder(nn.Module):
             # [bs, sl/term_num+2, hd]
             bert_output = self.bert(bert_input, attention_mask=ext_attn_mask).last_hidden_state
 
-        if self.pooler == "cls":
-            news_repr = bert_output[:, 0].reshape(batch_size, -1, self.hidden_dim)
-        elif self.pooler == "attn":
-            news_repr = scaled_dp_attention(self.query, bert_output, bert_output, attn_mask=attn_mask.unsqueeze(1)).view(batch_size, -1, self.hidden_dim)
-        elif self.pooler == "avg":
-            news_repr = bert_output.mean(dim=-2).reshape(batch_size, -1, self.hidden_dim)
+        # if self.pooler == "cls":
+        #     news_repr = bert_output[:, 0].reshape(batch_size, -1, self.hidden_dim)
+        # elif self.pooler == "attn":
+        #     news_repr = scaled_dp_attention(self.query, bert_output, bert_output, attn_mask=attn_mask.unsqueeze(1)).view(batch_size, -1, self.hidden_dim)
+        # elif self.pooler == "avg":
+        #     news_repr = bert_output.mean(dim=-2).reshape(batch_size, -1, self.hidden_dim)
+        # news_repr = self.activation(self.projector(news_repr))
 
-        news_repr = self.activation(self.projector(news_repr))
+        news_repr = self.projector(bert_output).reshape(batch_size, -1, self.hidden_dim)
 
         news_encoded_embedding = bert_output.view(batch_size, -1, bert_input.size(-2), self.hidden_dim)
 

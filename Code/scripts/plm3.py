@@ -2,7 +2,7 @@ import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from utils.Manager import Manager
-from models.PLM import PLM2
+from models.PLM import PLM3
 
 def main(rank, manager):
     """ train/dev/test/tune the model (in distributed)
@@ -32,7 +32,7 @@ def main(rank, manager):
         from models.Encoders.RNN import LSTUR
         encoderU = LSTUR(manager)
 
-    plm = PLM2(manager, embedding, encoderU).to(rank)
+    plm = PLM3(manager, encoderU).to(rank)
 
     if manager.world_size > 1:
         plm = DDP(plm, device_ids=[rank], output_device=rank, find_unused_parameters=False)

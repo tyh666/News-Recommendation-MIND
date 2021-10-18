@@ -24,8 +24,8 @@ class Matching_Reducer(nn.Module):
 
         manager.term_num = manager.k * manager.his_size
 
-        # strip [CLS] and [SEP]
-        keep_k_modifier = torch.zeros(1, manager.signal_length - 2)
+        # strip [CLS]
+        keep_k_modifier = torch.zeros(1, manager.signal_length - 1)
         keep_k_modifier[:, :self.k] = 1
         self.register_buffer('keep_k_modifier', keep_k_modifier, persistent=False)
 
@@ -70,14 +70,14 @@ class Matching_Reducer(nn.Module):
         else:
             selection_query = user_repr.unsqueeze(-1)
 
-        news_selection_embedding = news_selection_embedding[:, :, 1:-1]
+        news_selection_embedding = news_selection_embedding[:, :, 1:]
 
-        news_embedding_text = news_embedding[:, :, 1:-1]
-        his_attn_mask = his_attn_mask[:, :, 1:-1]
+        news_embedding_text = news_embedding[:, :, 1:]
+        his_attn_mask = his_attn_mask[:, :, 1:]
 
         # [bs, hs, sl - 2]
         scores = F.normalize(news_selection_embedding, dim=-1).matmul(F.normalize(selection_query, dim=-2)).squeeze(-1)
-        pad_pos = ~((his_refined_mask[:, :, 1:-1] + self.keep_k_modifier).bool())
+        pad_pos = ~((his_refined_mask[:, :, 1:] + self.keep_k_modifier).bool())
 
         # mask the padded term
         scores = scores.masked_fill(pad_pos, -float('inf'))
@@ -161,8 +161,8 @@ class Identical_Reducer(nn.Module):
             kid: the index of personalized terms
         """
         # strip off [CLS] and [SEP]
-        ps_terms = news_embedding[:, :, 1:-1]
-        ps_term_mask = his_attn_mask[:, :, 1:-1]
+        ps_terms = news_embedding[:, :, 1:]
+        ps_term_mask = his_attn_mask[:, :, 1:]
 
         batch_size = ps_terms.size(0)
 
@@ -215,8 +215,6 @@ class Truncating_Reducer(nn.Module):
             self.order_embedding = nn.Parameter(torch.randn(manager.his_size, 1, manager.embedding_dim))
             nn.init.xavier_normal_(self.order_embedding)
 
-        self.register_buffer('kid', torch.arange(manager.k).unsqueeze(0).unsqueeze(0), persistent=False)
-
     def forward(self, news_selection_embedding, news_embedding, user_repr, news_repr, his_attn_mask, his_refined_mask=None, squeeze=True):
         """
         Extract words from news text according to the overall user interest
@@ -233,8 +231,8 @@ class Truncating_Reducer(nn.Module):
         """
         assert squeeze == True, "squeeze must be True for XFormer models"
         # strip off [CLS] and [SEP]
-        ps_terms = news_embedding[:, :, 1:-1]
-        ps_term_mask = his_attn_mask[:, :, 1:-1]
+        ps_terms = news_embedding[:, :, 1:]
+        ps_term_mask = his_attn_mask[:, :, 1:]
 
         batch_size = ps_terms.size(0)
 
@@ -256,4 +254,4 @@ class Truncating_Reducer(nn.Module):
             ps_terms = ps_terms.reshape(batch_size, -1, self.embedding_dim)
             ps_term_mask = ps_term_mask.reshape(batch_size, -1)
 
-        return ps_terms, ps_term_mask, self.kid.expand(batch_size, self.his_size, self.k)
+        return ps_terms, ps_term_mask, None
