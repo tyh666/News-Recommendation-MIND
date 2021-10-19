@@ -1,5 +1,7 @@
 import torch.nn as nn
 from transformers import AutoModel
+from models.UniLM.configuration_tnlrv3 import TuringNLRv3Config
+from models.UniLM.modeling import TuringNLRv3ForSequenceClassification, relative_position_bucket
 
 class BERT_Embedding(nn.Module):
     """
@@ -14,10 +16,17 @@ class BERT_Embedding(nn.Module):
 
         self.hidden_dim = manager.bert_dim
 
-        bert = AutoModel.from_pretrained(
-            manager.get_bert_for_load(),
-            cache_dir=manager.path + 'bert_cache/'
-        )
+        if manager.bert == 'unilm':
+            config = TuringNLRv3Config.from_pretrained(manager.unilm_config_path)
+            # config.pooler = None
+            bert = TuringNLRv3ForSequenceClassification.from_pretrained(manager.unilm_path, config=config).bert
+
+        else:
+            bert = AutoModel.from_pretrained(
+                manager.get_bert_for_load(),
+                cache_dir=manager.path + 'bert_cache/'
+            )
+            
         self.bert_word_embedding = bert.embeddings.word_embeddings
 
         if manager.reducer == 'bow':

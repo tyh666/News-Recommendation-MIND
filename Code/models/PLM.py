@@ -549,10 +549,10 @@ class PLM3(BaseModel):
 
         cdd_news = x["cdd_encoded_index"].to(self.device).view(-1, self.signal_length)
         cdd_news_embedding = self.bert_embeddings(cdd_news)
-        if cdd_news_embedding is tuple:
+        if type(cdd_news_embedding) is tuple:
+            position_ids = cdd_news_embedding[1]
             cdd_news_embedding = cdd_news_embedding[0]
         if hasattr(self, 'rel_pos_bias'):
-            position_ids = torch.arange(self.signal_length, dtype=torch.long, device=cdd_news_embedding.device).unsqueeze(0).expand(cdd_news.shape)
             rel_pos_mat = position_ids.unsqueeze(-2) - position_ids.unsqueeze(-1)
             rel_pos = relative_position_bucket(rel_pos_mat, num_buckets=self.rel_pos_bins, max_distance=self.max_rel_pos)
             rel_pos = F.one_hot(rel_pos, num_classes=self.rel_pos_bins).float()
@@ -565,11 +565,11 @@ class PLM3(BaseModel):
 
         his_news = x["his_encoded_index"].to(self.device).view(-1, self.signal_length)
         his_news_embedding = self.bert_embeddings(his_news)
-        if his_news_embedding is tuple:
+        if type(his_news_embedding) is tuple:
+            position_ids = his_news_embedding[1]
             his_news_embedding = his_news_embedding[0]
 
         if hasattr(self, 'rel_pos_bias'):
-            position_ids = torch.arange(self.signal_length, dtype=torch.long, device=his_news_embedding.device).unsqueeze(0).expand(his_news.shape)
             rel_pos_mat = position_ids.unsqueeze(-2) - position_ids.unsqueeze(-1)
             rel_pos = relative_position_bucket(rel_pos_mat, num_buckets=self.rel_pos_bins, max_distance=self.max_rel_pos)
             rel_pos = F.one_hot(rel_pos, num_classes=self.rel_pos_bins).float()

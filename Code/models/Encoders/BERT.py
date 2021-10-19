@@ -98,9 +98,12 @@ class BERT_Encoder(nn.Module):
         # concatenated ps_terms
         if ps_term_input:
             # add [CLS] and [SEP] to ps_terms
-            bert_input = torch.cat([self.bert_cls_embedding.expand(bs, 1, self.hidden_dim), bert_input, self.bert_sep_embedding.expand(bs, 1, self.hidden_dim)], dim=-2)
-            attn_mask = torch.cat([self.extra_attn_mask.expand(bs, 1), attn_mask, self.extra_attn_mask.expand(bs, 1)], dim=-1)
-            signal_length += 2
+            # bert_input = torch.cat([self.bert_cls_embedding.expand(bs, 1, self.hidden_dim), bert_input, self.bert_sep_embedding.expand(bs, 1, self.hidden_dim)], dim=-2)
+            # attn_mask = torch.cat([self.extra_attn_mask.expand(bs, 1), attn_mask, self.extra_attn_mask.expand(bs, 1)], dim=-1)
+            # signal_length += 2
+            bert_input = torch.cat([self.bert_cls_embedding.expand(bs, 1, self.hidden_dim), bert_input], dim=-2)
+            attn_mask = torch.cat([self.extra_attn_mask.expand(bs, 1), attn_mask], dim=-1)
+            signal_length += 1
 
         if self.bert_token_type_embedding is not None:
             bert_input = bert_input + self.bert_token_type_embedding[0]
@@ -115,7 +118,7 @@ class BERT_Encoder(nn.Module):
             ext_attn_mask = attn_mask
         else:
             ext_attn_mask = (1.0 - attn_mask) * -10000.0
-            ext_attn_mask = attn_mask.view(bs, 1, 1, -1)
+            ext_attn_mask = ext_attn_mask.view(bs, 1, 1, -1)
 
         if hasattr(self, 'rel_pos_bias'):
             position_ids = torch.arange(signal_length, dtype=torch.long, device=bert_input.device).unsqueeze(0).expand(bs, signal_length)
