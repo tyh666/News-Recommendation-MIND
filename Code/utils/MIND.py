@@ -490,7 +490,7 @@ class MIND(Dataset):
             self.encoded_news_original = self.encoded_news_original
             self.attn_mask_original = self.attn_mask_original
             # [CLS] and [SEP]
-            if hasattr(self, 'subwords'):
+            if self.subwords is not None:
                 self.subwords = self.subwords[:, :self.k + 1]
 
         elif self.reducer == "bow":

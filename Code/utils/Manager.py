@@ -978,6 +978,12 @@ class Manager():
         return special_token_map[self.bert][token]
 
 
+    def get_need_encode_reducers(self):
+        """
+        get reducers that need selection encoder
+        """
+        return ['matching', 'bow']
+
     def get_user_num(self):
         user_num_map = {
             "demo": 2146,

@@ -18,8 +18,10 @@ class TESRec(BaseModel):
         super().__init__(manager)
 
         self.embedding = embedding
-        self.encoderN = encoderN
-        self.encoderU = encoderU
+        # only these reducers need selection encoding
+        if manager.reducer in manager.get_need_encode_reducers():
+            self.encoderN = encoderN
+            self.encoderU = encoderU
         self.reducer = reducer
         self.aggregator = aggregator
         self.bert = BERT_Encoder(manager)
@@ -122,9 +124,14 @@ class TESRec(BaseModel):
         his_news = x["his_encoded_index"].to(self.device)
 
         his_news_embedding = self.embedding(his_news, his_subword_prefix)
-        his_news_encoded_embedding, his_news_repr = self.encoderN(
-            his_news_embedding, his_attn_mask
-        )
+        if self.encoderN is not None:
+            his_news_encoded_embedding, his_news_repr = self.encoderN(
+                his_news_embedding, his_attn_mask
+            )
+        else:
+            his_news_encoded_embedding = None
+            his_news_repr = None
+
         # no need to calculate this if ps_terms are fixed in advance
         if self.reducer.name == 'matching':
             user_repr = self.encoderU(his_news_repr, his_mask=x['his_mask'].to(self.device), user_index=x["user_id"].to(self.device))
@@ -227,9 +234,13 @@ class TESRec(BaseModel):
 
         his_news = x["his_encoded_index"].to(self.device)
         his_news_embedding = self.embedding(his_news, his_subword_prefix)
-        his_news_encoded_embedding, his_news_repr = self.encoderN(
-            his_news_embedding, his_attn_mask
-        )
+        if self.encoderN is not None:
+            his_news_encoded_embedding, his_news_repr = self.encoderN(
+                his_news_embedding, his_attn_mask
+            )
+        else:
+            his_news_encoded_embedding = None
+            his_news_repr = None
         # no need to calculate this if ps_terms are fixed in advance
         if self.reducer.name == 'matching':
             user_repr = self.encoderU(his_news_repr, his_mask=x['his_mask'].to(self.device), user_index=x['user_id'].to(self.device))
