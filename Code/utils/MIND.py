@@ -484,13 +484,14 @@ class MIND(Dataset):
 
         elif self.reducer in ["bm25", "entity", "first"]:
             # [CLS] and [SEP], actually, [SEP] is virtual
-            self.encoded_news = self.encoded_news[:, :self.k + 2]
-            self.attn_mask = self.attn_mask[:, :self.k + 2]
+            self.encoded_news = self.encoded_news[:, :self.k + 1]
+            self.attn_mask = self.attn_mask[:, :self.k + 1]
             # truncate the original text tokens
             self.encoded_news_original = self.encoded_news_original
             self.attn_mask_original = self.attn_mask_original
             # [CLS] and [SEP]
-            self.subwords = self.subwords[:, :self.k + 2]
+            if hasattr(self, 'subwords'):
+                self.subwords = self.subwords[:, :self.k + 1]
 
         elif self.reducer == "bow":
             refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)

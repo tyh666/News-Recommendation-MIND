@@ -45,10 +45,8 @@ class BERT_Encoder(nn.Module):
 
         # self.projector = bert.pooler
 
-        if manager.bert == 'deberta':
-            self.extend_attn_mask = True
-        else:
-            self.extend_attn_mask = False
+        # if deberta, don't extend attention masks
+        self.extend_attn_mask = manager.bert != 'deberta'
 
         word_embedding = bert.embeddings.word_embeddings
         self.layerNorm = bert.embeddings.LayerNorm
@@ -56,7 +54,7 @@ class BERT_Encoder(nn.Module):
 
         if manager.reducer != 'none':
             self.bert_cls_embedding = nn.Parameter(word_embedding.weight[manager.get_special_token_id('[CLS]')].view(1,1,self.hidden_dim))
-            self.bert_sep_embedding = nn.Parameter(word_embedding.weight[manager.get_special_token_id('[SEP]')].view(1,1,self.hidden_dim))
+            # self.bert_sep_embedding = nn.Parameter(word_embedding.weight[manager.get_special_token_id('[SEP]')].view(1,1,self.hidden_dim))
 
         if manager.pooler == 'attn':
             self.query = nn.Parameter(torch.randn(1, self.hidden_dim))
@@ -119,10 +117,10 @@ class BERT_Encoder(nn.Module):
         bert_input = self.dropOut(self.layerNorm(bert_input))
 
         if self.extend_attn_mask:
-            ext_attn_mask = attn_mask
-        else:
             ext_attn_mask = (1.0 - attn_mask) * -10000.0
             ext_attn_mask = ext_attn_mask.view(bs, 1, 1, -1)
+        else:
+            ext_attn_mask = attn_mask
 
         if hasattr(self, 'rel_pos_bias'):
             position_ids = torch.arange(signal_length, dtype=torch.long, device=bert_input.device).unsqueeze(0).expand(bs, signal_length)
