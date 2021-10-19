@@ -124,7 +124,7 @@ class TESRec(BaseModel):
         his_news = x["his_encoded_index"].to(self.device)
 
         his_news_embedding = self.embedding(his_news, his_subword_prefix)
-        if self.encoderN is not None:
+        if hasattr(self, 'encoderN'):
             his_news_encoded_embedding, his_news_repr = self.encoderN(
                 his_news_embedding, his_attn_mask
             )
@@ -234,7 +234,7 @@ class TESRec(BaseModel):
 
         his_news = x["his_encoded_index"].to(self.device)
         his_news_embedding = self.embedding(his_news, his_subword_prefix)
-        if self.encoderN is not None:
+        if hasattr(self, 'encoderN'):
             his_news_encoded_embedding, his_news_repr = self.encoderN(
                 his_news_embedding, his_attn_mask
             )
