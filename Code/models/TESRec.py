@@ -24,11 +24,6 @@ class TESRec(BaseModel):
         self.aggregator = aggregator
         self.bert = BERT_Encoder(manager)
 
-        # self.newsUserProject = nn.Sequential(
-        #     nn.Linear(self.bert.hidden_dim, self.bert.hidden_dim),
-        #     nn.Tanh()
-        # )
-
         if manager.debias:
             self.userBias = nn.Parameter(torch.randn(1,self.bert.hidden_dim))
             nn.init.xavier_normal_(self.userBias)
