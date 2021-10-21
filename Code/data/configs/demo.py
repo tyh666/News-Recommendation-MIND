@@ -32,8 +32,9 @@ class config:
     reducer = 'matching'
     ranker = 'onepass'
     pooler = "attn"
+    aggregator = None
 
-    embedding_dim = 768
+    bert_dim = 768
     hidden_dim = 384
     head_num = 12
 
@@ -44,7 +45,7 @@ class config:
     seed = 42
     interval = 10
 
-    granularity = 'avg'
+    granularity = 'token'
     debias = True
     full_attn = True
     descend_history = False
