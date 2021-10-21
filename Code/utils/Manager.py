@@ -517,8 +517,6 @@ class Manager():
 
         # encode and save news representations only on the master node
         if self.rank in [-1, 0]:
-            cache_directory = "data/cache/{}/{}/dev/".format(self.name, self.scale)
-            os.makedirs(cache_directory, exist_ok=True)
             logger.info("fast evaluate, encoding news...")
 
             model.init_encoding()
@@ -776,9 +774,7 @@ class Manager():
         if self.world_size > 1:
             model = model.module
 
-        cache_directory = "data/cache/{}/{}/test/".format(self.name, self.scale)
         if self.rank in [-1, 0]:
-            os.makedirs(cache_directory, exist_ok=True)
             logger.info("encoding news...")
 
             model.init_encoding()
