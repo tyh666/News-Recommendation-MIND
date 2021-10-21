@@ -517,6 +517,8 @@ class Manager():
 
         # encode and save news representations only on the master node
         if self.rank in [-1, 0]:
+            cache_directory = "data/cache/{}/{}/dev/".format(self.name, self.scale)
+            os.makedirs(cache_directory, exist_ok=True)
             logger.info("fast evaluate, encoding news...")
 
             model.init_encoding()
@@ -526,7 +528,7 @@ class Manager():
                 news_repr = model.encode_news(x)
                 news_reprs[x['cdd_id']] = news_repr
 
-            # must save in case other process load it
+            # must save for other processes to load
             torch.save(news_reprs, cache_directory + "news.pt")
             del news_reprs
             model.destroy_encoding()
@@ -534,7 +536,7 @@ class Manager():
         if self.world_size > 1:
             dist.barrier()
 
-        model.init_embedding(news_reprs)
+        model.init_embedding()
         impr_indexes = []
         labels = []
         preds = []
@@ -778,6 +780,8 @@ class Manager():
             model = model.module
 
         if self.rank in [-1, 0]:
+            cache_directory = "data/cache/{}/{}/test/".format(self.name, self.scale)
+            os.makedirs(cache_directory, exist_ok=True)
             logger.info("encoding news...")
 
             model.init_encoding()
@@ -787,13 +791,15 @@ class Manager():
                 news_repr = model.encode_news(x)
                 news_reprs[x['cdd_id']] = news_repr
 
+            torch.save(news_reprs, cache_directory + "news.pt")
+            del news_reprs
             model.destroy_encoding()
             logger.info("inferring...")
 
         if self.world_size > 1:
             dist.barrier()
 
-        model.init_embedding(news_reprs)
+        model.init_embedding()
         impr_indexes = []
         preds = []
         for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
