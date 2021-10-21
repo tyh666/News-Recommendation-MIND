@@ -56,11 +56,10 @@ cd /data/v-pezhang/Code/Document-Reduction/Code
 python -m scripts.esm -m train -s large -ws=2
 python -m scripts.ttm -m train -s large -red=none -ws=2
 python -m scripts.tesrec -m train -s large -ws=2
-python -m scripts.plm -m train -s large -red=none -ws=2
+python -m scripts.plm -m train -s large -ws=2 -st=20000 -bs=8
 
 python -m scripts.esm -m train -s demo -bs=5 -is=10 -d=1
-python -m scripts.ttm -m train -s demo -bs=5 -is=10 -red=none -d=2
-python -m scripts.plm -m train -s demo -bs=5 -is=10 -red=none -d=2
+python -m scripts.plm -m train -s demo -bs=5 -is=10 -d=2 -sl=30
 python -m scripts.tesrec -m train -s demo -bs=5 -is=10
 python -m scripts.sfi -m train -s demo -k=5 -is=10 -sl=20 -bs=10 --no_dedup
 
