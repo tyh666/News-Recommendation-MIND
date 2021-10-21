@@ -528,6 +528,7 @@ class Manager():
                 news_repr = model.encode_news(x)
                 news_reprs[x['cdd_id']] = news_repr
 
+            # must save in case other process load it
             torch.save(news_reprs, cache_directory + "news.pt")
             del news_reprs
             model.destroy_encoding()
