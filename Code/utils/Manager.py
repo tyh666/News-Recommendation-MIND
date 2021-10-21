@@ -528,14 +528,12 @@ class Manager():
                 news_repr = model.encode_news(x)
                 news_reprs[x['cdd_id']] = news_repr
 
-            torch.save(news_reprs, cache_directory + "news.pt")
-            del news_reprs
             model.destroy_encoding()
 
         if self.world_size > 1:
             dist.barrier()
 
-        model.init_embedding()
+        model.init_embedding(news_reprs)
         impr_indexes = []
         labels = []
         preds = []
@@ -790,15 +788,13 @@ class Manager():
                 news_repr = model.encode_news(x)
                 news_reprs[x['cdd_id']] = news_repr
 
-            torch.save(news_reprs, cache_directory + "news.pt")
-            del news_reprs
             model.destroy_encoding()
             logger.info("inferring...")
 
         if self.world_size > 1:
             dist.barrier()
 
-        model.init_embedding()
+        model.init_embedding(news_reprs)
         impr_indexes = []
         preds = []
         for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
