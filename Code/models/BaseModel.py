@@ -32,12 +32,12 @@ class BaseModel(nn.Module):
         self.encoding = True
 
 
-    def init_embedding(self):
+    def init_embedding(self, news_reprs):
         """
         prepare for fast inferring
         """
         self.cache_directory = "data/cache/{}/{}/{}/".format(self.name, self.scale, self.mode)
-        self.news_reprs = nn.Embedding.from_pretrained(torch.load(self.cache_directory + "news.pt", map_location=torch.device(self.device)))
+        self.news_reprs = nn.Embedding.from_pretrained(news_reprs)
 
 
     def destroy_encoding(self):
