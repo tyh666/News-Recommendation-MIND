@@ -92,7 +92,7 @@ class Manager():
             parser.add_argument("--save_pos", dest="save_pos", help="whether to save token positions", action="store_true", default=False)
             parser.add_argument("--sep_his", dest="sep_his", help="whether to separate personalized terms from different news with an extra token", action="store_true", default=False)
             parser.add_argument("--full_attn", dest="full_attn", help="whether to interact among personalized terms (only in one-pass bert models)", action="store_true", default=False)
-            parser.add_argument("--debias", dest="debias", help="whether to add a learnable bias to each candidate news's score", default=True)
+            parser.add_argument("--debias", dest="debias", help="whether to add a learnable bias to each candidate news's score", action='store_true', default=False)
             parser.add_argument("--no_dedup", dest="no_dedup", help="whether to deduplicate tokens", action="store_true", default=False)
             parser.add_argument("--no_rm_punc", dest="no_rm_punc", help="whether to mask punctuations when selecting", action="store_true", default=False)
             parser.add_argument("--no_order_embed", dest="no_order_embed", help="whether to add an extra embedding to ps terms from the same historical news", action="store_true", default=False)
