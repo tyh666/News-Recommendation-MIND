@@ -42,9 +42,9 @@ class Matching_Reducer(nn.Module):
             self.sep_embedding = nn.Parameter(torch.randn(1, 1, self.embedding_dim))
             self.register_buffer('extra_sep_mask', torch.ones(1, 1, 1), persistent=False)
 
-        if not manager.no_order_embed:
-            self.order_embedding = nn.Parameter(torch.randn(manager.his_size, 1, manager.embedding_dim))
-            nn.init.xavier_normal_(self.order_embedding)
+        if manager.segment_embed:
+            self.segment_embedding = nn.Parameter(torch.randn(manager.his_size, 1, manager.embedding_dim))
+            nn.init.xavier_normal_(self.segment_embedding)
 
 
     def forward(self, news_selection_embedding, news_embedding, user_repr, news_repr, his_attn_mask, his_refined_mask):
@@ -97,7 +97,7 @@ class Matching_Reducer(nn.Module):
             ps_terms = ps_terms * (F.softmax(score_k, dim=-1).unsqueeze(-1))
 
         if hasattr(self, 'order_embedding'):
-            ps_terms += self.order_embedding
+            ps_terms += self.segment_embedding
 
         # flatten the selected terms into one dimension
         if self.flatten:
@@ -140,9 +140,9 @@ class Identical_Reducer(nn.Module):
             self.sep_embedding = nn.Parameter(torch.randn(1, 1, self.embedding_dim))
             self.register_buffer('extra_sep_mask', torch.ones(1, 1, 1), persistent=False)
 
-        if not manager.no_order_embed:
-            self.order_embedding = nn.Parameter(torch.randn(manager.his_size, 1, manager.embedding_dim))
-            nn.init.xavier_normal_(self.order_embedding)
+        if manager.segment_embed:
+            self.segment_embedding = nn.Parameter(torch.randn(manager.his_size, 1, manager.embedding_dim))
+            nn.init.xavier_normal_(self.segment_embedding)
 
         self.register_buffer('kid', torch.arange(manager.k).unsqueeze(0).unsqueeze(0), persistent=False)
 
@@ -167,7 +167,7 @@ class Identical_Reducer(nn.Module):
         batch_size = ps_terms.size(0)
 
         if hasattr(self, 'order_embedding'):
-            ps_terms += self.order_embedding
+            ps_terms += self.segment_embedding
 
         # flatten the selected terms into one dimension
         if self.flatten:
@@ -211,9 +211,9 @@ class Truncating_Reducer(nn.Module):
             self.sep_embedding = nn.Parameter(torch.randn(1, 1, self.embedding_dim))
             self.register_buffer('extra_sep_mask', torch.ones(1, 1, 1), persistent=False)
 
-        if not manager.no_order_embed:
-            self.order_embedding = nn.Parameter(torch.randn(manager.his_size, 1, manager.embedding_dim))
-            nn.init.xavier_normal_(self.order_embedding)
+        if manager.segment_embed:
+            self.segment_embedding = nn.Parameter(torch.randn(manager.his_size, 1, manager.embedding_dim))
+            nn.init.xavier_normal_(self.segment_embedding)
 
     def forward(self, news_selection_embedding, news_embedding, user_repr, news_repr, his_attn_mask, his_refined_mask=None, squeeze=True):
         """
@@ -240,7 +240,7 @@ class Truncating_Reducer(nn.Module):
         ps_term_mask = ps_term_mask.reshape(batch_size, -1)[:, :self.max_length]
 
         if hasattr(self, 'order_embedding'):
-            ps_terms += self.order_embedding
+            ps_terms += self.segment_embedding
 
         if self.sep_his:
             # [bs, hs, ed]

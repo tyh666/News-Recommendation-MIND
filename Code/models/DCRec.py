@@ -1,21 +1,21 @@
-# Two tower baseline
+# Two tower baseline with one-tower enhancement
 import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from .BaseModel import BaseModel
 from .Encoders.BERT import BERT_Encoder
+from .Rankers.BERT import BERT_Onelayer_Ranker
 
-class TESRec(BaseModel):
+class DCRec(BaseModel):
     """
-    Tow tower model with selection
-
     1. encode candidate news with bert
     2. encode ps terms with the same bert, using [CLS] embedding as user representation
     3. predict by scaled dot product
     """
-    def __init__(self, manager, embedding, encoderN, encoderU, reducer, aggregator=None):
+    def __init__(self, manager, embedding, encoderN, encoderU, reducer):
         super().__init__(manager)
+        self.hidden_dim = manager.bert_dim
 
         self.embedding = embedding
         # only these reducers need selection encoding
@@ -23,14 +23,19 @@ class TESRec(BaseModel):
             self.encoderN = encoderN
             self.encoderU = encoderU
         self.reducer = reducer
-        self.aggregator = aggregator
         self.bert = BERT_Encoder(manager)
+        self.ranker = BERT_Onelayer_Ranker(manager)
 
+        self.learning2Rank = nn.Sequential(
+            # + 1 because an extra repr matching signal
+            nn.Linear(self.hidden_dim + 1, self.hidden_dim // 2),
+            nn.ReLU(),
+            nn.Linear(self.hidden_dim // 2, 1)
+        )
         if manager.debias:
             self.userBias = nn.Parameter(torch.randn(1,self.bert.hidden_dim))
             nn.init.xavier_normal_(self.userBias)
 
-        self.hidden_dim = manager.bert_dim
 
         self.granularity = manager.granularity
         if self.granularity != 'token':
@@ -41,15 +46,12 @@ class TESRec(BaseModel):
                 self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, self.signal_length * self.signal_length)), persistent=False)
 
 
-        if aggregator is not None:
-            manager.name = '__'.join(['tesrec', manager.bert, manager.encoderN, manager.encoderU, manager.reducer, manager.aggregator, manager.granularity])
-        else:
-            manager.name = '__'.join(['tesrec', manager.bert, manager.encoderN, manager.encoderU, manager.reducer, manager.granularity])
+        manager.name = '__'.join(['dcrec', manager.bert, manager.encoderN, manager.encoderU, manager.reducer, manager.granularity])
 
         self.name = manager.name
 
 
-    def clickPredictor(self, cdd_news_repr, user_repr):
+    def clickPredictor(self, cdd_news_repr, user_repr, reduced_vec):
         """ calculate batch of click probabolity
 
         Args:
@@ -59,15 +61,16 @@ class TESRec(BaseModel):
         Returns:
             score of each candidate news, [batch_size, cdd_size]
         """
-        score = cdd_news_repr.matmul(user_repr.transpose(-2,-1)).squeeze(-1)/math.sqrt(cdd_news_repr.size(-1))
+        fused_vec = torch.cat([cdd_news_repr.matmul(user_repr.transpose(-2,-1))/math.sqrt(cdd_news_repr.size(-1)), reduced_vec], dim=-1)
+        score = self.learning2Rank(fused_vec).squeeze(-1)
         return score
 
 
     def _forward(self,x):
         # destroy encoding and embedding outside of the model
 
+        batch_size = x['cdd_encoded_index'].size(0)
         if self.granularity != 'token':
-            batch_size = x['cdd_subword_index'].size(0)
             cdd_size = x['cdd_subword_index'].size(1)
 
             if self.training:
@@ -116,13 +119,12 @@ class TESRec(BaseModel):
                 his_refined_mask = x["his_refined_mask"].to(self.device)
 
         cdd_news = x["cdd_encoded_index"].to(self.device)
-        _, cdd_news_repr, _ = self.bert(
+        cdd_news_embedding, cdd_news_repr, cdd_attn_mask = self.bert(
             self.embedding(cdd_news, cdd_subword_prefix), cdd_attn_mask
         )
         # cdd_news_repr = self.newsUserProject(cdd_news_repr)
 
         his_news = x["his_encoded_index"].to(self.device)
-
         his_news_embedding = self.embedding(his_news, his_subword_prefix)
         if hasattr(self, 'encoderN'):
             his_news_encoded_embedding, his_news_repr = self.encoderN(
@@ -140,17 +142,14 @@ class TESRec(BaseModel):
 
         ps_terms, ps_term_mask, kid = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, his_attn_mask, his_refined_mask)
 
-        _, user_repr, _ = self.bert(ps_terms, ps_term_mask, ps_term_input=True)
+        ps_terms, user_repr, ps_term_mask = self.bert(ps_terms, ps_term_mask, ps_term_input=True)
 
-        # user_repr = self.newsUserProject(user_repr)
-
-        if self.aggregator is not None:
-            user_repr = self.aggregator(user_repr)
+        reduced_vec = self.ranker(cdd_news_embedding, ps_terms.squeeze(1), cdd_attn_mask, ps_term_mask)
 
         if hasattr(self, 'userBias'):
             user_repr = user_repr + self.userBias
 
-        return self.clickPredictor(cdd_news_repr, user_repr), kid
+        return self.clickPredictor(cdd_news_repr, user_repr, reduced_vec), kid
 
 
     def forward(self,x):

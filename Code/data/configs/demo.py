@@ -54,7 +54,7 @@ class config:
     sep_his = False
     diversify = False
     no_dedup = False
-    no_order_embed = False
+    segment_embed = False
     no_rm_punc = False
 
     fast = False

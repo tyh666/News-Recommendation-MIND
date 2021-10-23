@@ -2,7 +2,7 @@ import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from utils.Manager import Manager
-from models.TESRec import TESRec
+from models.DCRec import DCRec
 
 def main(rank, manager):
     """ train/dev/test/tune the model (in distributed)
@@ -27,7 +27,7 @@ def main(rank, manager):
         from models.Encoders.MHA import MHA_Encoder
         encoderN = MHA_Encoder(manager)
 
-    if manager.encoderU in ['lstm', 'gru']:
+    if manager.encoderU == 'rnn':
         from models.Encoders.RNN import RNN_User_Encoder
         encoderU = RNN_User_Encoder(manager)
     elif manager.encoderU == 'avg':
@@ -50,37 +50,22 @@ def main(rank, manager):
         from models.Modules.DRM import Identical_Reducer
         reducer = Identical_Reducer(manager)
 
-    if manager.aggregator == 'rnn':
-        manager.hidden_dim = 768
-        from models.Encoders.RNN import RNN_User_Encoder
-        aggregator = RNN_User_Encoder(manager)
-    elif manager.aggregator == 'avg':
-        manager.hidden_dim = 768
-        from models.Encoders.Pooling import Average_Pooling
-        aggregator = Average_Pooling(manager)
-    elif manager.aggregator == 'attn':
-        manager.hidden_dim = 768
-        from models.Encoders.Pooling import Attention_Pooling
-        aggregator = Attention_Pooling(manager)
-    else:
-        aggregator = None
-
-    tesrec = TESRec(manager, embedding, encoderN, encoderU, reducer, aggregator).to(rank)
+    dcrec = DCRec(manager, embedding, encoderN, encoderU, reducer).to(rank)
 
     if manager.world_size > 1:
-        tesrec = DDP(tesrec, device_ids=[rank], output_device=rank, find_unused_parameters=False)
+        dcrec = DDP(dcrec, device_ids=[rank], output_device=rank, find_unused_parameters=False)
 
     if manager.mode == 'dev':
-            manager.evaluate(tesrec, loaders, load=True)
+            manager.evaluate(dcrec, loaders, load=True)
 
     elif manager.mode == 'train':
-        manager.train(tesrec, loaders)
+        manager.train(dcrec, loaders)
 
     elif manager.mode == 'test':
-        manager.test(tesrec, loaders)
+        manager.test(dcrec, loaders)
 
     elif manager.mode == 'inspect':
-        manager.inspect(tesrec, loaders)
+        manager.inspect(dcrec, loaders)
 
 
 if __name__ == "__main__":

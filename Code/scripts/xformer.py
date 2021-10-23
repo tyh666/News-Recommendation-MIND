@@ -38,7 +38,6 @@ def main(rank, manager):
 if __name__ == "__main__":
     manager = Manager()
     manager.hidden_dim = 768
-    manager.no_order_embed = True
     manager.pooler = 'cls'
 
     if manager.world_size > 1:

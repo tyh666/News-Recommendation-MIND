@@ -193,78 +193,55 @@ class BERT_Onelayer_Ranker(nn.Module):
         cdd1 [SEP] his1 [SEP] his2 ...
     """
     def __init__(self, manager):
-        from transformers import BertLayer
+        from .Modules.OneLayerBert import BertLayer
         super().__init__()
 
-
-        self.k = manager.k
-        self.signal_length = manager.signal_length
         self.hidden_dim = manager.bert_dim
+        self.signal_length = manager.signal_length
+
+        self.bert = BertLayer(BertConfig())
+        self.pooler = manager.pooler
+        # project news representations into the same semantic space
+        self.projector = nn.Linear(manager.bert_dim, manager.bert_dim)
+        self.activation = manager.get_activation_func()
+
+        if manager.pooler == 'attn':
+            self.query = nn.Parameter(torch.randn(1, self.hidden_dim))
+            nn.init.xavier_normal_(self.query)
+
+        self.extend_attn_mask = manager.bert != 'deberta'
 
 
-        self.bert = bert.encoder
-        self.bert_pooler = nn.Sequential(
-            nn.Linear(self.hidden_dim, self.hidden_dim),
-            nn.Tanh()
-        )
-        nn.init.xavier_normal_(self.bert_pooler[0].weight)
-
-        # [2, embedding_ldim]
-        self.bert_token_type_embedding = nn.Parameter(bert.embeddings.token_type_embeddings.weight)
-        # [SEP] token
-        word_embedding = bert.embeddings.word_embeddings
-        self.bert_sep_embedding = nn.Parameter(word_embedding.weight[manager.get_special_token_id('[SEP]')].view(1,1,self.hidden_dim))
-        self.bert_pos_embedding = nn.Parameter(bert.embeddings.position_embeddings.weight)
-
-        self.register_buffer('extra_sep_mask', torch.zeros(1, 1), persistent=False)
-
-
-    def forward(self, cdd_news_embedding, his_seq, cdd_attn_mask, his_seq_attn_mask):
+    def forward(self, cdd_news_embedding, ps_terms, cdd_attn_mask, ps_term_mask):
         """
         calculate interaction tensor and reduce it to a vector
 
         Args:
             cdd_news_embedding: word-level representation of candidate news, [batch_size, cdd_size, signal_length, hidden_dim]
-            his_seq: personalized terms, [batch_size, (cdd_size, k, signal_length)/(term_num), hidden_dim]
+            ps_terms: personalized terms, [batch_size, (cdd_size, k, signal_length)/(term_num), hidden_dim]
             cdd_attn_mask: attention mask of the candidate news, [batch_size, cdd_size, signal_length]
-            his_seq_attn_mask: attention mask of the history sequence, [batch_size, (cdd_size, k, signal_length)/term_num]
+            ps_term_mask: attention mask of the history sequence, [batch_size, (cdd_size, k, signal_length)/term_num]
 
         Returns:
             reduced_tensor: output tensor after CNN2d, [batch_size, cdd_size, final_dim]
         """
         batch_size = cdd_news_embedding.size(0)
         cdd_size = cdd_news_embedding.size(1)
-        bs = batch_size * cdd_size
 
-        # [batch_size, term_num, hidden_dim]
-        if his_seq.dim() == 3:
-            his_seq = torch.cat([his_seq, self.bert_sep_embedding.expand(batch_size, 1, self.hidden_dim)], dim=-2)
-            his_seq += self.bert_token_type_embedding[1]
-            his_seq += self.bert_pos_embedding[self.signal_length: self.signal_length + his_seq.size(1)]
+        cdd_news_embedding = cdd_news_embedding.view(-1, self.signal_length, self.hidden_dim)
+        ps_terms = ps_terms.repeat_interleave(repeats=cdd_size, dim=0)
+        ps_term_mask = ps_term_mask.repeat_interleave(repeats=cdd_size, dim=0)
 
-            his_seq = his_seq.unsqueeze(1).expand(batch_size, cdd_size, -1, self.hidden_dim).reshape(bs, -1, self.hidden_dim)
-            his_seq_attn_mask = torch.cat([his_seq_attn_mask, self.extra_sep_mask.expand(batch_size, 1)], dim=-1)
-            his_seq_attn_mask = his_seq_attn_mask.unsqueeze(-2).expand(batch_size, cdd_size, -1).reshape(bs, -1)
+        bert_input = torch.cat([ps_terms, cdd_news_embedding], dim=1)
+        attn_mask = torch.cat([ps_term_mask, cdd_attn_mask], dim=-1)
 
-        elif his_seq.dim() == 5:
-            his_seq = his_seq.reshape(bs, -1, self.hidden_dim)
-            his_seq += self.bert_token_type_embedding[1]
+        bert_output = self.bert(bert_input, attn_mask)[0]
+        if self.pooler == "cls":
+            reduced_vec = bert_output[:, 0].reshape(batch_size, -1, self.hidden_dim)
+        elif self.pooler == "attn":
+            reduced_vec = scaled_dp_attention(self.query, bert_output, bert_output, attn_mask=attn_mask.squeeze(1)).view(batch_size, -1, self.hidden_dim)
+        elif self.pooler == "avg":
+            reduced_vec = bert_output.mean(dim=-2).reshape(batch_size, -1, self.hidden_dim)
+        reduced_vec = self.activation(self.projector(reduced_vec))
 
-            his_seq_attn_mask = his_seq_attn_mask.reshape(bs, -1)
-
-        else:
-            raise ValueError("False input his_seq of size {}".format(his_seq.size()))
-
-        # [bs, cs*sl, hd]
-        cdd_news_embedding = (cdd_news_embedding + self.bert_token_type_embedding[0] + self.bert_pos_embedding[:self.signal_length]).view(bs, self.signal_length, self.hidden_dim)
-
-        bert_input = torch.cat([cdd_news_embedding, his_seq], dim=-2)
-
-        # [bs, cs*sl]
-        attn_mask = torch.cat([cdd_attn_mask.view(bs, -1), his_seq_attn_mask], dim=-1)
-        attn_mask = ((1.0 - attn_mask) * -10000.0).view(bs, 1, 1, -1)
-
-        bert_output = self.bert(bert_input, attention_mask=attn_mask).last_hidden_state[:, 0].view(batch_size, cdd_size, self.hidden_dim)
-        bert_output = self.bert_pooler(bert_output)
-
-        return bert_output
+        return reduced_vec

@@ -147,4 +147,4 @@ class BERT_Encoder(nn.Module):
 
         news_encoded_embedding = bert_output.view(batch_size, -1, bert_input.size(-2), self.hidden_dim)
 
-        return news_encoded_embedding, news_repr
+        return news_encoded_embedding, news_repr, ext_attn_mask
