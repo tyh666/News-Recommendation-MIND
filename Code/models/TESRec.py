@@ -119,10 +119,8 @@ class TESRec(BaseModel):
         _, cdd_news_repr, _ = self.bert(
             self.embedding(cdd_news, cdd_subword_prefix), cdd_attn_mask
         )
-        # cdd_news_repr = self.newsUserProject(cdd_news_repr)
 
         his_news = x["his_encoded_index"].to(self.device)
-
         his_news_embedding = self.embedding(his_news, his_subword_prefix)
         if hasattr(self, 'encoderN'):
             his_news_encoded_embedding, his_news_repr = self.encoderN(
@@ -191,10 +189,9 @@ class TESRec(BaseModel):
             cdd_attn_mask = x['cdd_attn_mask'].to(self.device)
 
         cdd_news = x["cdd_encoded_index"].to(self.device)
-        _, cdd_news_repr = self.bert(
+        _, cdd_news_repr, _ = self.bert(
             self.embedding(cdd_news, cdd_subword_prefix), cdd_attn_mask
         )
-        # cdd_news_repr = self.newsUserProject(cdd_news_repr.squeeze(1))
 
         return cdd_news_repr.squeeze(1)
 
@@ -249,11 +246,11 @@ class TESRec(BaseModel):
 
         ps_terms, ps_term_mask, _ = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr, his_news_repr, his_attn_mask, his_refined_mask)
 
-        _, user_repr = self.bert(ps_terms, ps_term_mask, ps_term_input=True)
+        _, user_repr, _ = self.bert(ps_terms, ps_term_mask, ps_term_input=True)
 
         if self.aggregator is not None:
             user_repr = self.aggregator(user_repr)
-        # user_repr = self.newsUserProject(user_cls)
+
         if hasattr(self, 'userBias'):
             user_repr = user_repr + self.userBias
 
