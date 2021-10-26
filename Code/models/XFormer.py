@@ -25,10 +25,10 @@ class XFormer(BaseModel):
         self.max_length = manager.get_max_length_for_truncating()
 
         if manager.debias:
-            self.userBias = nn.Parameter(torch.randn(1,self.bert.hidden_dim))
+            self.userBias = nn.Parameter(torch.randn(1,manager.bert_dim))
             nn.init.xavier_normal_(self.userBias)
 
-        self.hidden_dim = self.bert.hidden_dim
+        self.hidden_dim = manager.bert_dim
 
         self.granularity = manager.granularity
         if self.granularity != 'token':
@@ -132,7 +132,7 @@ class XFormer(BaseModel):
         if hasattr(self, 'userBias'):
             user_repr = user_repr + self.userBias
 
-        return self.clickPredictor(cdd_news_repr, user_repr), kid
+        return self.clickPredictor(cdd_news_repr, user_repr), None
 
 
     def forward(self,x):

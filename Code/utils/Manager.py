@@ -681,7 +681,7 @@ class Manager():
                     #     writer.add_scalar("data_loss",
                     #                     total_loss/total_steps)
 
-                if steps % save_step == 0 and (steps > 0 and self.scale != 'demo' or steps > 0 and self.scale == 'demo'):
+                if steps % save_step == 0 and (steps > 30000 and self.scale != 'demo' or steps > 0 and self.scale == 'demo'):
                     print("\n")
                     with torch.no_grad():
                         result = self.evaluate(model, loaders[1:], log=False)
@@ -964,17 +964,25 @@ class Manager():
     def get_special_token_id(self, token):
         special_token_map = {
             "bert":{
+                "[PAD]": 100,
                 "[CLS]": 101,
                 "[SEP]": 102,
             },
             "deberta":{
+                "[PAD]": 0,
                 "[CLS]": 1,
                 "[SEP]": 2,
             },
             "unilm":{
+                "[PAD]": 100,
                 "[CLS]": 101,
                 "[SEP]": 102,
             },
+            "longformer":{
+                "[PAD]": 1,
+                "[CLS]": 0,
+                "[SEP]": 2,
+            }
         }
         return special_token_map[self.bert][token]
 

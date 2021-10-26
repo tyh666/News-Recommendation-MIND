@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from transformers.modeling_utils import apply_chunking_to_forward
 from transformers.activations import ACT2FN
-from ...Modules.Attention import XSoftmax
+from .Attention import XSoftmax
 
 class BertSelfAttention(nn.Module):
     def __init__(self, config):

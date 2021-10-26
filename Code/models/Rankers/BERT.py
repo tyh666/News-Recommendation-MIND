@@ -96,7 +96,7 @@ class BERT_Onepass_Ranker(nn.Module):
         cdd1 cdd2 ... cddn [SEP] pst1 pst2 ...
     """
     def __init__(self, manager):
-        from .Modules.OnePassAttn import BertSelfAttention
+        from ..Modules.OnePassAttn import BertSelfAttention
 
         super().__init__()
 
@@ -193,7 +193,7 @@ class BERT_Onelayer_Ranker(nn.Module):
         cdd1 [SEP] his1 [SEP] his2 ...
     """
     def __init__(self, manager):
-        from .Modules.OneLayerBert import BertLayer
+        from ..Modules.OneLayerBert import BertLayer
         super().__init__()
 
         self.hidden_dim = manager.bert_dim

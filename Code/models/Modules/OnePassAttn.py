@@ -1,7 +1,7 @@
 import math
 import torch
 import torch.nn as nn
-from models.Modules.Attention import XSoftmax
+from .Attention import XSoftmax
 
 class BertSelfAttention(nn.Module):
     def __init__(self, manager):

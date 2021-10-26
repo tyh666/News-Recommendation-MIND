@@ -46,7 +46,7 @@ class config:
     interval = 10
 
     granularity = 'token'
-    debias = True
+    debias = False
     full_attn = True
     descend_history = False
     shuffle_pos = False

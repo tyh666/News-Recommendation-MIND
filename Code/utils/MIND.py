@@ -90,6 +90,7 @@ class MIND(Dataset):
 
                 self.max_token_length = 512
                 self.max_reduction_length = 30
+                self.pad_token_id = manager.get_special_token_id('[PAD]')
 
                 try:
                     # VERY IMPORTANT!!!
@@ -205,7 +206,7 @@ class MIND(Dataset):
             subwords_first = []
             for i, text in enumerate(tqdm(texts, ncols=120, leave=True)):
                 if i == 0:
-                    token_ids = [0] * max_length
+                    token_ids = [self.pad_token_id] * max_length
                     attn_mask = [0] * max_length
                     subword_first = [[0,0]] * max_length
                     subword_all = [[0,0]] * max_length
@@ -272,7 +273,7 @@ class MIND(Dataset):
             subwords_first = []
             for i, text in enumerate(texts):
                 if i == 0:
-                    token_ids = [0] * max_length
+                    token_ids = [self.pad_token_id] * max_length
                     attn_mask = [0] * max_length
                     subword_first = [[0,0]] * max_length
                     subword_all = [[0,0]] * max_length
