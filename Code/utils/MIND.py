@@ -56,6 +56,11 @@ class MIND(Dataset):
 
         # only preprocess on the master node, the worker can directly load the cache
         if manager.rank in [-1, 0]:
+            # construct whole dataset if needed
+            if manager.scale == 'whole' and not os.path.exists(self.behav_path_train):
+                manager.construct_whole_dataset()
+
+
             if (self.mode == 'train' and not os.path.exists(self.behav_path_train)) or (self.mode != 'train' and not os.path.exists(self.behav_path_eval)):
                 self.behaviors_file = self.file_directory + self.file_name + "behaviors.tsv"
                 logger.info("encoding user behaviors of {}...".format(self.behaviors_file))

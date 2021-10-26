@@ -189,6 +189,7 @@ class TESRec(BaseModel):
             cdd_attn_mask = x['cdd_attn_mask'].to(self.device)
 
         cdd_news = x["cdd_encoded_index"].to(self.device)
+        print(x["cdd_id"].max())
         _, cdd_news_repr, _ = self.bert(
             self.embedding(cdd_news, cdd_subword_prefix), cdd_attn_mask
         )

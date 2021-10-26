@@ -681,7 +681,7 @@ class Manager():
                     #     writer.add_scalar("data_loss",
                     #                     total_loss/total_steps)
 
-                if steps % save_step == 0 and (steps > 30000 and self.scale != 'demo' or steps > 0 and self.scale == 'demo'):
+                if steps % save_step == 0 and (steps > 0 and self.scale != 'demo' or steps > 0 and self.scale == 'demo'):
                     print("\n")
                     with torch.no_grad():
                         result = self.evaluate(model, loaders[1:], log=False)
@@ -1232,11 +1232,8 @@ class Manager():
                     f.write(line)
 
         with open(news_path_dev, "r") as g:
-            with open(news_path_dev, "r") as l:
-                for line in g:
-                    h.write(line)
-                for line in l:
-                    h.write(line)
+            for line in g:
+                h.write(line)
 
         f.close()
         h.close()
