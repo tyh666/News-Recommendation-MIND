@@ -14,7 +14,7 @@ def main(rank, manager):
     manager.setup(rank)
     loaders = manager.prepare()
 
-    if manager.encoderU == 'rnn':
+    if manager.encoderU in ['lstm', 'gru']:
         from models.Encoders.RNN import RNN_User_Encoder
         encoderU = RNN_User_Encoder(manager)
     elif manager.encoderU == 'avg':

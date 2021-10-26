@@ -985,11 +985,13 @@ class Manager():
         """
         return ['matching', 'bow']
 
+
     def get_user_num(self):
         user_num_map = {
             "demo": 2146,
             "small": 94057,
             "large": 876956,
+            "whole": 876956
         }
         return user_num_map[self.scale]
 
@@ -1013,6 +1015,10 @@ class Manager():
                 "train": 72023,
                 "dev": 72023,
                 "test": 120961
+            },
+            "whole":{
+                "train": 72023,
+                "dev": 72023
             }
         }
         return news_num_map[self.scale][self.mode]
@@ -1041,7 +1047,7 @@ class Manager():
             "demo": "demo",
             "small": "small",
             "large": "large",
-            "whole": "large"
+            "whole": "whole"
         }
         return scale_map[self.scale]
 
@@ -1141,7 +1147,7 @@ class Manager():
                 continue
             nid2index[v] = len(nid2index) + 1
 
-        h = open("data/dictionaries/nid2idx_{}_{}.json".format(self.scale, self.mode), "w")
+        h = open("data/dictionaries/nid2idx_{}_{}.json".format(scale, mode), "w")
         json.dump(nid2index, h, ensure_ascii=False)
         h.close()
 
