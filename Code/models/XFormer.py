@@ -1,11 +1,9 @@
-# Two tower baseline
 import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from transformers import AutoModel
 from .BaseModel import BaseModel
-from .Encoders.BERT import BERT_Encoder
-from .Modules.DRM import Truncating_Reducer
 
 class XFormer(BaseModel):
     """
@@ -15,12 +13,16 @@ class XFormer(BaseModel):
     2. encode ps terms with the same bert, using [CLS] embedding as user representation
     3. predict by scaled dot product
     """
-    def __init__(self, manager, embedding):
+    def __init__(self, manager):
         super().__init__(manager)
 
-        self.embedding = embedding
-        self.reducer = Truncating_Reducer(manager)
-        self.bert = BERT_Encoder(manager)
+        self.bert = AutoModel.from_pretrained(
+            manager.get_bert_for_load(),
+            cache_dir=manager.path + 'bert_cache/'
+        )
+
+        self.bert_name = manager.bert
+        self.max_length = manager.get_max_length_for_truncating()
 
         if manager.debias:
             self.userBias = nn.Parameter(torch.randn(1,self.bert.hidden_dim))
@@ -37,7 +39,7 @@ class XFormer(BaseModel):
                 self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, self.signal_length * self.signal_length)), persistent=False)
 
 
-        manager.name = '__'.join(['xformer', manager.bert, manager.encoderN, manager.encoderU, manager.reducer, manager.granularity])
+        manager.name = '__'.join(['xformer', manager.bert, manager.granularity])
         self.name = manager.name
 
 
@@ -58,8 +60,8 @@ class XFormer(BaseModel):
     def _forward(self,x):
         # destroy encoding and embedding outside of the model
 
+        batch_size = x['cdd_encoded_index'].size(0)
         if self.granularity != 'token':
-            batch_size = x['cdd_subword_index'].size(0)
             cdd_size = x['cdd_subword_index'].size(1)
 
             if self.training:
@@ -107,17 +109,25 @@ class XFormer(BaseModel):
             if 'his_refined_mask' in x:
                 his_refined_mask = x["his_refined_mask"].to(self.device)
 
-        cdd_news = x["cdd_encoded_index"].to(self.device)
-        _, cdd_news_repr = self.bert(
-            self.embedding(cdd_news, cdd_subword_prefix), cdd_attn_mask
-        )
+        cdd_news = x["cdd_encoded_index"].to(self.device).view(-1, self.signal_length)
+        cdd_attn_mask = cdd_attn_mask.view(-1, self.signal_length)
+        if self.bert_name == 'longformer':
+            global_attention_mask = torch.zeros(cdd_news.shape, dtype=torch.long, device=cdd_news.device)
+            global_attention_mask[:, [0]] = 1
+            cdd_news_repr = self.bert(cdd_news, cdd_attn_mask, global_attention_mask=global_attention_mask).pooler_output
+        else:
+            cdd_news_repr = self.bert(cdd_news, cdd_attn_mask).pooler_output
+        cdd_news_repr = cdd_news_repr.view(batch_size, -1, self.hidden_dim)
 
-        his_news = x["his_encoded_index"].to(self.device)
-        his_news_embedding = self.embedding(his_news, his_subword_prefix)
-
-        ps_terms, ps_term_mask, kid = self.reducer(None, his_news_embedding, None, None, his_attn_mask, None)
-
-        _, user_repr = self.bert(ps_terms, ps_term_mask, ps_term_input=True)
+        his_news = x["his_encoded_index"].to(self.device).view(batch_size, -1)[:, :self.max_length]
+        his_attn_mask = his_attn_mask.view(batch_size, -1)[:, :self.max_length]
+        if self.bert_name == 'longformer':
+            global_attention_mask = torch.zeros(his_news.shape, dtype=torch.long, device=cdd_news.device)
+            global_attention_mask[:, [0]] = 1
+            user_repr = self.bert(his_news, his_attn_mask, global_attention_mask=global_attention_mask).pooler_output
+        else:
+            user_repr = self.bert(his_news, his_attn_mask).pooler_output
+        user_repr = user_repr.unsqueeze(1)
 
         if hasattr(self, 'userBias'):
             user_repr = user_repr + self.userBias
@@ -162,12 +172,16 @@ class XFormer(BaseModel):
             cdd_subword_prefix = None
             cdd_attn_mask = x['cdd_attn_mask'].to(self.device)
 
-        cdd_news = x["cdd_encoded_index"].to(self.device)
-        _, cdd_news_repr = self.bert(
-            self.embedding(cdd_news, cdd_subword_prefix), cdd_attn_mask
-        )
+        cdd_news = x["cdd_encoded_index"].to(self.device).view(-1, self.signal_length)
+        cdd_attn_mask = cdd_attn_mask.view(-1, self.signal_length)
+        if self.bert_name == 'longformer':
+            global_attention_mask = torch.zeros(cdd_news.shape, dtype=torch.long, device=cdd_news.device)
+            global_attention_mask[:, [0]] = 1
+            cdd_news_repr = self.bert(cdd_news, cdd_attn_mask, global_attention_mask=global_attention_mask).pooler_output
+        else:
+            cdd_news_repr = self.bert(cdd_news, cdd_attn_mask).pooler_output
 
-        return cdd_news_repr.squeeze(1)
+        return cdd_news_repr
 
 
     def predict_fast(self, x):
@@ -203,12 +217,15 @@ class XFormer(BaseModel):
             if 'his_refined_mask' in x:
                 his_refined_mask = x["his_refined_mask"].to(self.device)
 
-        his_news = x["his_encoded_index"].to(self.device)
-        his_news_embedding = self.embedding(his_news, his_subword_prefix)
-
-        ps_terms, ps_term_mask, _ = self.reducer(None, his_news_embedding, None, None, his_attn_mask, None)
-
-        _, user_repr = self.bert(ps_terms, ps_term_mask, ps_term_input=True)
+        his_news = x["his_encoded_index"].to(self.device).view(batch_size, -1)[:, :self.max_length]
+        his_attn_mask = his_attn_mask.view(batch_size, -1)[:, :self.max_length]
+        if self.bert_name == 'longformer':
+            global_attention_mask = torch.zeros(his_news.shape, dtype=torch.long, device=cdd_news.device)
+            global_attention_mask[:, [0]] = 1
+            user_repr = self.bert(his_news, his_attn_mask, global_attention_mask=global_attention_mask).pooler_output
+        else:
+            user_repr = self.bert(his_news, his_attn_mask).pooler_output
+        user_repr = user_repr.unsqueeze(1)
 
         if hasattr(self, 'userBias'):
             user_repr = user_repr + self.userBias

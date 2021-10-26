@@ -1085,19 +1085,21 @@ class Manager():
         bert_map = {
             "bert": "bert-base-uncased",
             "deberta": "microsoft/deberta-base",
-            "unilm": "bert-base-uncased"
+            "unilm": "bert-base-uncased",
+            "longformer": "allenai/longformer-base-4096"
         }
         return bert_map[self.bert]
 
 
     def get_bert_for_cache(self):
         """
-        transfer unilm to bert
+        path to save cached tokenization file, transfer unilm to bert
         """
         bert_map = {
             "bert": "bert",
             "deberta": "deberta",
-            "unilm": "bert"
+            "unilm": "bert",
+            "longformer": "longformer"
         }
         return bert_map[self.bert]
 
