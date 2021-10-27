@@ -73,7 +73,8 @@ python -m scripts.esm -m test -s large -ck=150000
 
 ## TODO
 - [ ] Do I need to compare a text summarization model?
-- [ ] whole dataset
+- [ ] first > matching
+- [ ] BERT encoderN cost too much
 
 ## Preprocess
 - [x] remove stop words

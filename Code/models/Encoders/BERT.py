@@ -193,12 +193,13 @@ class BERT_Onelayer_Encoder(nn.Module):
         batch_size = news_embedding.size(0)
 
         bert_input = news_embedding.view(-1, self.signal_length, self.hidden_dim)
+        bs = bert_input.size(0)
 
         if self.extend_attn_mask:
             ext_attn_mask = (1.0 - attn_mask) * -10000.0
             ext_attn_mask = ext_attn_mask.view(bs, 1, 1, -1)
         else:
-            ext_attn_mask = attn_mask
+            ext_attn_mask = attn_mask.view(bs, -1)
 
         bert_output = self.bert(bert_input, ext_attn_mask)[0]
 

@@ -13,7 +13,7 @@ class BertSelfAttention(nn.Module):
         self.attention_head_size = int(config.hidden_size / config.num_attention_heads)
         self.all_head_size = self.num_attention_heads * self.attention_head_size
 
-        self.query = nn.Linear(config.hidden_size, self.all_head_size)
+        # self.query = nn.Linear(config.hidden_size, self.all_head_size)
         self.key = nn.Linear(config.hidden_size, self.all_head_size)
         self.value = nn.Linear(config.hidden_size, self.all_head_size)
 
@@ -29,7 +29,7 @@ class BertSelfAttention(nn.Module):
         hidden_states,
         attention_mask=None
     ):
-        mixed_query_layer = self.query(hidden_states)
+        mixed_query_layer = self.key(hidden_states)
 
         query_layer = self.transpose_for_scores(mixed_query_layer)
         key_layer = self.transpose_for_scores(self.key(hidden_states))
@@ -125,8 +125,8 @@ class BertLayer(nn.Module):
         self.chunk_size_feed_forward = config.chunk_size_feed_forward
         self.seq_len_dim = 1
         self.attention = BertAttention(config)
-        self.intermediate = BertIntermediate(config)
-        self.output = BertOutput(config)
+        # self.intermediate = BertIntermediate(config)
+        # self.output = BertOutput(config)
 
     def forward(
         self,
@@ -139,10 +139,10 @@ class BertLayer(nn.Module):
         )
         attention_output = self_attention_outputs[0]
 
-        layer_output = apply_chunking_to_forward(
-            self.feed_forward_chunk, self.chunk_size_feed_forward, self.seq_len_dim, attention_output
-        )
-        outputs = (layer_output,)
+        # layer_output = apply_chunking_to_forward(
+        #     self.feed_forward_chunk, self.chunk_size_feed_forward, self.seq_len_dim, attention_output
+        # )
+        outputs = (attention_output,)
 
         return outputs
 

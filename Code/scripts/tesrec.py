@@ -21,8 +21,8 @@ def main(rank, manager):
         from models.Encoders.CNN import CNN_Encoder
         encoderN = CNN_Encoder(manager)
     elif manager.encoderN == 'bert':
-        from models.Encoders.BERT import BERT_Encoder
-        encoderN = BERT_Encoder(manager)
+        from models.Encoders.BERT import BERT_Onelayer_Encoder
+        encoderN = BERT_Onelayer_Encoder(manager)
     elif manager.encoderN == 'mha':
         from models.Encoders.MHA import MHA_Encoder
         encoderN = MHA_Encoder(manager)
