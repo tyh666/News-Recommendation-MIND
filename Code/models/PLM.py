@@ -235,6 +235,66 @@ class PLM(BaseModel):
         return logits
 
 
+    def encode_user(self, x):
+        batch_size = x['cdd_encoded_index'].size(0)
+
+        if self.granularity != 'token':
+            cdd_size = x['cdd_subword_index'].size(1)
+
+            if self.training:
+                cdd_dest = self.cdd_dest[:batch_size, :cdd_size]
+                his_dest = self.his_dest[:batch_size]
+
+            # batch_size always equals 1 when evaluating
+            else:
+                cdd_dest = self.cdd_dest[[0], :cdd_size]
+                his_dest = self.his_dest[[0]]
+
+            cdd_subword_index = x['cdd_subword_index'].to(self.device)
+            his_subword_index = x['his_subword_index'].to(self.device)
+            his_signal_length = his_subword_index.size(-2)
+            cdd_subword_index = cdd_subword_index[:, :, :, 0] * self.signal_length + cdd_subword_index[:, :, :, 1]
+            his_subword_index = his_subword_index[:, :, :, 0] * his_signal_length + his_subword_index[:, :, :, 1]
+
+            if self.training:
+                # * cdd_mask to filter out padded cdd news
+                cdd_subword_prefix = cdd_dest.scatter(dim=-1, index=cdd_subword_index, value=1) * x["cdd_mask"].to(self.device)
+            else:
+                cdd_subword_prefix = cdd_dest.scatter(dim=-1, index=cdd_subword_index, value=1)
+
+            cdd_subword_prefix = cdd_subword_prefix.view(batch_size, cdd_size, self.signal_length, self.signal_length)
+            his_subword_prefix = his_dest.scatter(dim=-1, index=his_subword_index, value=1) * x["his_mask"].to(self.device)
+            his_subword_prefix = his_subword_prefix.view(batch_size, self.his_size, his_signal_length, his_signal_length)
+
+            if self.granularity == 'avg':
+                # average subword embeddings as the word embedding
+                cdd_subword_prefix = F.normalize(cdd_subword_prefix, p=1, dim=-1)
+                his_subword_prefix = F.normalize(his_subword_prefix, p=1, dim=-1)
+
+            cdd_attn_mask = cdd_subword_prefix.matmul(x['cdd_attn_mask'].to(self.device).float().unsqueeze(-1)).squeeze(-1)
+            his_attn_mask = his_subword_prefix.matmul(x["his_attn_mask"].to(self.device).float().unsqueeze(-1)).squeeze(-1)
+
+        else:
+            cdd_subword_prefix = None
+            his_subword_prefix = None
+            cdd_attn_mask = x['cdd_attn_mask'].to(self.device)
+            his_attn_mask = x["his_attn_mask"].to(self.device)
+
+        his_news = x["his_encoded_index"].to(self.device).view(-1, self.signal_length)
+        his_attn_mask = his_attn_mask.view(-1, self.signal_length)
+        his_news_repr = self.bert(his_news, his_attn_mask)[-1]
+        if hasattr(self, 'pooler'):
+            his_news_repr = self.pooler(his_news_repr[:, 0])
+        his_news_repr = his_news_repr.view(batch_size, -1, self.hidden_dim)
+
+        user_repr = self.encoderU(his_news_repr)
+
+        if hasattr(self, 'userBias'):
+            user_repr = user_repr + self.userBias
+
+        return user_repr
+        
+
 class PLM2(BaseModel):
     """
     Tow tower model with selection

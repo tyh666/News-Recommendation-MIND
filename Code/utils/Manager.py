@@ -4,6 +4,7 @@ import os
 import logging
 import argparse
 import json
+import time
 import random
 import smtplib
 import pandas as pd
@@ -298,6 +299,16 @@ class Manager():
 
             return loader_test,
 
+        elif self.mode == "encode":
+            dataset_train = MIND(self)
+
+            sampler_train = None
+
+            loader_train = DataLoader(dataset_train, batch_size=self.batch_size, pin_memory=pin_memory,
+                                    num_workers=num_workers, drop_last=False, shuffle=shuffle, sampler=sampler_train)
+
+            return loader_train,
+
 
     def save(self, model, step, optimizer=None):
         """
@@ -370,7 +381,7 @@ class Manager():
 
             if not self.no_email:
                 try:
-                    subject = "[Performance Report!] {} : {}".format(d["name"], res["auc"])
+                    subject = "[Performance Report] {} : {}".format(d["name"], res["auc"])
                     email_server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
                     email_server.login(email, password)
                     message = "Subject: {}\n\n{}".format(subject,name + content)
@@ -946,6 +957,31 @@ class Manager():
                     return
 
 
+    def encode(self, model, loaders):
+        """
+        encode user, only used for testing
+        """
+        model.eval()
+
+        user_repr = None
+        start_time = time.time()
+        for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
+            user_repr = model.encode_user(x)
+
+        end_time = time.time()
+        logger.info("total encoding time: {}".format(end_time - start_time))
+        try:
+            subject = "[Performance Report] {}".format(d["name"])
+            email_server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+            email_server.login(email, password)
+            message = "Subject: {}\n\nencoding time: {}".format(subject, str(end_time - start_time))
+            email_server.sendmail(email, email, message)
+            email_server.close()
+        except:
+            logger.info("error in connecting SMTP")
+
+
+
     def convert_tokens_to_words(self, tokens, punctuation=False):
         """
         wrapping bert/deberta
@@ -1069,7 +1105,8 @@ class Manager():
             "train": "train",
             "dev": "dev",
             "inspect": "dev",
-            "test": "test"
+            "test": "test",
+            "encode": "train"
         }
         return mode_map[self.mode]
 
@@ -1082,7 +1119,8 @@ class Manager():
             "train": "dev",
             "dev": "dev",
             "inspect": "dev",
-            "test": "test"
+            "test": "test",
+            "encode": "dev"
         }
         return mode_map[self.mode]
 
@@ -1248,14 +1286,6 @@ class Manager():
 
         f.close()
         h.close()
-
-
-    # def construct_autogressive_dataset(self):
-    #     """
-    #     collect user click behavior and append to the user's history by time
-    #     """
-    #     for k,v in behaviors.items():
-    #         behaviors[k] = sorted(v,key=lambda x: datetime.strptime(x[2], "%m/%d/%Y %X %p"))
 
 
     def gather_same_user_impr(self):

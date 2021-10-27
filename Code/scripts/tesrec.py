@@ -82,6 +82,9 @@ def main(rank, manager):
     elif manager.mode == 'inspect':
         manager.inspect(tesrec, loaders)
 
+    elif manager.mode == 'encode':
+        manager.encode(tesrec, loaders)
+
 
 if __name__ == "__main__":
     manager = Manager()

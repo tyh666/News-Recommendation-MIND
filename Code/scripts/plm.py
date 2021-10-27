@@ -47,6 +47,9 @@ def main(rank, manager):
     elif manager.mode == 'inspect':
         manager.inspect(plm, loaders)
 
+    elif manager.mode == 'encode':
+        manager.encode(plm, loaders)
+
 
 if __name__ == "__main__":
     manager = Manager()

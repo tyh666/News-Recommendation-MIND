@@ -64,6 +64,7 @@ python -m scripts.plm -m train -s demo -bs=5 -is=10 -d=2 -sl=30
 python -m scripts.tesrec -m train -s demo -bs=5 -is=10
 python -m scripts.sfi -m train -s demo -k=5 -is=10 -sl=20 -bs=10 --no_dedup
 
+python -m scripts.tesrec -m encode -s large
 python -m scripts.tesrec -m inspect -s large -ck=60000 -d=-1
 
 python -m scripts.tesrec -m test -s large -ck=589
