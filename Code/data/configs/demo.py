@@ -11,6 +11,7 @@ class config:
     title_length = 20
     abs_length = 40
     signal_length = 100
+    news = None
 
     npratio = 4
     his_size = 50

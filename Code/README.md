@@ -75,6 +75,9 @@ python -m scripts.esm -m test -s large -ck=150000
 - [ ] Do I need to compare a text summarization model?
 - [ ] first > matching
 - [ ] BERT encoderN cost too much
+- [ ] position distribution of selected terms
+- [ ] fastformer necessary?
+- [ ] online deployment
 
 ## Preprocess
 - [x] remove stop words

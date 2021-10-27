@@ -51,21 +51,17 @@ class Manager():
                                 help="device to run on, -1 means cpu", choices=[i for i in range(-1,10)], type=int, default=0)
             parser.add_argument("-p", "--path", dest="path", type=str, default="../../../Data/", help="root path for large-scale reusable data")
             parser.add_argument("-f", "--fast", dest="fast", help="enable fast evaluation/test", default=True)
+            parser.add_argument("-n", "--news", dest="news", help="which news to inspect", type=int, default=None)
+
 
             parser.add_argument("-bs", "--batch_size", dest="batch_size",
                                 help="batch size", type=int, default=32)
             parser.add_argument("-bsn", "--batch_size_news", dest="batch_size_news",
                                 help="batch size of loader_news", type=int, default=500)
-            # parser.add_argument("-bsh", "--batch_size_history", dest="batch_size_history",
-            #                     help="batch size of loader_history", type=int, default=400)
             parser.add_argument("-hs", "--his_size", dest="his_size",
                                 help="history size", type=int, default=50)
             parser.add_argument("-is", "--impr_size", dest="impr_size",
                                 help="impression size for evaluating", type=int, default=100)
-            # parser.add_argument("-tl", "--title_length", dest="title_length",
-            #                     help="news title size", type=int, default=20)
-            # parser.add_argument("-as", "--abs_length", dest="abs_length",
-            #                     help="news abstract length", type=int, default=40)
             parser.add_argument("-sl", "--signal_length", dest="signal_length",
                             help="length of the bert tokenized tokens", type=int, default=100)
 
@@ -926,6 +922,8 @@ class Manager():
         logger.info("press <ENTER> to continue")
 
         pre_id = None
+        target_news = self.news
+
         for x in loader_inspect:
             if x["user_id"][0] == pre_id:
                 continue
@@ -936,11 +934,22 @@ class Manager():
             his_encoded_index = x["his_encoded_index"][0][:, 1:]
             if self.reducer == "bow":
                 his_encoded_index = his_encoded_index[ :, :, 0]
-            term_indexes = term_indexes[0]
-            his_id = x["his_id"][0]
+            term_indexes = term_indexes[0].cpu().numpy()
+            his_ids = x["his_id"][0].tolist()
             user_index = x["user_id"][0]
 
-            for j,his_token_ids in enumerate(his_encoded_index):
+            if target_news is not None:
+                for j, his_id in enumerate(his_ids):
+                    # skip untargetted news
+                    if his_id == target_news:
+                        break
+
+                his_encoded_index = [his_encoded_index[j]]
+                term_indexes = [term_indexes[j]]
+                his_ids = [his_id]
+
+            for his_token_ids, term_index, his_id in zip(his_encoded_index, term_indexes, his_ids):
+
                 print("*************************{}******************************".format(user_index.item()))
                 tokens = t.convert_ids_to_tokens(his_token_ids)
                 if self.granularity != "token":
@@ -960,16 +969,15 @@ class Manager():
                         terms = tokens
                     terms = np.asarray(terms)
 
-                ps_term_ids = term_indexes[j].cpu().numpy()
-                ps_terms = terms[ps_term_ids]
+                ps_terms = terms[term_index]
 
                 if ps_terms[0] == "[PAD]":
                     break
                 else:
                     print("[personalized terms]\n\t {}".format(" ".join(ps_terms)))
-                    print("[bm25 terms]\n\t {}".format(t.decode(bm25_terms[his_id[j]], skip_special_tokens=True)))
-                    print("[entities]\n\t {}".format(t.decode(entities[his_id[j]], skip_special_tokens=True)))
-                    print("[original news]\n\t {}".format(t.decode(news[his_id[j]][:self.signal_length], skip_special_tokens=True)))
+                    print("[bm25 terms]\n\t {}".format(t.decode(bm25_terms[his_id], skip_special_tokens=True)))
+                    print("[entities]\n\t {}".format(t.decode(entities[his_id], skip_special_tokens=True)))
+                    print("[original news]\n\t {}".format(t.decode(news[his_id][:self.signal_length], skip_special_tokens=True)))
 
                 command = input()
                 if command == "n":
