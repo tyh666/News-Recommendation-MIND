@@ -37,6 +37,10 @@ class MIND(Dataset):
         file_name = pat.group(1)
         self.mode = pat.group(2)
 
+        self.scale = manager.scale
+        if self.mode == 'test':
+            self.scale = 'large'
+
         # fast predict doesn't need to control impression size, 500 is supposed to contain all candidates within one impression
         if manager.fast or manager.mode == 'inspect':
             self.impr_size = 1000
@@ -57,15 +61,15 @@ class MIND(Dataset):
                 try:
                     # VERY IMPORTANT!!!
                     # The nid2idx dictionary must follow the original order of news in news.tsv
-                    self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_{}.json".format(manager.scale, self.mode))
+                    self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_{}.json".format(self.scale, self.mode))
                 except FileNotFoundError:
                     manager.construct_nid2idx(mode=self.mode)
-                    self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_{}.json".format(manager.scale, self.mode))
+                    self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_{}.json".format(self.scale, self.mode))
                 try:
-                    self.uid2index = getId2idx("data/dictionaries/uid2idx_{}.json".format(manager.scale))
+                    self.uid2index = getId2idx("data/dictionaries/uid2idx_{}.json".format(self.scale))
                 except FileNotFoundError:
                     manager.construct_uid2idx()
-                    self.uid2index = getId2idx("data/dictionaries/uid2idx_{}.json".format(manager.scale))
+                    self.uid2index = getId2idx("data/dictionaries/uid2idx_{}.json".format(self.scale))
 
                 self.init_behaviors()
 
@@ -85,10 +89,10 @@ class MIND(Dataset):
                 try:
                     # VERY IMPORTANT!!!
                     # The nid2idx dictionary must follow the original order of news in news.tsv
-                    self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_{}.json".format(manager.scale, self.mode))
+                    self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_{}.json".format(self.scale, self.mode))
                 except FileNotFoundError:
                     manager.construct_nid2idx(mode=self.mode)
-                    self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_{}.json".format(manager.scale, self.mode))
+                    self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_{}.json".format(self.scale, self.mode))
 
                 self.convert_tokens_to_words = manager.convert_tokens_to_words
 

@@ -1030,7 +1030,7 @@ class Manager():
     def get_special_token_id(self, token):
         special_token_map = {
             "bert":{
-                "[PAD]": 100,
+                "[PAD]": 0,
                 "[CLS]": 101,
                 "[SEP]": 102,
             },
@@ -1092,7 +1092,8 @@ class Manager():
             },
             "whole":{
                 "train": 72023,
-                "dev": 72023
+                "dev": 72023,
+                "test": 120961
             }
         }
         return news_num_map[self.scale][self.mode]
