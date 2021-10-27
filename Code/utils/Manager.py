@@ -225,8 +225,15 @@ class Manager():
         num_workers = self.num_workers
 
         if self.mode == "train":
-            dataset_train = MIND(self)
-            dataset_dev = MIND(self, 'dev')
+            file_directory_train = self.path + "MIND/MIND{}_train/".format(self.scale)
+            file_directory_dev = self.path + "MIND/MIND{}_dev/".format(self.scale)
+
+            # construct whole dataset if needed
+            if self.scale == 'whole' and not os.path.exists(file_directory_train):
+                manager.construct_whole_dataset()
+
+            dataset_train = MIND(self, file_directory_train)
+            dataset_dev = MIND(self, file_directory_dev)
 
             if self.world_size > 0:
                 sampler_train = DistributedSampler(dataset_train, num_replicas=self.world_size, rank=self.rank, shuffle=shuffle)
@@ -241,7 +248,7 @@ class Manager():
                                     num_workers=num_workers, drop_last=False, shuffle=False, sampler=sampler_dev)
 
             if self.fast:
-                dataset_news = MIND_news(self)
+                dataset_news = MIND_news(self, file_directory_dev)
                 loader_news = DataLoader(dataset_news, batch_size=self.batch_size_news, pin_memory=pin_memory,
                         num_workers=num_workers, drop_last=False)
 
@@ -253,7 +260,8 @@ class Manager():
                 return loader_train, loader_dev
 
         elif self.mode == "dev":
-            dataset_dev = MIND(self)
+            file_directory_dev = self.path + "MIND/MIND{}_dev/".format(self.scale)
+            dataset_dev = MIND(self, file_directory_dev)
 
             if self.world_size > 0:
                 sampler_dev = Partition_Sampler(dataset_dev, num_replicas=self.world_size, rank=self.rank)
@@ -264,7 +272,7 @@ class Manager():
                         num_workers=num_workers, drop_last=False, sampler=sampler_dev)
 
             if self.fast:
-                dataset_news = MIND_news(self)
+                dataset_news = MIND_news(self, file_directory_dev)
                 loader_news = DataLoader(dataset_news, batch_size=self.batch_size_news, pin_memory=pin_memory,
                         num_workers=num_workers, drop_last=False)
 
@@ -273,14 +281,16 @@ class Manager():
             return loader_dev,
 
         elif self.mode == "inspect":
-            dataset_dev = MIND(self)
+            file_directory_dev = self.path + "MIND/MINDlarge_dev/"
+            dataset_dev = MIND(self, file_directory_dev)
             loader_dev = DataLoader(dataset_dev, batch_size=1, pin_memory=pin_memory,
             num_workers=num_workers, drop_last=False)
 
             return loader_dev,
 
         elif self.mode == "test":
-            dataset_test = MIND(self)
+            file_directory_test = self.path + "MIND/MINDlarge_test/"
+            dataset_test = MIND(self, file_directory_test)
 
             if self.world_size > 0:
                 sampler_test = Partition_Sampler(dataset_test, num_replicas=self.world_size, rank=self.rank)
@@ -291,7 +301,7 @@ class Manager():
                         num_workers=num_workers, drop_last=False, sampler=sampler_test)
 
             if self.fast:
-                dataset_news = MIND_news(self)
+                dataset_news = MIND_news(self, file_directory_test)
                 loader_news = DataLoader(dataset_news, batch_size=self.batch_size_news, pin_memory=pin_memory,
                         num_workers=num_workers, drop_last=False)
 
@@ -300,14 +310,15 @@ class Manager():
             return loader_test,
 
         elif self.mode == "encode":
-            dataset_train = MIND(self)
+            file_directory_dev = self.path + "MIND/MINDlarge_dev/"
 
-            sampler_train = None
+            dataset_dev = MIND(self, file_directory_dev)
+            sampler_dev = None
 
-            loader_train = DataLoader(dataset_train, batch_size=self.batch_size, pin_memory=pin_memory,
-                                    num_workers=num_workers, drop_last=False, shuffle=shuffle, sampler=sampler_train)
+            loader_dev = DataLoader(dataset_dev, batch_size=self.batch_size, pin_memory=pin_memory,
+                                    num_workers=num_workers, drop_last=False, shuffle=shuffle, sampler=sampler_dev)
 
-            return loader_train,
+            return loader_dev,
 
 
     def save(self, model, step, optimizer=None):
@@ -899,7 +910,17 @@ class Manager():
         with open(loader_inspect.dataset.cache_directory + "entity.pkl", "rb") as f:
             entities = pickle.load(f)["encoded_news"][:, :self.k + 1]
 
-        self.load(model, self.checkpoint)
+        try:
+            self.load(model, self.checkpoint)
+        except:
+            old_name = self.name
+            new_name = re.sub(self.granularity, 'token', self.name)
+            logger.warning("failed to load {}, resort to load {}".format(self.name, new_name))
+
+            self.name = new_name
+            self.load(model, self.checkpoint)
+            self.name = old_name
+
         t = AutoTokenizer.from_pretrained(self.get_bert_for_load(), cache_dir=self.path + "bert_cache/")
 
         logger.info("press <ENTER> to continue")
@@ -946,8 +967,8 @@ class Manager():
                     break
                 else:
                     print("[personalized terms]\n\t {}".format(" ".join(ps_terms)))
-                    print("[bm25 terms]\n\t {}".format(t.decode(bm25_terms[his_id[j]])))
-                    print("[entities]\n\t {}".format(t.decode(entities[his_id[j]])))
+                    print("[bm25 terms]\n\t {}".format(t.decode(bm25_terms[his_id[j]], skip_special_tokens=True)))
+                    print("[entities]\n\t {}".format(t.decode(entities[his_id[j]], skip_special_tokens=True)))
                     print("[original news]\n\t {}".format(t.decode(news[his_id[j]][:self.signal_length], skip_special_tokens=True)))
 
                 command = input()

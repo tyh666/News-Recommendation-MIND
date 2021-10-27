@@ -18,12 +18,10 @@ class MIND(Dataset):
 
     Args:
         manager(dict): pre-defined dictionary of hyper parameters
-        news_file(str): path of news_file
-        behaviors_file(str): path of behaviors_file
-        shuffle(bool): whether to shuffle the order of impressions
+        file_directory(str): directory to news and behaviors file
     """
 
-    def __init__(self, manager, mode=None):
+    def __init__(self, manager, file_directory):
         # initiate the whole iterator
         self.npratio = manager.npratio
         self.shuffle_pos = manager.shuffle_pos
@@ -35,12 +33,9 @@ class MIND(Dataset):
         self.reducer = manager.reducer
         self.granularity = manager.granularity
 
-        if mode is not None:
-            self.mode = mode
-        else:
-            self.mode = manager.get_mode_for_path()
-        self.file_directory = manager.path + "MIND/"
-        self.file_name = "MIND{}_{}/".format(manager.scale, self.mode)
+        pat = re.search('MIND/(.*_(.*)/)', file_directory)
+        file_name = pat.group(1)
+        self.mode = pat.group(2)
 
         # fast predict doesn't need to control impression size, 500 is supposed to contain all candidates within one impression
         if manager.fast or manager.mode == 'inspect':
@@ -48,7 +43,7 @@ class MIND(Dataset):
             # must modify here
             manager.impr_size = 1000
 
-        self.cache_directory = "/".join(["data/cache", manager.get_bert_for_cache(), self.file_name])
+        self.cache_directory = "/".join(["data/cache", manager.get_bert_for_cache(), file_name])
         self.news_path = self.cache_directory + manager.get_news_file_for_load()
 
         self.behav_path_train = self.cache_directory + "behaviors.pkl"
@@ -56,13 +51,8 @@ class MIND(Dataset):
 
         # only preprocess on the master node, the worker can directly load the cache
         if manager.rank in [-1, 0]:
-            # construct whole dataset if needed
-            if manager.scale == 'whole' and not os.path.exists(self.behav_path_train):
-                manager.construct_whole_dataset()
-
-
             if (self.mode == 'train' and not os.path.exists(self.behav_path_train)) or (self.mode != 'train' and not os.path.exists(self.behav_path_eval)):
-                self.behaviors_file = self.file_directory + self.file_name + "behaviors.tsv"
+                self.behaviors_file = file_directory + "behaviors.tsv"
                 logger.info("encoding user behaviors of {}...".format(self.behaviors_file))
                 try:
                     # VERY IMPORTANT!!!
@@ -84,7 +74,7 @@ class MIND(Dataset):
                 from transformers import AutoTokenizer
                 self.tokenizer = AutoTokenizer.from_pretrained(manager.get_bert_for_load(), cache_dir=manager.path + "bert_cache/")
 
-                self.news_file = self.file_directory + self.file_name + "news.tsv"
+                self.news_file = file_directory + "news.tsv"
                 logger.info("encoding news of {}...".format(self.news_file))
                 self.embedding = manager.embedding
 
@@ -739,7 +729,7 @@ class MIND_news(Dataset):
         mode(str): train/test
     """
 
-    def __init__(self, manager):
+    def __init__(self, manager, file_directory):
         # initiate the whole iterator
         self.npratio = manager.npratio
         self.signal_length = manager.signal_length
@@ -750,11 +740,11 @@ class MIND_news(Dataset):
         self.reducer = manager.reducer
         self.granularity = manager.granularity
 
-        self.mode = 'dev' if manager.mode != 'test' else 'test'
-        self.file_directory = manager.path + "MIND/"
-        self.file_name = "MIND{}_{}/".format(manager.scale, self.mode)
+        pat = re.search('MIND/(.*_(.*)/)', file_directory)
+        file_name = pat.group(1)
+        self.mode = pat.group(2)
 
-        self.cache_directory = "/".join(["data/cache", manager.get_bert_for_cache(), self.file_name])
+        self.cache_directory = "/".join(["data/cache", manager.get_bert_for_cache(), file_name])
         self.news_path = self.cache_directory + manager.get_news_file_for_load()
 
         if not (os.path.exists(self.cache_directory + "news.pkl") and os.path.exists(self.cache_directory + "bm25.pkl") and os.path.exists(self.cache_directory + "entity.pkl")):
@@ -828,6 +818,7 @@ class MIND_news(Dataset):
         return back_dic
 
 
+# FIXME: need to update
 class MIND_history(Dataset):
     """ Map Dataset for MIND, return each user's browsing history for encoding
 
@@ -859,9 +850,9 @@ class MIND_history(Dataset):
 
         self.mode = manager.get_mode_for_path()
         self.file_directory = manager.path + "MIND/"
-        self.file_name = "MIND{}_{}/".format(manager.scale, self.mode)
+        file_name = "MIND{}_{}/".format(manager.scale, self.mode)
 
-        self.cache_directory = "/".join(["data/cache", manager.get_bert_for_cache(), self.file_name])
+        self.cache_directory = "/".join(["data/cache", manager.get_bert_for_cache(), file_name])
         self.news_path = self.cache_directory + reducer_map[self.reducer]
         self.behav_path = self.cache_directory + "{}/{}".format(self.impr_size, "behaviors.pkl")
 
