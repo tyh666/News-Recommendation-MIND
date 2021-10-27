@@ -123,7 +123,7 @@ class Manager():
 
             parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=5)
             parser.add_argument("-thr", "--threshold", dest="threshold", help="threshold to mask terms", default=-float("inf"), type=float)
-            parser.add_argument("-b", "--bert", dest="bert", help="choose bert model", choices=["bert", "deberta", "unilm"], default="bert")
+            parser.add_argument("-b", "--bert", dest="bert", help="choose bert model", choices=["bert", "deberta", "unilm", "longformer"], default="bert")
 
             parser.add_argument("--tb", dest="tb", action="store_true", default=False)
             parser.add_argument("-sd","--seed", dest="seed", default=42, type=int)
@@ -726,7 +726,8 @@ class Manager():
         if self.checkpoint:
             self.load(model, self.checkpoint, optimizer)
 
-        res = self._train(model, loaders, optimizer, loss_func, scheduler=scheduler)
+        with torch.autograd.set_detect_anomaly(True):
+            res = self._train(model, loaders, optimizer, loss_func, scheduler=scheduler)
 
         if self.rank in [-1,0]:
             logger.info("Best result: {}".format(res))

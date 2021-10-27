@@ -57,6 +57,7 @@ python -m scripts.esm -m train -s large -ws=2
 python -m scripts.ttm -m train -s large -red=none -ws=2
 python -m scripts.tesrec -m train -s large -ws=2
 python -m scripts.plm -m train -s large -ws=2 -st=20000 -bs=8
+python -m scripts.xformer -m train -s large -ws=2 -bs=1
 
 python -m scripts.esm -m train -s demo -bs=5 -is=10 -d=1
 python -m scripts.plm -m train -s demo -bs=5 -is=10 -d=2 -sl=30

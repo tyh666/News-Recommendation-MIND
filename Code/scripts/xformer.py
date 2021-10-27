@@ -14,10 +14,7 @@ def main(rank, manager):
     manager.setup(rank)
     loaders = manager.prepare()
 
-    from models.Embeddings.BERT import BERT_Embedding
-    embedding = BERT_Embedding(manager)
-
-    xformer = XFormer(manager, embedding).to(rank)
+    xformer = XFormer(manager).to(rank)
 
     if manager.world_size > 1:
         xformer = DDP(xformer, device_ids=[rank], output_device=rank, find_unused_parameters=False)
@@ -37,8 +34,6 @@ def main(rank, manager):
 
 if __name__ == "__main__":
     manager = Manager()
-    manager.hidden_dim = 768
-    manager.pooler = 'cls'
 
     if manager.world_size > 1:
         mp.spawn(

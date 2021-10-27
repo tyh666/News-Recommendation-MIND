@@ -111,22 +111,22 @@ class XFormer(BaseModel):
 
         cdd_news = x["cdd_encoded_index"].to(self.device).view(-1, self.signal_length)
         cdd_attn_mask = cdd_attn_mask.view(-1, self.signal_length)
-        if self.bert_name == 'longformer':
-            global_attention_mask = torch.zeros(cdd_news.shape, dtype=torch.long, device=cdd_news.device)
-            global_attention_mask[:, [0]] = 1
-            cdd_news_repr = self.bert(cdd_news, cdd_attn_mask, global_attention_mask=global_attention_mask).pooler_output
-        else:
-            cdd_news_repr = self.bert(cdd_news, cdd_attn_mask).pooler_output
+        # if self.bert_name == 'longformer':
+        #     global_attention_mask_cdd = torch.zeros(cdd_news.shape, dtype=torch.long, device=cdd_news.device)
+        #     global_attention_mask_cdd[:, 0] = 1
+        #     cdd_news_repr = self.bert(cdd_news, cdd_attn_mask, global_attention_mask=global_attention_mask_cdd).pooler_output
+        # else:
+        cdd_news_repr = self.bert(cdd_news, cdd_attn_mask).pooler_output
         cdd_news_repr = cdd_news_repr.view(batch_size, -1, self.hidden_dim)
 
         his_news = x["his_encoded_index"].to(self.device).view(batch_size, -1)[:, :self.max_length]
         his_attn_mask = his_attn_mask.view(batch_size, -1)[:, :self.max_length]
-        if self.bert_name == 'longformer':
-            global_attention_mask = torch.zeros(his_news.shape, dtype=torch.long, device=cdd_news.device)
-            global_attention_mask[:, [0]] = 1
-            user_repr = self.bert(his_news, his_attn_mask, global_attention_mask=global_attention_mask).pooler_output
-        else:
-            user_repr = self.bert(his_news, his_attn_mask).pooler_output
+        # if self.bert_name == 'longformer':
+        #     global_attention_mask_his = torch.zeros(his_news.shape, dtype=torch.long, device=cdd_news.device)
+        #     global_attention_mask_his[:, 0] = 1
+        #     user_repr = self.bert(his_news, his_attn_mask, global_attention_mask=global_attention_mask_his).pooler_output
+        # else:
+        user_repr = self.bert(his_news, his_attn_mask).pooler_output
         user_repr = user_repr.unsqueeze(1)
 
         if hasattr(self, 'userBias'):
@@ -190,8 +190,8 @@ class XFormer(BaseModel):
         2. look up candidate representation in the embedding matrix
         3. compute click probability
         """
+        batch_size = x['his_encoded_index'].size(0)
         if self.granularity != 'token':
-            batch_size = x['his_encoded_index'].size(0)
             his_dest = self.his_dest[:batch_size]
 
             his_subword_index = x['his_subword_index'].to(self.device)
