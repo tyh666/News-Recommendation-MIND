@@ -17,7 +17,7 @@ then
   source ~/.bashrc
   nn
 
-  /data/v-pezhang/nn/bin/pip install torch==1.9.1+cu111 -f https://download.pytorch.org/whl/torch_stable.html
+  # /data/v-pezhang/nn/bin/pip install torch==1.9.1+cu111 -f https://download.pytorch.org/whl/torch_stable.html
 
   sleep infinity
 
