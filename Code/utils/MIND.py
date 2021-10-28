@@ -108,23 +108,27 @@ class MIND(Dataset):
         with open(behav_path, "rb") as f:
             behaviors = pickle.load(f)
             if manager.news is not None:
+                assert manager.mode == 'inspect', "target news only available in INSPECT mode"
                 logger.info("rank {} extracting users who browsed news {}".format(manager.rank, manager.news))
 
                 news = manager.news
                 imprs = []
 
-                for i,j,k in zip(behaviors['imprs'], behaviors['histories'], behaviors['uindexes']):
-                    if news in j:
+                self.histories = behaviors['histories']
+                self.uindexes = behaviors['uindexes']
+
+                for i,j in zip(behaviors['imprs'], self.histories):
+                    # limit the length of user history to his_size
+                    if news in j[:self.his_size]:
                         imprs.append(i)
 
                 self.imprs = imprs
-                for k,v in behaviors.items():
-                    if k != 'imprs':
-                        setattr(self, k, v)
 
             else:
-                for k,v in behaviors.items():
-                    setattr(self, k, v)
+                # truncate user history
+                self.histories = behaviors['histories']
+                self.imprs = behaviors['imprs']
+                self.uindexes = behaviors['uindexes']
 
         logger.info("process NO.{} loading cached news tokenization from {}".format(manager.rank, self.news_path))
         with open(self.news_path, "rb") as f:
@@ -561,14 +565,14 @@ class MIND(Dataset):
 
             label = np.arange(0, len(cdd_ids), 1)[label == 1][0]
 
+            # pad in his_id, not in histories
             his_ids = self.histories[impr_index][:self.his_size]
-
-            cdd_mask = torch.zeros((cdd_size, 1))
-            cdd_mask[:neg_num + 1] = 1
-
             # true means the corresponding history news is padded
             his_mask = torch.zeros((self.his_size, 1))
             his_mask[:len(his_ids)] = 1
+            
+            cdd_mask = torch.zeros((cdd_size, 1))
+            cdd_mask[:neg_num + 1] = 1
 
             if self.descend_history:
                 his_ids = his_ids[::-1] + [0] * (self.his_size - len(his_ids))
@@ -625,6 +629,7 @@ class MIND(Dataset):
             cdd_ids = impr_news
             cdd_size = len(cdd_ids)
 
+            # pad in his_id, not in histories
             his_ids = self.histories[impr_index][:self.his_size]
             # true means the corresponding history news is padded
             his_mask = torch.zeros((self.his_size, 1))
@@ -683,6 +688,7 @@ class MIND(Dataset):
             cdd_ids = impr_news
             cdd_size = len(cdd_ids)
 
+            # pad in his_id, not in histories
             his_ids = self.histories[impr_index][:self.his_size]
             # true means the corresponding history news is padded
             his_mask = torch.zeros((self.his_size, 1))

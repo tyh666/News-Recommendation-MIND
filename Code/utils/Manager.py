@@ -226,7 +226,7 @@ class Manager():
 
             # construct whole dataset if needed
             if self.scale == 'whole' and not os.path.exists(file_directory_train):
-                manager.construct_whole_dataset()
+                self.construct_whole_dataset()
 
             dataset_train = MIND(self, file_directory_train)
             dataset_dev = MIND(self, file_directory_dev)
@@ -909,6 +909,7 @@ class Manager():
         try:
             self.load(model, self.checkpoint)
         except:
+            # in case we want to test the model trained with token granularity with other granularity
             old_name = self.name
             new_name = re.sub(self.granularity, 'token', self.name)
             logger.warning("failed to load {}, resort to load {}".format(self.name, new_name))
@@ -1000,7 +1001,7 @@ class Manager():
         end_time = time.time()
         logger.info("total encoding time: {}".format(end_time - start_time))
         try:
-            subject = "[Performance Report] {}".format(d["name"])
+            subject = "[Performance Report] {}".format(self.name)
             email_server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
             email_server.login(email, password)
             message = "Subject: {}\n\nencoding time: {}".format(subject, str(end_time - start_time))
