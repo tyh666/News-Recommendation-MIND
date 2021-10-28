@@ -68,6 +68,7 @@ python -m scripts.tesrec -m encode -s large
 python -m scripts.tesrec -m inspect -s large -ck=60000 -d=-1
 
 python -m scripts.tesrec -m test -s large -ck=589
+python -m scripts.plm -m test -s large -ck=589
 python -m scripts.esm -m test -s large -ck=150000
 ```
 
@@ -79,6 +80,7 @@ python -m scripts.esm -m test -s large -ck=150000
 - [ ] longformer necessary?
 - [ ] online deployment
 - [ ] avg/first trained better in personalization
+- [ ] retrieval dataset
 
 ## Preprocess
 - [x] remove stop words
