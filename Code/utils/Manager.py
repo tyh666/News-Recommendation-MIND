@@ -99,6 +99,7 @@ class Manager():
             parser.add_argument("--shuffle", dest="shuffle", help="whether to shuffle the indices", action="store_true", default=False)
             parser.add_argument("--shuffle_pos", dest="shuffle_pos", help="whether to shuffle the candidate news and its negtive samples", action="store_true", default=False)
             parser.add_argument("--pin_memory", dest="pin_memory", help="whether to pin memory to speed up tensor transfer", action="store_true", default=False)
+            parser.add_argument("--anomaly", dest="anomaly", help="whether to detect abnormal parameters", action="store_true", default=False)
             parser.add_argument("--scheduler", dest="scheduler", help="choose schedule scheme for optimizer", choices=["linear","none"], default="linear")
             parser.add_argument("--warmup", dest="warmup", help="warmup steps of scheduler", type=int, default=10000)
             parser.add_argument("--interval", dest="interval", help="the step interval to update processing bar", default=10, type=int)
@@ -744,7 +745,10 @@ class Manager():
         if self.checkpoint:
             self.load(model, self.checkpoint, optimizer)
 
-        with torch.autograd.set_detect_anomaly(True):
+        if self.anomaly:
+            with torch.autograd.set_detect_anomaly(True):
+                res = self._train(model, loaders, optimizer, loss_func, scheduler=scheduler)
+        else:
             res = self._train(model, loaders, optimizer, loss_func, scheduler=scheduler)
 
         if self.rank in [-1,0]:
