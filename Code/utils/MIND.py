@@ -125,10 +125,8 @@ class MIND(Dataset):
                 self.imprs = imprs
 
             else:
-                # truncate user history
-                self.histories = behaviors['histories']
-                self.imprs = behaviors['imprs']
-                self.uindexes = behaviors['uindexes']
+                for k,v in behaviors.items():
+                    setattr(self, k, v)
 
         logger.info("process NO.{} loading cached news tokenization from {}".format(manager.rank, self.news_path))
         with open(self.news_path, "rb") as f:
@@ -570,7 +568,7 @@ class MIND(Dataset):
             # true means the corresponding history news is padded
             his_mask = torch.zeros((self.his_size, 1))
             his_mask[:len(his_ids)] = 1
-            
+
             cdd_mask = torch.zeros((cdd_size, 1))
             cdd_mask[:neg_num + 1] = 1
 
