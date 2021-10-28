@@ -121,7 +121,7 @@ class Manager():
 
             parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=5)
             parser.add_argument("-thr", "--threshold", dest="threshold", help="threshold to mask terms", default=-float("inf"), type=float)
-            parser.add_argument("-b", "--bert", dest="bert", help="choose bert model", choices=["bert", "deberta", "unilm", "longformer"], default="bert")
+            parser.add_argument("-b", "--bert", dest="bert", help="choose bert model", choices=["bert", "deberta", "unilm", "longformer", "bigbird"], default="bert")
 
             parser.add_argument("--tb", dest="tb", action="store_true", default=False)
             parser.add_argument("-sd","--seed", dest="seed", default=42, type=int)
@@ -1025,11 +1025,11 @@ class Manager():
             return convert_tokens_to_words_bert(tokens)
         elif self.embedding == 'deberta':
             if punctuation:
-                from utils.utils import convert_tokens_to_words_deberta_punctuation
-                return convert_tokens_to_words_deberta_punctuation(tokens)
+                from utils.utils import convert_tokens_to_words_wordpiece_punctuation
+                return convert_tokens_to_words_wordpiece_punctuation(tokens)
             else:
-                from utils.utils import convert_tokens_to_words_deberta
-                return convert_tokens_to_words_deberta(tokens)
+                from utils.utils import convert_tokens_to_words_wordpiece
+                return convert_tokens_to_words_wordpiece(tokens)
 
 
     def get_special_token_id(self, token):
@@ -1053,6 +1053,11 @@ class Manager():
                 "[PAD]": 1,
                 "[CLS]": 0,
                 "[SEP]": 2,
+            },
+            "bigbird":{
+                "[PAD]": 0,
+                "[CLS]": 65,
+                "[SEP]": 66
             }
         }
         return special_token_map[self.bert][token]
@@ -1168,7 +1173,8 @@ class Manager():
             "bert": "bert-base-uncased",
             "deberta": "microsoft/deberta-base",
             "unilm": "bert-base-uncased",
-            "longformer": "allenai/longformer-base-4096"
+            "longformer": "allenai/longformer-base-4096",
+            "bigbird": "google/bigbird-roberta-base"
         }
         return bert_map[self.bert]
 
@@ -1181,7 +1187,8 @@ class Manager():
             "bert": "bert",
             "deberta": "deberta",
             "unilm": "bert",
-            "longformer": "longformer"
+            "longformer": "longformer",
+            "bigbird": "bigbird"
         }
         return bert_map[self.bert]
 
@@ -1199,12 +1206,13 @@ class Manager():
         """
         get max length in Truncating_Reducer
         """
-        # subtract 2 because [CLS] and [SEP]
+        # subtract 1 because [CLS]
         length_map = {
-            "bert": 510,
-            "deberta": 510,
-            "unilm": 510,
+            "bert": 511,
+            "deberta": 511,
+            "unilm": 511,
             "longformer": 4094,
+            "bigbird": 511
         }
         return length_map[self.bert]
 

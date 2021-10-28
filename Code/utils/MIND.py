@@ -80,7 +80,7 @@ class MIND(Dataset):
 
                 self.news_file = file_directory + "news.tsv"
                 logger.info("encoding news of {}...".format(self.news_file))
-                self.embedding = manager.embedding
+                self.bert = manager.bert
 
                 self.max_token_length = 512
                 self.max_reduction_length = 30
@@ -177,17 +177,14 @@ class MIND(Dataset):
             3. get subword indices
             4. get entities
         """
+        # tokenize once, remove punctuations in BM25
         articles = [""]
         entities = [""]
         with open(self.news_file, "r", encoding="utf-8") as rd:
             for idx in tqdm(rd, ncols=120, leave=True):
                 nid, vert, subvert, title, ab, url, title_entity, abs_entity = idx.strip("\n").split("\t")
                 article = " ".join([title, ab, subvert])
-                article = re.sub("\'|\"", '', article)
-                tokens = self.tokenizer.tokenize(article)[:self.max_token_length]
-                # unify subwords
-                words = self.convert_tokens_to_words(tokens)
-                articles.append(' '.join(words))
+                articles.append(article)
 
                 entity_dic = dict()
                 title_entity = json.loads(title_entity)
@@ -198,6 +195,7 @@ class MIND(Dataset):
                         entity_dic[surface_forms[0].lower()] = 1
 
                 if len(entity_dic) == 0:
+                    words = re.sub("[.&*()+=/\<>,!?;:~`@#$%^]", '', article).split()
                     entities.append(' '.join(words[:self.max_reduction_length]))
                 else:
                     entities.append(' '.join(list(entity_dic.keys())))
@@ -275,7 +273,7 @@ class MIND(Dataset):
                     f
                 )
 
-        def parse_texts_deberta(tokenizer, texts, news_path, max_length):
+        def parse_texts_wordpiece(tokenizer, texts, news_path, max_length):
             """
             convert texts to tokens indices and get subword indices
             """
@@ -345,7 +343,79 @@ class MIND(Dataset):
                     f
                 )
 
-        if self.embedding == 'bert':
+        def parse_texts_sentencepiece(tokenizer, texts, news_path, max_length):
+            """
+            convert texts to tokens indices and get subword indices
+            """
+            text_toks = []
+            attention_masks = []
+            subwords_all = []
+            subwords_first = []
+            for i, text in enumerate(texts):
+                if i == 0:
+                    token_ids = [self.pad_token_id] * max_length
+                    attn_mask = [0] * max_length
+                    subword_first = [[0,0]] * max_length
+                    subword_all = [[0,0]] * max_length
+
+                else:
+                    token_ouput = tokenizer(text, padding='max_length', truncation=True, max_length=max_length)
+                    token_ids = token_ouput['input_ids']
+                    attn_mask = token_ouput['attention_mask']
+
+                    tokens = tokenizer.convert_ids_to_tokens(token_ids)
+
+                    # maintain subword entry
+                    subword_all = []
+                    # mask subword entry
+                    subword_first = []
+
+                    i = -1
+                    j = -1
+                    for index,token in enumerate(tokens):
+                        if token == '[PAD]':
+                            subword_all.append([0,0])
+                            subword_first.append([0,0])
+
+                        # not subword
+                        # index==0: [CLS], index==1: the first word
+                        elif index in [0,1] or token.startswith("▁") or token in r"[.&*()+=/\<>,!?;:~`@#$%^]":
+                            i += 1
+                            j += 1
+                            subword_all.append([i,j])
+                            subword_first.append([i,j])
+
+                        # subword
+                        else:
+                            j += 1
+                            subword_all.append([i,j])
+                            subword_first.append([0,0])
+
+                text_toks.append(token_ids)
+                attention_masks.append(attn_mask)
+                subwords_all.append(subword_all)
+                subwords_first.append(subword_first)
+
+            # encode news
+            encoded_news = np.asarray(text_toks)
+            attn_mask = np.asarray(attention_masks)
+
+            subwords_all = np.asarray(subwords_all)
+            subwords_first = np.asarray(subwords_first)
+
+            with open(news_path, "wb") as f:
+                pickle.dump(
+                    {
+                        "encoded_news": encoded_news,
+                        "subwords_first": subwords_first,
+                        "subwords_all": subwords_all,
+                        "attn_mask": attn_mask
+                    },
+                    f
+                )
+
+
+        if self.bert in ['bert', 'unilm']:
             logger.info("tokenizing news...")
             parse_texts_bert(self.tokenizer, articles, self.cache_directory + "news.pkl", self.max_token_length)
             logger.info("tokenizing bm25 ordered news...")
@@ -353,13 +423,21 @@ class MIND(Dataset):
             logger.info("tokenizing entities...")
             parse_texts_bert(self.tokenizer, entities, self.cache_directory + "entity.pkl", self.max_reduction_length)
 
-        elif self.embedding == 'deberta':
+        elif self.bert in ['deberta', 'longformer']:
             logger.info("tokenizing news...")
-            parse_texts_deberta(self.tokenizer, articles, self.cache_directory + "news.pkl", self.max_token_length)
+            parse_texts_wordpiece(self.tokenizer, articles, self.cache_directory + "news.pkl", self.max_token_length)
             logger.info("tokenizing bm25 ordered news...")
-            parse_texts_deberta(self.tokenizer, articles_bm25, self.cache_directory + "bm25.pkl", self.max_reduction_length)
+            parse_texts_wordpiece(self.tokenizer, articles_bm25, self.cache_directory + "bm25.pkl", self.max_reduction_length)
             logger.info("tokenizing entities...")
-            parse_texts_deberta(self.tokenizer, entities, self.cache_directory + "entity.pkl", self.max_reduction_length)
+            parse_texts_wordpiece(self.tokenizer, entities, self.cache_directory + "entity.pkl", self.max_reduction_length)
+
+        elif self.bert in ['bigbird']:
+            logger.info("tokenizing news...")
+            parse_texts_sentencepiece(self.tokenizer, articles, self.cache_directory + "news.pkl", self.max_token_length)
+            logger.info("tokenizing bm25 ordered news...")
+            parse_texts_sentencepiece(self.tokenizer, articles_bm25, self.cache_directory + "bm25.pkl", self.max_reduction_length)
+            logger.info("tokenizing entities...")
+            parse_texts_sentencepiece(self.tokenizer, entities, self.cache_directory + "entity.pkl", self.max_reduction_length)
 
 
     def init_behaviors(self):

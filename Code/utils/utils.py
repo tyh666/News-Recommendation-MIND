@@ -57,7 +57,7 @@ def convert_tokens_to_words_bert(tokens):
     return words
 
 
-def convert_tokens_to_words_deberta(tokens):
+def convert_tokens_to_words_wordpiece(tokens):
     """
     transform the tokens output by tokenizer to words (connecting subwords)
 
@@ -82,7 +82,7 @@ def convert_tokens_to_words_deberta(tokens):
     return words
 
 
-def convert_tokens_to_words_deberta_punctuation(tokens):
+def convert_tokens_to_words_wordpiece_punctuation(tokens):
     """
     transform the tokens output by tokenizer to words (connecting subwords)
 
@@ -286,7 +286,7 @@ class BM25(object):
         df = defaultdict(int)
         for document in documents:
             tf = defaultdict(int)
-            words = document.split()
+            words = re.sub("[.&*()+=/\<>,!?;:~`@#$%^]", '', document).split()
             # ignore [CLS]
             for word in words:
                 tf[word] += 1
