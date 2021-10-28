@@ -112,18 +112,15 @@ class MIND(Dataset):
 
                 news = manager.news
                 imprs = []
-                histories = []
-                uindexes = []
 
                 for i,j,k in zip(behaviors['imprs'], behaviors['histories'], behaviors['uindexes']):
                     if news in j:
                         imprs.append(i)
-                        histories.append(j)
-                        uindexes.append(k)
 
                 self.imprs = imprs
-                self.histories = histories
-                self.uindexes = uindexes
+                for k,v in behaviors.items():
+                    if k != 'imprs':
+                        setattr(self, k, v)
 
             else:
                 for k,v in behaviors.items():
@@ -541,14 +538,13 @@ class MIND(Dataset):
         """
 
         impr = self.imprs[index] # (impression_index, news_index)
-        impr_index = index
+        impr_index = impr[0]
         impr_news = impr[1]
-
         user_index = self.uindexes[impr_index]
 
         # each time called to return positive one sample and its negative samples
         if self.mode == "train":
-            # user"s unhis news in the same impression
+            # user"s unclicked news in the same impression
             negs = self.negatives[impr_index]
             neg_list, neg_num = newsample(negs, self.npratio)
 
