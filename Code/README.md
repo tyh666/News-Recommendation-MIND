@@ -76,8 +76,9 @@ python -m scripts.esm -m test -s large -ck=150000
 - [ ] first > matching
 - [ ] BERT encoderN cost too much
 - [ ] position distribution of selected terms
-- [ ] fastformer necessary?
+- [ ] longformer necessary?
 - [ ] online deployment
+- [ ] avg/first trained better in personalization
 
 ## Preprocess
 - [x] remove stop words
