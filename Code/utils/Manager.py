@@ -1212,7 +1212,7 @@ class Manager():
             "deberta": 511,
             "unilm": 511,
             "longformer": 4094,
-            "bigbird": 511
+            "bigbird": 1000
         }
         return length_map[self.bert]
 
