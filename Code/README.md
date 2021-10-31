@@ -2,48 +2,42 @@
 ``` bash
 if [ -d /data/v-pezhang/nn/lib/python3.8/site-packages/torch ];
 then
-  git config --global user.name 'namespace-Pt'
-  git config --global user.email 'zpt@ruc.edu.cn'
-  sudo apt-get install screen -y
-  sudo apt-get install rsync -y
-  conda init
-  if ! [ -n nn ]; then
-    echo 'alias nn="conda activate /data/v-pezhang/nn"' >> ~/.bashrc
-  fi
+git config --global user.name 'namespace-Pt'
+git config --global user.email 'zpt@ruc.edu.cn'
+sudo apt-get install screen -y
+sudo apt-get install rsync -y
+conda init
+echo 'alias nn="conda activate /data/v-pezhang/nn"' >> ~/.bashrc
+echo 'alias pt="screen -r -d pt"' >> ~/.bashrc
+source ~/.bashrc
 
-  if ! [ -n pt ]; then
-    echo 'alias pt="screen -r -d pt"' >> ~/.bashrc
-  fi
-  source ~/.bashrc
-  nn
+# /data/v-pezhang/nn/bin/pip install torch==1.9.1+cu111 -f https://download.pytorch.org/whl/torch_stable.html
 
-  # /data/v-pezhang/nn/bin/pip install torch==1.9.1+cu111 -f https://download.pytorch.org/whl/torch_stable.html
-
-  sleep infinity
+sleep infinity
 
 else
-  git config --global user.name 'namespace-Pt'
-  git config --global user.email 'zpt@ruc.edu.cn'
+git config --global user.name 'namespace-Pt'
+git config --global user.email 'zpt@ruc.edu.cn'
 
-  conda create --prefix /data/v-pezhang/nn python=3.8 -y
-  conda init
-  echo 'alias nn="conda activate /data/v-pezhang/nn"' >> ~/.bashrc
-  source ~/.bashrc
-  nn
-  /data/v-pezhang/nn/bin/pip install torch==1.9.1+cu111 -f https://download.pytorch.org/whl/torch_stable.html
-  /data/v-pezhang/nn/bin/pip install tensorboard ipython jupyter notebook typing pandas scipy scikit-learn transformers
+conda create --prefix /data/v-pezhang/nn python=3.8 -y
+conda init
+echo 'alias nn="conda activate /data/v-pezhang/nn"' >> ~/.bashrc
+source ~/.bashrc
+nn
+/data/v-pezhang/nn/bin/pip install torch==1.9.1+cu111 -f https://download.pytorch.org/whl/torch_stable.html
+/data/v-pezhang/nn/bin/pip install tensorboard ipython jupyter notebook typing pandas scipy scikit-learn transformers
 
-  cd /data/
-  mkdir v-pezhang
-  cd v-pezhang
-  mkdir Data
-  mkdir Code
-  cd Code
-  git clone https://github.com/namespace-Pt/Document-Reduction.git
+cd /data/
+mkdir v-pezhang
+cd v-pezhang
+mkdir Data
+mkdir Code
+cd Code
+git clone https://github.com/namespace-Pt/Document-Reduction.git
 
-  sudo apt-get install rsync -y
-  sudo apt-get install screen -y
-  sleep infinity
+sudo apt-get install rsync -y
+sudo apt-get install screen -y
+sleep infinity
 fi
 ```
 

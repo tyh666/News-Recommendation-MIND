@@ -78,8 +78,8 @@ class MIND(Dataset):
                 from transformers import AutoTokenizer
                 self.tokenizer = AutoTokenizer.from_pretrained(manager.get_bert_for_load(), cache_dir=manager.path + "bert_cache/")
 
-                self.news_file = file_directory + "news.tsv"
-                logger.info("encoding news of {}...".format(self.news_file))
+                self.file_directory = file_directory
+                logger.info("encoding news of {}...".format(self.file_directory + "news.tsv"))
                 self.bert = manager.bert
 
                 self.max_token_length = 512
@@ -93,8 +93,6 @@ class MIND(Dataset):
                 except FileNotFoundError:
                     manager.construct_nid2idx(mode=self.mode)
                     self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_{}.json".format(self.scale, self.mode))
-
-                self.convert_tokens_to_words = manager.convert_tokens_to_words
 
                 self.init_news()
 
@@ -140,7 +138,7 @@ class MIND(Dataset):
             else:
                 self.subwords = None
 
-        if self.reducer in ["bm25", "entity", "first"]:
+        if self.reducer in ["bm25", "entity", "first", "keyword"]:
             with open(self.cache_directory + "news.pkl", "rb") as f:
                 news = pickle.load(f)
                 self.encoded_news_original = news["encoded_news"][:, :self.signal_length]
@@ -159,7 +157,7 @@ class MIND(Dataset):
             else:
                 from utils.utils import DoNothing
                 refiner = DoNothing()
-        elif manager.reducer in ["bm25", "none", "entity", "first"]:
+        elif manager.reducer in ["bm25", "none", "entity", "first", "keyword"]:
             refiner = None
         elif manager.reducer == "bow":
             from utils.utils import CountFreq
@@ -180,7 +178,8 @@ class MIND(Dataset):
         # tokenize once, remove punctuations in BM25
         articles = [""]
         entities = [""]
-        with open(self.news_file, "r", encoding="utf-8") as rd:
+        keywords = [""]
+        with open(self.file_directory + "news.tsv", "r", encoding="utf-8") as rd:
             for idx in tqdm(rd, ncols=120, leave=True):
                 nid, vert, subvert, title, ab, url, title_entity, abs_entity = idx.strip("\n").split("\t")
                 article = " ".join([title, ab, subvert])
@@ -199,6 +198,12 @@ class MIND(Dataset):
                     entities.append(' '.join(words[:self.max_reduction_length]))
                 else:
                     entities.append(' '.join(list(entity_dic.keys())))
+
+        # load pre-defined keywords
+        with open(self.file_directory + "keywords.tsv", "r", encoding="utf-8") as rd:
+            for idx in tqdm(rd, ncols=120, leave=True):
+                keyword = idx.strip("\n")
+                keywords.append(keyword)
 
         # initialize other kind of reducer here
         # rank words according to reduction rules
@@ -422,6 +427,8 @@ class MIND(Dataset):
             parse_texts_bert(self.tokenizer, articles_bm25, self.cache_directory + "bm25.pkl", self.max_reduction_length)
             logger.info("tokenizing entities...")
             parse_texts_bert(self.tokenizer, entities, self.cache_directory + "entity.pkl", self.max_reduction_length)
+            logger.info("tokenizing keywords...")
+            parse_texts_bert(self.tokenizer, keywords, self.cache_directory + "keyword.pkl", self.max_reduction_length)
 
         elif self.bert in ['deberta', 'longformer']:
             logger.info("tokenizing news...")
@@ -430,6 +437,8 @@ class MIND(Dataset):
             parse_texts_wordpiece(self.tokenizer, articles_bm25, self.cache_directory + "bm25.pkl", self.max_reduction_length)
             logger.info("tokenizing entities...")
             parse_texts_wordpiece(self.tokenizer, entities, self.cache_directory + "entity.pkl", self.max_reduction_length)
+            logger.info("tokenizing keywords...")
+            parse_texts_wordpiece(self.tokenizer, keywords, self.cache_directory + "keyword.pkl", self.max_reduction_length)
 
         elif self.bert in ['bigbird']:
             logger.info("tokenizing news...")
@@ -438,6 +447,8 @@ class MIND(Dataset):
             parse_texts_sentencepiece(self.tokenizer, articles_bm25, self.cache_directory + "bm25.pkl", self.max_reduction_length)
             logger.info("tokenizing entities...")
             parse_texts_sentencepiece(self.tokenizer, entities, self.cache_directory + "entity.pkl", self.max_reduction_length)
+            logger.info("tokenizing keywords...")
+            parse_texts_sentencepiece(self.tokenizer, keywords, self.cache_directory + "keyword.pkl", self.max_reduction_length)
 
 
     def init_behaviors(self):
@@ -586,7 +597,7 @@ class MIND(Dataset):
             # truncate the attention mask
             self.attn_mask = self.attn_mask
 
-        elif self.reducer in ["bm25", "entity", "first"]:
+        elif self.reducer in ["bm25", "entity", "first", "keyword"]:
             # [CLS] and [SEP], actually, [SEP] is virtual
             self.encoded_news = self.encoded_news[:, :self.k + 1]
             self.attn_mask = self.attn_mask[:, :self.k + 1]
