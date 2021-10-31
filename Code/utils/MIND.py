@@ -74,7 +74,7 @@ class MIND(Dataset):
                 self.init_behaviors()
 
 
-            if not (os.path.exists(self.cache_directory + "news.pkl") and os.path.exists(self.cache_directory + "bm25.pkl") and os.path.exists(self.cache_directory + "entity.pkl")):
+            if not (os.path.exists(self.cache_directory + "news.pkl") and os.path.exists(self.cache_directory + "bm25.pkl") and os.path.exists(self.cache_directory + "entity.pkl") and os.path.exists(self.cache_directory + "keyword.pkl")):
                 from transformers import AutoTokenizer
                 self.tokenizer = AutoTokenizer.from_pretrained(manager.get_bert_for_load(), cache_dir=manager.path + "bert_cache/")
 
@@ -182,7 +182,7 @@ class MIND(Dataset):
         with open(self.file_directory + "news.tsv", "r", encoding="utf-8") as rd:
             for idx in tqdm(rd, ncols=120, leave=True):
                 nid, vert, subvert, title, ab, url, title_entity, abs_entity = idx.strip("\n").split("\t")
-                article = " ".join([title, ab, subvert])
+                article = " ".join([title, ab])
                 articles.append(article)
 
                 entity_dic = dict()
@@ -874,9 +874,8 @@ class MIND_news(Dataset):
             else:
                 self.subwords = None
 
-        if manager.reducer in ["matching", "bm25", "none", "entity", "first"]:
-            refiner = None
-        elif manager.reducer == "bow":
+        refiner = None
+        if manager.reducer == "bow":
             from utils.utils import CountFreq
             refiner = CountFreq(manager)
 

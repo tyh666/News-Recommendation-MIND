@@ -46,7 +46,7 @@ def main(rank, manager):
     if manager.reducer in ['matching', 'bow']:
         from models.Modules.DRM import Matching_Reducer
         reducer = Matching_Reducer(manager)
-    elif manager.reducer in ['bm25', "entity", "first"]:
+    elif manager.reducer in ['bm25', "entity", "first", "keyword"]:
         from models.Modules.DRM import Identical_Reducer
         reducer = Identical_Reducer(manager)
 
