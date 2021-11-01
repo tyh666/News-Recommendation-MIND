@@ -182,7 +182,7 @@ class MIND(Dataset):
         with open(self.file_directory + "news.tsv", "r", encoding="utf-8") as rd:
             for idx in tqdm(rd, ncols=120, leave=True):
                 nid, vert, subvert, title, ab, url, title_entity, abs_entity = idx.strip("\n").split("\t")
-                article = " ".join([title, ab])
+                article = " ".join([title, ab, subvert])
                 articles.append(article)
 
                 entity_dic = dict()
@@ -200,10 +200,15 @@ class MIND(Dataset):
                     entities.append(' '.join(list(entity_dic.keys())))
 
         # load pre-defined keywords
-        with open(self.file_directory + "keywords.tsv", "r", encoding="utf-8") as rd:
-            for idx in tqdm(rd, ncols=120, leave=True):
-                keyword = idx.strip("\n")
-                keywords.append(keyword)
+        try:
+            with open(self.file_directory + "keywords.tsv", "r", encoding="utf-8") as rd:
+                for idx in tqdm(rd, ncols=120, leave=True):
+                    keyword = idx.strip("\n")
+                    keywords.append(keyword)
+            no_keyword = False
+        except:
+            no_keyword = True
+            logger.warning("no pre-defined keywords found")
 
         # initialize other kind of reducer here
         # rank words according to reduction rules
@@ -427,8 +432,9 @@ class MIND(Dataset):
             parse_texts_bert(self.tokenizer, articles_bm25, self.cache_directory + "bm25.pkl", self.max_reduction_length)
             logger.info("tokenizing entities...")
             parse_texts_bert(self.tokenizer, entities, self.cache_directory + "entity.pkl", self.max_reduction_length)
-            logger.info("tokenizing keywords...")
-            parse_texts_bert(self.tokenizer, keywords, self.cache_directory + "keyword.pkl", self.max_reduction_length)
+            if not no_keyword:
+                logger.info("tokenizing keywords...")
+                parse_texts_bert(self.tokenizer, keywords, self.cache_directory + "keyword.pkl", self.max_reduction_length)
 
         elif self.bert in ['deberta', 'longformer']:
             logger.info("tokenizing news...")
@@ -437,8 +443,9 @@ class MIND(Dataset):
             parse_texts_wordpiece(self.tokenizer, articles_bm25, self.cache_directory + "bm25.pkl", self.max_reduction_length)
             logger.info("tokenizing entities...")
             parse_texts_wordpiece(self.tokenizer, entities, self.cache_directory + "entity.pkl", self.max_reduction_length)
-            logger.info("tokenizing keywords...")
-            parse_texts_wordpiece(self.tokenizer, keywords, self.cache_directory + "keyword.pkl", self.max_reduction_length)
+            if not no_keyword:
+                logger.info("tokenizing keywords...")
+                parse_texts_wordpiece(self.tokenizer, keywords, self.cache_directory + "keyword.pkl", self.max_reduction_length)
 
         elif self.bert in ['bigbird']:
             logger.info("tokenizing news...")
@@ -447,8 +454,9 @@ class MIND(Dataset):
             parse_texts_sentencepiece(self.tokenizer, articles_bm25, self.cache_directory + "bm25.pkl", self.max_reduction_length)
             logger.info("tokenizing entities...")
             parse_texts_sentencepiece(self.tokenizer, entities, self.cache_directory + "entity.pkl", self.max_reduction_length)
-            logger.info("tokenizing keywords...")
-            parse_texts_sentencepiece(self.tokenizer, keywords, self.cache_directory + "keyword.pkl", self.max_reduction_length)
+            if not no_keyword:
+                logger.info("tokenizing keywords...")
+                parse_texts_sentencepiece(self.tokenizer, keywords, self.cache_directory + "keyword.pkl", self.max_reduction_length)
 
 
     def init_behaviors(self):
