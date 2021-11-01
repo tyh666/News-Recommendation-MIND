@@ -32,7 +32,7 @@ class ESM(BaseModel):
             else:
                 self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, manager.signal_length * manager.signal_length)), persistent=False)
 
-        manager.name = '__'.join(['esm', manager.embedding, manager.encoderN, manager.encoderU, manager.reducer, manager.ranker, manager.granularity, "full" if manager.full_attn else "partial"])
+        manager.name = '__'.join(['esm', manager.embedding, manager.encoderN, manager.encoderU, manager.reducer, manager.ranker, manager.granularity, "full" if manager.full_attn else "partial", str(manager.k)])
 
 
     def clickPredictor(self, reduced_tensor):

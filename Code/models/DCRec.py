@@ -46,7 +46,7 @@ class DCRec(BaseModel):
                 self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, self.signal_length * self.signal_length)), persistent=False)
 
 
-        manager.name = '__'.join(['dcrec', manager.bert, manager.encoderN, manager.encoderU, manager.reducer, manager.granularity])
+        manager.name = '__'.join(['dcrec', manager.bert, manager.encoderN, manager.encoderU, manager.reducer, manager.granularity, manager.k])
 
         self.name = manager.name
 

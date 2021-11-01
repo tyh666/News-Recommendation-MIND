@@ -145,8 +145,8 @@ class Manager():
                 args.unilm_path = args.path + 'bert_cache/UniLM/unilm2-base-uncased.bin'
                 args.unilm_config_path = args.path + 'bert_cache/UniLM/unilm2-base-uncased-config.json'
 
-            if args.scale == 'demo':
-                args.fast = False
+            # if args.scale == 'demo':
+            #     args.fast = False
 
         else:
             args = config
@@ -322,8 +322,8 @@ class Manager():
         """
             shortcut for saving the model and optimizer
         """
-        save_path = "data/model_params/{}/{}_step{}_[k={}].model".format(
-            self.name, self.scale, step, self.k)
+        save_path = "data/model_params/{}/{}_step{}.model".format(
+            self.name, self.scale, step)
 
         logger.info("saving model at {}...".format(save_path))
 
@@ -341,8 +341,8 @@ class Manager():
             shortcut for loading model and optimizer parameters
         """
 
-        save_path = "data/model_params/{}/{}_step{}_[k={}].model".format(
-            self.name, self.scale, step, self.k)
+        save_path = "data/model_params/{}/{}_step{}.model".format(
+            self.name, self.scale, step)
 
         logger.info("loading model from {}...".format(save_path))
 
@@ -872,7 +872,7 @@ class Manager():
             preds = self._test(model, loaders[0])
 
         if self.rank in [0, -1]:
-            save_directory = "data/results/{}".format(self.name + "/{}_step{}_[k={}]".format(self.scale, self.checkpoint, self.k))
+            save_directory = "data/results/{}".format(self.name + "/{}_step{}".format(self.scale, self.checkpoint))
             os.makedirs(save_directory, exist_ok=True)
 
             save_path = save_directory + "/prediction.txt"

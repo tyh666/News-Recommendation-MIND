@@ -41,7 +41,7 @@ class XFormer(BaseModel):
                 self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, self.signal_length * self.signal_length)), persistent=False)
 
 
-        manager.name = '__'.join(['xformer', manager.bert, manager.granularity])
+        manager.name = '__'.join(['xformer', manager.bert, manager.granularity, manager.k])
         self.name = manager.name
 
 
