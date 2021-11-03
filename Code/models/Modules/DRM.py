@@ -77,6 +77,7 @@ class Matching_Reducer(nn.Module):
 
         # [bs, hs, sl - 2]
         scores = F.normalize(news_selection_embedding, dim=-1).matmul(F.normalize(selection_query, dim=-2)).squeeze(-1)
+        # scores = news_selection_embedding.matmul(selection_query).squeeze(-1)
         pad_pos = ~((his_refined_mask[:, :, 1:] + self.keep_k_modifier).bool())
 
         # mask the padded term

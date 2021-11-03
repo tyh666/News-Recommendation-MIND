@@ -119,7 +119,7 @@ class Manager():
             parser.add_argument("-rk", "--ranker", dest="ranker", help="choose ranker", choices=["onepass","original","cnn","knrm"], default="onepass")
             parser.add_argument("-agg", "--aggregator", dest="aggregator", help="choose history aggregator, only used in TESRec", choices=["avg","attn","cnn","rnn","lstur","mha"], default=None)
 
-            parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=5)
+            parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=3)
             parser.add_argument("-thr", "--threshold", dest="threshold", help="threshold to mask terms", default=-float("inf"), type=float)
             parser.add_argument("-b", "--bert", dest="bert", help="choose bert model", choices=["bert", "deberta", "unilm", "longformer", "bigbird"], default="bert")
 
@@ -145,8 +145,8 @@ class Manager():
                 args.unilm_path = args.path + 'bert_cache/UniLM/unilm2-base-uncased.bin'
                 args.unilm_config_path = args.path + 'bert_cache/UniLM/unilm2-base-uncased-config.json'
 
-            # if args.scale == 'demo':
-            #     args.fast = False
+            if args.scale == 'demo':
+                args.no_email = True
 
         else:
             args = config
@@ -651,6 +651,7 @@ class Manager():
 
         if self.scale == "demo":
             save_step = len(loaders[0]) - 1
+            self.fast = False
             # save_step = 1
         else:
             save_step = self.step
@@ -663,8 +664,8 @@ class Manager():
         best_res = {"auc":0}
 
         if self.rank in [0, -1]:
-            logger.info("tuning {}...".format(self.name))
-            logger.info("total training step: {}".format(self.epochs * len(loaders[0])))
+            logger.info("training {}...".format(self.name))
+            # logger.info("total training step: {}".format(self.epochs * len(loaders[0])))
 
         for epoch in range(self.epochs):
             epoch_loss = 0
