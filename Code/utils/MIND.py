@@ -731,9 +731,9 @@ class MIND(Dataset):
             his_mask[:len(his_ids)] = 1
 
             if self.descend_history:
-                his_ids = his_ids + [0] * (self.his_size - len(his_ids))
-            else:
                 his_ids = his_ids[::-1] + [0] * (self.his_size - len(his_ids))
+            else:
+                his_ids = his_ids + [0] * (self.his_size - len(his_ids))
 
             label = impr[2]
 

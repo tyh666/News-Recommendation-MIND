@@ -927,13 +927,9 @@ class Manager():
 
         logger.info("press <ENTER> to continue")
 
-        pre_id = None
         target_news = self.news
 
         for x in loader_inspect:
-            if x["user_id"][0] == pre_id:
-                continue
-            pre_id = x["user_id"][0]
 
             _, term_indexes = model(x)
 
