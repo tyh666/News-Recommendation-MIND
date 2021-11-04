@@ -67,14 +67,19 @@ python -m scripts.esm -m test -s large -ck=150000
 ```
 
 ## TODO
-- [ ] Do I need to compare a text summarization model?
-- [ ] first > matching
-- [ ] BERT encoderN cost too much
+- [x] Do I need to compare a text summarization model?
+- [x] first > matching
+- [x] BERT encoderN cost too much
 - [ ] position distribution of selected terms
-- [ ] longformer necessary?
-- [ ] online deployment
-- [ ] avg/first trained better in personalization
-- [ ] retrieval dataset
+- [x] longformer necessary?
+- [x] online deployment
+- [x] avg/first trained better in personalization
+- [x] retrieval dataset
+  - [ ] use elasticsearch: concatenated key terms as query, the full news as document
+- [ ] whether to highlight one-tower user encoder
+- [ ] whether to mention DBLP in introduction\
+- [ ] compare efficiency in training/testing?
+- [ ] term/token?
 
 ## Preprocess
 - [x] remove stop words
