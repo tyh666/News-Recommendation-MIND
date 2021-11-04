@@ -115,9 +115,11 @@ class MIND(Dataset):
                 self.histories = behaviors['histories']
                 self.uindexes = behaviors['uindexes']
 
-                for i,j in zip(behaviors['imprs'], self.histories):
+                for i in behaviors['imprs']:
+                    impr_index = i[0]
+
                     # limit the length of user history to his_size
-                    if news in j[:self.his_size]:
+                    if news in self.histories[impr_index][:self.his_size]:
                         imprs.append(i)
 
                 self.imprs = imprs
