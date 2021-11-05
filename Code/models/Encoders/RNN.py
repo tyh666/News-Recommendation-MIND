@@ -36,11 +36,12 @@ class RNN_User_Encoder(nn.Module):
     def __init__(self, manager):
         super().__init__()
         self.hidden_dim = manager.hidden_dim
+        self.descend_history = manager.descend_history
+
         if manager.encoderU == 'gru':
             self.rnn = nn.GRU(self.hidden_dim, self.hidden_dim, batch_first=True)
         elif manager.encoderU == 'lstm':
             self.rnn = nn.LSTM(self.hidden_dim, self.hidden_dim, batch_first=True)
-
         for name, param in self.rnn.named_parameters():
             if 'weight' in name:
                 nn.init.orthogonal_(param)
@@ -56,6 +57,9 @@ class RNN_User_Encoder(nn.Module):
             user_repr: user representation (coarse), [batch_size, 1, hidden_dim]
         """
         # _, user_repr = self.rnn(news_repr.flip(dims=[1]))
+        if self.descend_history:
+            news_repr = news_repr.flip(dims=[1])
+
         _, user_repr = self.rnn(news_repr)
         if type(user_repr) is tuple:
             user_repr = user_repr[0]

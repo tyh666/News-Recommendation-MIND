@@ -44,6 +44,27 @@ fi
 - `python==3.8`
 - `torch==1.7.1`
 
+
+
+git config --global user.name 'namespace-Pt'
+git config --global user.email 'zpt@ruc.edu.cn'
+sudo apt-get install screen -y
+sudo apt-get install rsync -y
+
+conda create --prefix /data/v-pezhang/gf python=3.6 -y
+conda init
+
+echo 'alias nn="conda activate /data/v-pezhang/nn"' >> ~/.bashrc
+echo 'alias pt="screen -r -d pt"' >> ~/.bashrc
+echo 'alias gf="conda activate /data/v-pezhang/gf"' >> ~/.bashrc
+source ~/.bashrc
+
+/data/v-pezhang/gf/bin/pip install torch==1.8.0+cu111 -f https://download.pytorch.org/whl/torch_stable.html
+/data/v-pezhang/gf/bin/pip install scikit-learn transformers==3.4.0
+
+sleep infinity
+
+
 ## Instruction
 ```bash
 cd /data/v-pezhang/Code/Document-Reduction/Code
