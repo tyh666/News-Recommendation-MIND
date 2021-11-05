@@ -307,9 +307,10 @@ class Manager():
             return loader_test,
 
         elif self.mode == "encode":
+            from .MIND import MIND_history
             file_directory_dev = self.path + "MIND/MINDlarge_dev/"
 
-            dataset_dev = MIND(self, file_directory_dev)
+            dataset_dev = MIND_history(self, file_directory_dev)
             sampler_dev = None
 
             loader_dev = DataLoader(dataset_dev, batch_size=self.batch_size, pin_memory=pin_memory,
@@ -988,11 +989,13 @@ class Manager():
                     return
 
 
+    @torch.no_grad()
     def encode(self, model, loaders):
         """
         encode user, only used for testing
         """
         model.eval()
+        logger.info("encoding users...")
 
         user_repr = None
         start_time = time.time()

@@ -236,7 +236,7 @@ class PLM(BaseModel):
 
 
     def encode_user(self, x):
-        batch_size = x['cdd_encoded_index'].size(0)
+        batch_size = x['his_encoded_index'].size(0)
 
         if self.granularity != 'token':
             cdd_size = x['cdd_subword_index'].size(1)
@@ -275,9 +275,7 @@ class PLM(BaseModel):
             his_attn_mask = his_subword_prefix.matmul(x["his_attn_mask"].to(self.device).float().unsqueeze(-1)).squeeze(-1)
 
         else:
-            cdd_subword_prefix = None
             his_subword_prefix = None
-            cdd_attn_mask = x['cdd_attn_mask'].to(self.device)
             his_attn_mask = x["his_attn_mask"].to(self.device)
 
         his_news = x["his_encoded_index"].to(self.device).view(-1, self.signal_length)
@@ -293,7 +291,7 @@ class PLM(BaseModel):
             user_repr = user_repr + self.userBias
 
         return user_repr
-        
+
 
 class PLM2(BaseModel):
     """
