@@ -308,7 +308,7 @@ class Manager():
 
         elif self.mode in ["encode", "analyse"]:
             from .MIND import MIND_history
-            file_directory_dev = self.path + "MIND/MINDlarge_dev/"
+            file_directory_dev = self.path + "MIND/MIND{}_dev/".format(self.scale)
 
             dataset_dev = MIND_history(self, file_directory_dev)
             sampler_dev = None
@@ -997,12 +997,25 @@ class Manager():
         model.eval()
         logger.info("encoding users...")
 
+        self.load(model, self.checkpoint)
+
+        save_directory = "data/cache/"
+
+        user_reprs = []
         start_time = time.time()
         for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
-            model.encode_user(x)
+            user_repr = model.encode_user(x)[0]
+            print(user_repr.shape)
+            user_reprs.append(user_repr)
 
         end_time = time.time()
         logger.info("total encoding time: {}".format(end_time - start_time))
+
+        user_reprs = torch.cat(user_reprs, dim=0)
+        cache_directory = "data/cache/{}/{}/dev/".format(self.name, self.scale)
+        os.makedirs(cache_directory, exist_ok=True)
+        torch.save(user_reprs, cache_directory + "user.pt")
+
         try:
             subject = "[Performance Report] {}".format(self.name)
             email_server = smtplib.SMTP_SSL('smtp.gmail.com', 465)

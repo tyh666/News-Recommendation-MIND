@@ -315,4 +315,4 @@ class TESRec(BaseModel):
         if hasattr(self, 'userBias'):
             user_repr = user_repr + self.userBias
 
-        return user_repr, kid
+        return user_repr.squeeze(-2), kid
