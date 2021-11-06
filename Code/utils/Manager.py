@@ -1017,28 +1017,103 @@ class Manager():
     @torch.no_grad()
     def collect_kid(self, model, loaders):
         """
-        collect kid output
+        1. collect end-to-end extracted terms' position
+        2. compute recall rate of entity
+        3. compute recall rate of non-entity
         """
         if self.rank in [-1, 0]:
             logger.info("collecting extracted terms' position distribution...")
 
-        # pos = np.array([0] * (self.signal_length - 1))
-        # for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
-        #     # strip off [CLS] and [SEP]
-        #     kids = model.encode_user(x)[1]
-        #     kids = kids.view(-1, self.k).cpu().numpy()
-        #     for kid in kids:
-        #         pos[kid] += 1
-        # np.save("data/cache/kid_pos.npy", pos)
+        def construct_heuristic_extracted_term_indice():
+            logger.info("constructing heuristicly extracted term indices...")
+            import pickle
+            news = pickle.load(open('data/cache/bert/MINDlarge_dev/news.pkl','rb'))['encoded_news']
+            bm25 = pickle.load(open('data/cache/bert/MINDlarge_dev/bm25.pkl','rb'))['encoded_news']
+            entity = pickle.load(open('data/cache/bert/MINDlarge_dev/entity.pkl','rb'))['encoded_news']
 
-        pos = []
+            bm25_indice = []
+            entity_indice = []
+
+            for n,b,e in zip(news, bm25, entity):
+                # strip [CLS]
+                bm25_index = []
+                entity_index = []
+
+                # for each token in the first 3 bm25, find its position in the original news
+                for tok1 in b[1:4]:
+                    found = False
+                    for i,tok2 in enumerate(n[1:100]):
+                        if tok1 == tok2:
+                            bm25_index.append(i)
+                            found = True
+                            break
+                    if not found:
+                        bm25_index.append(-1)
+
+                for tok1 in e[1:4]:
+                    found = False
+                    for i,tok2 in enumerate(n[1:100]):
+                        if tok1 == tok2:
+                            found = True
+                            entity_index.append(i)
+                            break
+                    if not found:
+                        entity_index.append(-1)
+
+                bm25_indice.append(bm25_index)
+                entity_indice.append(entity_index)
+
+            bm25_indice = np.asarray(bm25_indice)
+            entity_indice = np.asarray(entity_indice)
+            np.save("data/cache/kid/bm25.npy", bm25_indice)
+            np.save("data/cache/kid/entity.npy", entity_indice)
+            return bm25_indice, entity_indice
+
+        try:
+            bm25_indice = np.load('data/cache/kid/bm25.npy')
+            entity_indice = np.load('data/cache/kid/bm25.npy')
+        except:
+            bm25_indice, entity_indice = construct_heuristic_extracted_term_indice()
+
+        # bm25_positions = np.array([0] * (self.signal_length - 1))
+        # entity_positions = np.array([0] * (self.signal_length - 1))
+        kid_positions = np.array([0] * (self.signal_length - 1))
+
+        recall_entity_all = []
+        recall_nonentity_all = []
+
+        count = 0
         for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
             # strip off [CLS] and [SEP]
             kids = model.encode_user(x)[1]
-            pos.append(kids.view(-1))
-        unique, count = pos.view(-1).unique(return_counts=True)
-        result = dict(zip(unique.tolist(), count.tolist()))
-        json.dump(result, "data/cache/kid_pos.json")
+            term_num = kids.numel()
+            kids = kids.cpu().numpy()
+            # for kid in kids.reshape(-1, self.k):
+            #     kid_positions[kid] += 1
+
+            for his_id in x['his_id']:
+                his_id = his_id.cpu().numpy()
+                entity_index = entity_indice[his_id]
+
+                entity_overlap = kids - entity_index
+                recall_entity = (entity_overlap == 0).sum() / term_num
+                recall_entity_all.append(recall_entity)
+
+                count += 1
+
+        logger.info("entity recall rate: {}".format(np.asarray(recall_entity_all).sum() / count))
+
+        # np.save("data/cache/kid_pos.npy", kid_positions)
+
+        # pos = []
+        # for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
+        #     # strip off [CLS] and [SEP]
+        #     kids = model.encode_user(x)[1]
+        #     pos.append(kids.view(-1))
+        # unique, count = torch.cat(pos, dim=-1).unique(return_counts=True)
+        # result = dict(zip(unique.tolist(), count.tolist()))
+        # json.dump(result, "data/cache/kid_pos.json")
+
 
     def convert_tokens_to_words(self, tokens, punctuation=False):
         """

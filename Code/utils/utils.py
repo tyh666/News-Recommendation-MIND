@@ -270,7 +270,7 @@ class Partition_Sampler():
 
 class BM25(object):
     """
-    compute bm25 score
+    compute bm25 score on the entire corpus, instead of the one limited by signal_length
     """
     def __init__(self, k=2, epsilon=0.5):
         self.k = k
@@ -287,7 +287,6 @@ class BM25(object):
         for document in documents:
             tf = defaultdict(int)
             words = re.sub("[.&*()+=/\<>,!?;:~`@#$%^]", '', document).split()
-            # ignore [CLS]
             for word in words:
                 tf[word] += 1
                 df[word] += 1
