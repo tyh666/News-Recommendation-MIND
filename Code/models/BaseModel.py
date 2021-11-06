@@ -9,7 +9,7 @@ class BaseModel(nn.Module):
 
         self.scale = manager.scale
         self.cdd_size = manager.cdd_size
-        self.mode = manager.get_mode_for_cache()
+        self.mode = "test" if manager.mode == "test" else "dev"
 
         self.impr_size = manager.impr_size
         self.batch_size = manager.batch_size

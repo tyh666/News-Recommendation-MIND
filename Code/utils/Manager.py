@@ -42,9 +42,9 @@ class Manager():
         if config is None:
             parser = argparse.ArgumentParser()
             parser.add_argument("-s", "--scale", dest="scale", help="data scale",
-                                choices=["demo", "small", "large", "whole"], required=True)
+                                choices=["demo", "small", "large", "whole"], default="large")
             parser.add_argument("-m", "--mode", dest="mode", help="train or test",
-                                choices=["train", "dev", "test", "encode", "inspect"], default="train")
+                                choices=["train", "dev", "test", "encode", "inspect", "analyse"], default="train")
             parser.add_argument("-e", "--epochs", dest="epochs",
                                 help="epochs to train the model", type=int, default=10)
             parser.add_argument("-d","--device", dest="device",
@@ -306,7 +306,7 @@ class Manager():
 
             return loader_test,
 
-        elif self.mode == "encode":
+        elif self.mode in ["encode", "analyse"]:
             from .MIND import MIND_history
             file_directory_dev = self.path + "MIND/MINDlarge_dev/"
 
@@ -997,10 +997,9 @@ class Manager():
         model.eval()
         logger.info("encoding users...")
 
-        user_repr = None
         start_time = time.time()
         for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
-            user_repr = model.encode_user(x)
+            model.encode_user(x)
 
         end_time = time.time()
         logger.info("total encoding time: {}".format(end_time - start_time))
@@ -1015,6 +1014,31 @@ class Manager():
             logger.info("error in connecting SMTP")
 
 
+    @torch.no_grad()
+    def collect_kid(self, model, loaders):
+        """
+        collect kid output
+        """
+        if self.rank in [-1, 0]:
+            logger.info("collecting extracted terms' position distribution...")
+
+        # pos = np.array([0] * (self.signal_length - 1))
+        # for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
+        #     # strip off [CLS] and [SEP]
+        #     kids = model.encode_user(x)[1]
+        #     kids = kids.view(-1, self.k).cpu().numpy()
+        #     for kid in kids:
+        #         pos[kid] += 1
+        # np.save("data/cache/kid_pos.npy", pos)
+
+        pos = []
+        for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
+            # strip off [CLS] and [SEP]
+            kids = model.encode_user(x)[1]
+            pos.append(kids.view(-1))
+        unique, count = pos.view(-1).unique(return_counts=True)
+        result = dict(zip(unique.tolist(), count.tolist()))
+        json.dump(result, "data/cache/kid_pos.json")
 
     def convert_tokens_to_words(self, tokens, punctuation=False):
         """
@@ -1136,34 +1160,6 @@ class Manager():
             "whole": "whole"
         }
         return scale_map[self.scale]
-
-
-    def get_mode_for_path(self):
-        """
-        transfer inspect mode to dev mode to load the right file
-        """
-        mode_map = {
-            "train": "train",
-            "dev": "dev",
-            "inspect": "dev",
-            "test": "test",
-            "encode": "train"
-        }
-        return mode_map[self.mode]
-
-
-    def get_mode_for_cache(self):
-        """
-        transfer train mode to dev mode to load the right cache news encoding
-        """
-        mode_map = {
-            "train": "dev",
-            "dev": "dev",
-            "inspect": "dev",
-            "test": "test",
-            "encode": "dev"
-        }
-        return mode_map[self.mode]
 
 
     def get_bert_for_load(self):
@@ -1365,7 +1361,7 @@ class Manager():
                     f.write('\t'.join(record) + '\n')
 
 
-    def analyse(config):
+    def statistic_MIND(config):
         """
             analyse over MIND
         """

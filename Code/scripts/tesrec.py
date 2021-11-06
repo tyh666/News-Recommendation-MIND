@@ -85,6 +85,9 @@ def main(rank, manager):
     elif manager.mode == 'encode':
         manager.encode(tesrec, loaders)
 
+    elif manager.mode == 'analyse':
+        manager.collect_kid(tesrec, loaders)
+
 
 if __name__ == "__main__":
     manager = Manager()
