@@ -28,7 +28,7 @@ class config:
 
     embedding = 'bert'
     encoderN = 'cnn'
-    encoderU = 'rnn'
+    encoderU = 'lstm'
     selector = 'sfi'
     reducer = 'matching'
     ranker = 'onepass'
@@ -36,6 +36,7 @@ class config:
     aggregator = None
 
     bert_dim = 768
+    embedding_dim = 768
     hidden_dim = 384
     head_num = 12
 

@@ -91,7 +91,6 @@ python -m scripts.esm -m test -s large -ck=150000
 - [x] Do I need to compare a text summarization model?
 - [x] first > matching
 - [x] BERT encoderN cost too much
-- [ ] position distribution of selected terms
 - [x] longformer necessary?
 - [x] online deployment
 - [x] avg/first trained better in personalization
@@ -100,7 +99,11 @@ python -m scripts.esm -m test -s large -ck=150000
 - [ ] whether to highlight one-tower user encoder
 - [ ] whether to mention DBLP in introduction\
 - [ ] compare efficiency in training/testing?
+  - metric for efficiency?
 - [ ] term/token?
+- [ ] position distribution of selected terms?
+- [ ] k from 1 to ? 1,2,3,4,5,8,10
+- [ ] whether to compare memory consumption
 
 ## Preprocess
 - [x] remove stop words

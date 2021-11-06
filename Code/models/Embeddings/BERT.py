@@ -12,7 +12,6 @@ class BERT_Embedding(nn.Module):
     """
     def __init__(self, manager):
         super().__init__()
-        self.name = 'bert'
 
         self.hidden_dim = manager.bert_dim
 
@@ -26,7 +25,7 @@ class BERT_Embedding(nn.Module):
                 manager.get_bert_for_load(),
                 cache_dir=manager.path + 'bert_cache/'
             )
-            
+
         self.bert_word_embedding = bert.embeddings.word_embeddings
 
         if manager.reducer == 'bow':

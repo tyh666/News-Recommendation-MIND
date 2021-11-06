@@ -5,7 +5,6 @@ from ..Modules.Attention import scaled_dp_attention
 class CNN_Encoder(nn.Module):
     def __init__(self, manager):
         super().__init__()
-        self.name = 'cnn-n'
 
         self.hidden_dim = manager.hidden_dim
         self.embedding_dim = manager.embedding_dim
