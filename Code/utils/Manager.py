@@ -44,7 +44,7 @@ class Manager():
             parser.add_argument("-s", "--scale", dest="scale", help="data scale",
                                 choices=["demo", "small", "large", "whole"], default="large")
             parser.add_argument("-m", "--mode", dest="mode", help="train or test",
-                                choices=["train", "dev", "test", "encode", "inspect", "analyse"], default="train")
+                                choices=["train", "dev", "test", "encode", "inspect", "analyse", "recall"], default="train")
             parser.add_argument("-e", "--epochs", dest="epochs",
                                 help="epochs to train the model", type=int, default=10)
             parser.add_argument("-d","--device", dest="device",
@@ -107,6 +107,7 @@ class Manager():
 
             parser.add_argument("--npratio", dest="npratio", help="the number of unclicked news to sample when training", type=int, default=4)
             parser.add_argument("--metrics", dest="metrics", help="metrics for evaluating the model", type=str, default="")
+            parser.add_argument("-rc", "--recall_ratio", dest="recall_ratio", help="recall@K", type=int, default=5)
 
             parser.add_argument("-g", "--granularity", dest="granularity", help="the granularity for reduction", choices=["token", "avg", "first", "sum"], default="token")
             parser.add_argument("-emb", "--embedding", dest="embedding", help="choose embedding", choices=["bert","random","deberta"], default="bert")
@@ -308,15 +309,26 @@ class Manager():
 
         elif self.mode in ["encode", "analyse"]:
             from .MIND import MIND_history
-            file_directory_dev = self.path + "MIND/MIND{}_dev/".format(self.scale)
+            file_directory = self.path + "MIND/MIND{}_dev/".format(self.scale)
 
-            dataset_dev = MIND_history(self, file_directory_dev)
-            sampler_dev = None
+            dataset = MIND_history(self, file_directory)
+            sampler = None
 
-            loader_dev = DataLoader(dataset_dev, batch_size=self.batch_size, pin_memory=pin_memory,
-                                    num_workers=num_workers, drop_last=False, shuffle=shuffle, sampler=sampler_dev)
+            loader = DataLoader(dataset, batch_size=self.batch_size, pin_memory=pin_memory,
+                                    num_workers=num_workers, drop_last=False, shuffle=shuffle, sampler=sampler)
 
-            return loader_dev,
+            return loader,
+
+        elif self.mode == "recall":
+            file_directory_train = self.path + "MIND/MINDlarge_dev/"
+
+            logger.info("setting npratio=0 to only return positive instance")
+            self.npratio = 0
+            dataset = MIND(self, file_directory_train)
+            loader = DataLoader(dataset, batch_size=self.batch_size, pin_memory=pin_memory,
+                                    num_workers=num_workers, drop_last=False)
+
+            return loader,
 
 
     def save(self, model, step, optimizer=None):
@@ -992,47 +1004,77 @@ class Manager():
     @torch.no_grad()
     def encode(self, model, loaders):
         """
-        encode user, only used for testing
+        encode user
         """
         model.eval()
         logger.info("encoding users...")
 
         self.load(model, self.checkpoint)
 
-        save_directory = "data/cache/"
-
-        user_reprs = []
+        # user_reprs = []
         start_time = time.time()
         for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
             user_repr = model.encode_user(x)[0]
-            print(user_repr.shape)
-            user_reprs.append(user_repr)
+            # print(user_repr.shape)
+            # user_reprs.append(user_repr)
 
         end_time = time.time()
         logger.info("total encoding time: {}".format(end_time - start_time))
 
-        user_reprs = torch.cat(user_reprs, dim=0)
-        cache_directory = "data/cache/{}/{}/dev/".format(self.name, self.scale)
-        os.makedirs(cache_directory, exist_ok=True)
-        torch.save(user_reprs, cache_directory + "user.pt")
+        # user_reprs = torch.cat(user_reprs, dim=0)
+        # cache_directory = "data/cache/{}/{}/{}/".format(self.name, self.scale, self.encode_mode)
+        # os.makedirs(cache_directory, exist_ok=True)
+        # torch.save(user_reprs, cache_directory + "user.pt")
 
-        try:
-            subject = "[Performance Report] {}".format(self.name)
-            email_server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
-            email_server.login(email, password)
-            message = "Subject: {}\n\nencoding time: {}".format(subject, str(end_time - start_time))
-            email_server.sendmail(email, email, message)
-            email_server.close()
-        except:
-            logger.info("error in connecting SMTP")
+        # return user_reprs
+
+        # if report_time:
+        #     try:
+        #         subject = "[Performance Report] {}".format(self.name)
+        #         email_server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+        #         email_server.login(email, password)
+        #         message = "Subject: {}\n\nencoding time: {}".format(subject, str(end_time - start_time))
+        #         email_server.sendmail(email, email, message)
+        #         email_server.close()
+        #     except:
+        #         logger.info("error in connecting SMTP")
 
 
     @torch.no_grad()
-    def recall(self, model):
+    def recall(self, model, loaders):
         """
         recall from the given corpus
         """
-        
+
+        logger.info("dense recalling by user representation...")
+        import faiss
+
+        news_set = torch.load('data/recall/news.pt', map_location=torch.device(model.device))
+
+        news_reprs = torch.load("data/cache/{}/large/dev/news.pt".format(self.name), map_location=torch.device(model.device))
+        news = news_reprs[news_set]
+
+        print(news.shape)
+
+        INDEX = faiss.IndexFlatIP(news.size(-1))
+        INDEX.add(news.cpu().numpy())
+
+        self.load(model, self.checkpoint)
+
+        recalls = []
+
+        for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
+            user_repr = model.encode_user(x)[0].cpu().numpy()
+            _, index = INDEX.search(user_repr, self.recall_ratio)
+
+            cdd_id = x['cdd_id'].cpu().numpy()
+            recall = (cdd_id == index).sum(axis=-1)
+            recalls.append(recall)
+
+        recalls = np.concatenate(recalls, axis=0)
+        print(recalls.shape)
+        recall_rate = recalls.mean(recalls)
+        logger.info("recall@{} : {}".format(self.recall_ratio, recall_rate))
 
 
     @torch.no_grad()
@@ -1353,6 +1395,36 @@ class Manager():
         h = open("data/dictionaries/uid2idx_{}.json".format(scale), "w")
         json.dump(uid2index, h, ensure_ascii=False)
         h.close()
+
+
+    def construct_cddidx_for_recall(self):
+        """
+        map original cdd id to the one that's limited to the faiss index
+        """
+        logger.info("mapping original cdd id to the one that's limited to the faiss index...")
+
+        # get the index of news that appeared in impressions
+        try:
+            news_set = torch.load('data/recall/news.pt', map_location='cpu')
+        except:
+            import pickle
+            behaviors = pickle.load(open('data/cache/bert/MINDlarge_dev/1000/behaviors.pkl','rb'))
+            imprs = behaviors['imprs']
+            news_set = set()
+
+            for impr in imprs:
+                news_set.update(impr[1])
+
+            news_set = torch.tensor(list(news_set))
+            torch.save(news_set, "data/recall/news.pt")
+
+        news_set = news_set.tolist()
+        cddid2idx = {}
+        for i,x in enumerate(news_set):
+            cddid2idx[x] = i
+
+        with open("data/dictionaries/cddid2idx_recall.json", "w") as f:
+            json.dump(cddid2idx, f, ensure_ascii=False)
 
 
     def construct_whole_dataset(self):

@@ -88,6 +88,9 @@ def main(rank, manager):
     elif manager.mode == 'analyse':
         manager.collect_kid(tesrec, loaders)
 
+    elif manager.mode == 'recall':
+        manager.recall(tesrec, loaders)
+
 
 if __name__ == "__main__":
     manager = Manager()

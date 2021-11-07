@@ -48,10 +48,22 @@ class MIND(Dataset):
             manager.impr_size = 1000
 
         self.cache_directory = "/".join(["data/cache", manager.get_bert_for_cache(), file_name])
-        self.news_path = self.cache_directory + manager.get_news_file_for_load()
-
-        self.behav_path_train = self.cache_directory + "behaviors.pkl"
         self.behav_path_eval = self.cache_directory + "{}/{}".format(self.impr_size, "behaviors.pkl")
+
+        # force train mode for recall, because we want to return positive instances only
+        if manager.mode == "recall":
+            self.mode = "train"
+            self.behav_path_train = self.behav_path_eval
+            try:
+                self.cdd2index = getId2idx("data/dictionaries/cddid2idx_recall.json")
+            except:
+                manager.construct_cddidx_for_recall()
+                self.cdd2index = getId2idx("data/dictionaries/cddid2idx_recall.json")
+
+        else:
+            self.behav_path_train = self.cache_directory + "behaviors.pkl"
+
+        self.news_path = self.cache_directory + manager.get_news_file_for_load()
 
         # only preprocess on the master node, the worker can directly load the cache
         if manager.rank in [-1, 0]:
@@ -641,15 +653,22 @@ class MIND(Dataset):
         impr = self.imprs[index] # (impression_index, news_index)
         impr_index = impr[0]
         impr_news = impr[1]
+        print(impr_news)
         user_index = self.uindexes[impr_index]
 
         # each time called to return positive one sample and its negative samples
         if self.mode == "train":
             # user"s unclicked news in the same impression
-            negs = self.negatives[impr_index]
-            neg_list, neg_num = newsample(negs, self.npratio)
+            try:
+                negs = self.negatives[impr_index]
+                neg_list, neg_num = newsample(negs, self.npratio)
+                cdd_ids = [impr_news] + neg_list
 
-            cdd_ids = [impr_news] + neg_list
+            except:
+                assert self.npratio==0, "negatives available in train mode"
+                # convert cdd id associated with original news set to the one that's associated with the news set that only appears in the impressions of MINDlarge_dev
+                cdd_ids = [self.cdd2index[impr_news]]
+
             cdd_size = self.npratio + 1
 
             label = np.asarray([1] + [0] * self.npratio)
