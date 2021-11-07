@@ -46,14 +46,14 @@ python -m scripts.esm -m test -s large -ck=150000
 - [x] avg/first trained better in personalization
 - [x] retrieval dataset
   - [ ] use elasticsearch: concatenated key terms as query, the full news as document
-- [ ] whether to highlight one-tower user encoder
-- [ ] whether to mention DBLP in introduction\
+- [x] whether to highlight one-tower user encoder
+- [x] whether to mention DBLP in introduction\
 - [ ] compare efficiency in training/testing?
   - metric for efficiency?
-- [ ] term/token?
-- [ ] position distribution of selected terms?
-- [ ] k from 1 to ? 1,2,3,4,5,8,10
-- [ ] whether to compare memory consumption
+- [x] term/token?
+- [x] position distribution of selected terms?
+- [x] k from 1 to ? 1,2,3,4,5,8,10
+- [x] whether to compare memory consumption
 
 - [ ] how to treat user with multiple clicks
 
