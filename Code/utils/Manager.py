@@ -1028,6 +1028,14 @@ class Manager():
 
 
     @torch.no_grad()
+    def recall(self, model):
+        """
+        recall from the given corpus
+        """
+        
+
+
+    @torch.no_grad()
     def collect_kid(self, model, loaders):
         """
         1. collect end-to-end extracted terms' position
@@ -1235,19 +1243,6 @@ class Manager():
             "keyword": "keyword.pkl"
         }
         return reducer_map[self.reducer]
-
-
-    def get_scale_for_load(self):
-        """
-        transfer whole to large
-        """
-        scale_map = {
-            "demo": "demo",
-            "small": "small",
-            "large": "large",
-            "whole": "whole"
-        }
-        return scale_map[self.scale]
 
 
     def get_bert_for_load(self):
