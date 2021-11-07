@@ -108,7 +108,7 @@ class Manager():
 
             parser.add_argument("--npratio", dest="npratio", help="the number of unclicked news to sample when training", type=int, default=4)
             parser.add_argument("--metrics", dest="metrics", help="metrics for evaluating the model", type=str, default="")
-            parser.add_argument("-rc", "--recall_ratio", dest="recall_ratio", help="recall@K", type=int, default=5)
+            parser.add_argument("-rt", "--recall_ratio", dest="recall_ratio", help="recall@K", type=int, default=5)
 
             parser.add_argument("-g", "--granularity", dest="granularity", help="the granularity for reduction", choices=["token", "avg", "first", "sum"], default="token")
             parser.add_argument("-emb", "--embedding", dest="embedding", help="choose embedding", choices=["bert","random","deberta"], default="bert")
