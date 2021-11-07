@@ -52,6 +52,7 @@ class Manager():
             parser.add_argument("-p", "--path", dest="path", type=str, default="../../../Data/", help="root path for large-scale reusable data")
             parser.add_argument("-f", "--fast", dest="fast", help="enable fast evaluation/test", default=True)
             parser.add_argument("-n", "--news", dest="news", help="which news to inspect", type=int, default=None)
+            parser.add_argument("-c", "--case", dest="case", help="whether to return the sample for case study", action="store_true", default=False)
 
 
             parser.add_argument("-bs", "--batch_size", dest="batch_size",
@@ -211,7 +212,7 @@ class Manager():
         Returns:
             loaders(list of dataloaders): 0-loader_train/test/dev, 1-loader_dev
         """
-        from .MIND import MIND, MIND_news
+        from .MIND import MIND, MIND_news, MIND_history
         from .utils import Partition_Sampler
 
         if self.rank in [-1, 0]:
@@ -279,10 +280,17 @@ class Manager():
             return loader_dev,
 
         elif self.mode == "inspect":
-            file_directory_dev = self.path + "MIND/MINDlarge_dev/"
-            dataset_dev = MIND(self, file_directory_dev)
-            loader_dev = DataLoader(dataset_dev, batch_size=1, pin_memory=pin_memory,
-            num_workers=num_workers, drop_last=False)
+            # if case study
+            if self.case:
+                file_directory_dev = "data/case/"
+                dataset_dev = MIND_history(self, file_directory_dev)
+                loader_dev = DataLoader(dataset_dev, batch_size=1, pin_memory=pin_memory,
+                    num_workers=num_workers, drop_last=False)
+            else:
+                file_directory_dev = self.path + "MIND/MINDlarge_dev/"
+                dataset_dev = MIND_history(self, file_directory_dev)
+                loader_dev = DataLoader(dataset_dev, batch_size=1, pin_memory=pin_memory,
+                    num_workers=num_workers, drop_last=False)
 
             return loader_dev,
 
@@ -308,7 +316,6 @@ class Manager():
             return loader_test,
 
         elif self.mode in ["encode", "analyse"]:
-            from .MIND import MIND_history
             file_directory = self.path + "MIND/MIND{}_dev/".format(self.scale)
 
             dataset = MIND_history(self, file_directory)
@@ -324,7 +331,7 @@ class Manager():
             file_directory = self.path + "MIND/MINDlarge_dev/"
 
             dataset = MIND_recall(self, file_directory)
-            loader = DataLoader(dataset, batch_size=self.batch_size, pin_memory=pin_memory,
+            loader = DataLoader(dataset, batch_size=self.batch_size_news, pin_memory=pin_memory,
                                     num_workers=num_workers, drop_last=False)
 
             return loader,
@@ -943,7 +950,7 @@ class Manager():
 
         for x in loader_inspect:
 
-            _, term_indexes = model(x)
+            _, term_indexes = model.encode_user(x)
 
             his_encoded_index = x["his_encoded_index"][0][:, 1:]
             if self.reducer == "bow":
@@ -985,7 +992,7 @@ class Manager():
 
                 ps_terms = terms[term_index]
 
-                if ps_terms[0] == "[PAD]":
+                if ps_terms[0] == "[UNK]":
                     break
                 else:
                     print("[personalized terms]\n\t {}".format(" ".join(ps_terms)))
@@ -1057,18 +1064,15 @@ class Manager():
         del news_reprs
         ngpus = faiss.get_num_gpus()
 
-        print("number of GPUs:", ngpus)
         INDEX = faiss.IndexFlatIP(news.size(-1))
         # INDEX = faiss.index_cpu_to_all_gpus(INDEX)
         INDEX = faiss.index_cpu_to_gpu(faiss.StandardGpuResources(), self.device, INDEX)
 
-        print("why")
         INDEX.add(news.cpu().numpy())
 
         self.load(model, self.checkpoint)
 
         recalls = []
-        count = 0
 
         for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
             t1 = time.time()
@@ -1082,10 +1086,6 @@ class Manager():
 
             # print("transfer time:{}, search time:{}, operation time:{}".format(t2-t1, t3-t2, t4-t3))
             recalls.append(recall)
-
-            count += 1
-            if count > 10:
-                break
 
         recalls = np.concatenate(recalls, axis=0)
         recall_rate = np.mean(recalls)

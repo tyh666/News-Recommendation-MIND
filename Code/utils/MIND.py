@@ -963,19 +963,42 @@ class MIND_history(Dataset):
             manager.impr_size = 1000
 
         pat = re.search('MIND/(.*_(.*)/)', file_directory)
-        file_name = pat.group(1)
-        self.mode = pat.group(2)
+
+        if manager.case:
+            file_name = "MINDlarge_dev/"
+            self.cache_directory = "/".join(["data/cache", manager.get_bert_for_cache(), file_name])
+            self.news_path = self.cache_directory + manager.get_news_file_for_load()
+            self.behav_path_eval = file_directory + "case.pkl"
+        else:
+            file_name = pat.group(1)
+            self.cache_directory = "/".join(["data/cache", manager.get_bert_for_cache(), file_name])
+            self.news_path = self.cache_directory + manager.get_news_file_for_load()
+            self.behav_path_eval = self.cache_directory + "{}/{}".format(self.impr_size, "behaviors.pkl")
+
+        self.mode = "dev"
 
         self.scale = manager.scale
 
-        self.cache_directory = "/".join(["data/cache", manager.get_bert_for_cache(), file_name])
-        self.news_path = self.cache_directory + manager.get_news_file_for_load()
-
-        self.behav_path_train = self.cache_directory + "behaviors.pkl"
-        self.behav_path_eval = self.cache_directory + "{}/{}".format(self.impr_size, "behaviors.pkl")
-
-        behav_path = self.behav_path_train if self.mode == 'train' else self.behav_path_eval
+        behav_path = self.behav_path_eval
         logger.info("process NO.{} loading cached user behavior from {}".format(manager.rank, behav_path))
+
+        if not os.path.exists(behav_path):
+            self.behaviors_file = file_directory + "behaviors.tsv"
+            logger.info("encoding user behaviors of {}...".format(self.behaviors_file))
+            try:
+                # VERY IMPORTANT!!!
+                # The nid2idx dictionary must follow the original order of news in news.tsv
+                self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_dev.json".format(self.scale))
+            except FileNotFoundError:
+                manager.construct_nid2idx(mode=self.mode)
+                self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_dev.json".format(self.scale))
+            try:
+                self.uid2index = getId2idx("data/dictionaries/uid2idx_{}.json".format(self.scale))
+            except FileNotFoundError:
+                manager.construct_uid2idx()
+                self.uid2index = getId2idx("data/dictionaries/uid2idx_{}.json".format(self.scale))
+
+            self.init_behaviors()
 
         with open(behav_path, "rb") as f:
             behaviors = pickle.load(f)
@@ -1040,6 +1063,55 @@ class MIND_history(Dataset):
             refiner = CountFreq(manager)
 
         self.init_refinement(refiner)
+
+
+    def init_behaviors(self):
+        """
+            init behavior logs given behaviors file.
+        """
+        # list of list of history news index
+        histories = []
+        # list of user index
+        uindexes = []
+        # list of impression indexes
+        # self.impr_indexes = []
+
+        impr_index = 0
+
+        # list of every cdd news index along with its impression index and label
+        imprs = []
+
+        os.makedirs(self.cache_directory + str(self.impr_size), exist_ok=True)
+
+        with open(self.behaviors_file, "r", encoding="utf-8") as rd:
+            for idx in tqdm(rd, ncols=120, leave=True):
+                _, uid, time, history, impr = idx.strip("\n").split("\t")
+
+                history = [self.nid2index[i] for i in history.split()]
+
+                impr_news = [self.nid2index[i.split("-")[0]] for i in impr.split()]
+                labels = [int(i.split("-")[1]) for i in impr.split()]
+                # user will always in uid2index
+                uindex = self.uid2index[uid]
+
+                # store every impression
+                for i in range(0, len(impr_news), self.impr_size):
+                    imprs.append((impr_index, impr_news[i:i+self.impr_size], labels[i:i+self.impr_size]))
+
+                # 1 impression correspond to 1 of each of the following properties
+                histories.append(history)
+                uindexes.append(uindex)
+
+                impr_index += 1
+
+        save_dict = {
+            "imprs": imprs,
+            "histories": histories,
+            "uindexes": uindexes
+        }
+
+        with open(self.behav_path_eval, "wb") as f:
+            pickle.dump(save_dict, f)
 
 
     def init_refinement(self, refiner):
@@ -1410,3 +1482,180 @@ class MIND_recall(Dataset):
             back_dic["his_refined_mask"] = back_dic["his_attn_mask"]
 
         return back_dic
+
+
+# class MIND_case():
+#     def __init__(self, file_directory):
+#         self.signal_length = manager.signal_length
+#         self.his_size = manager.his_size
+#         self.k = manager.k
+#         self.descend_history = manager.descend_history
+#         self.reducer = manager.reducer
+#         self.granularity = manager.granularity
+
+#         self.impr_size = 1000
+
+#         file_name = "MINDlarge_dev/"
+#         self.cache_directory = "/".join(["data/cache", manager.get_bert_for_cache(), file_name])
+#         self.news_path = self.cache_directory + manager.get_news_file_for_load()
+#         self.behav_path = self.cache_directory + "case.pkl"
+
+#         if not os.exists(behav_path):
+#             self.behaviors_file = file_directory + "behaviors.tsv"
+#                 logger.info("encoding user behaviors of {}...".format(self.behaviors_file))
+#                 try:
+#                     # VERY IMPORTANT!!!
+#                     # The nid2idx dictionary must follow the original order of news in news.tsv
+#                     self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_{}.json")
+#                 except FileNotFoundError:
+#                     manager.construct_nid2idx(mode=self.mode)
+#                     self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_{}.json")
+#                 try:
+#                     self.uid2index = getId2idx("data/dictionaries/uid2idx_{}.json".format(self.scale))
+#                 except FileNotFoundError:
+#                     manager.construct_uid2idx()
+#                     self.uid2index = getId2idx("data/dictionaries/uid2idx_{}.json".format(self.scale))
+
+#             self.init_behaviors()
+#         else:
+#             with open(behav_path, "rb") as f:
+#                 behaviors = pickle.load(f)
+#                 for k,v in behaviors.items():
+#                     setattr(self, k, v)
+
+
+#         logger.info("process NO.{} loading cached news tokenization from {}".format(manager.rank, self.news_path))
+#         with open(self.news_path, "rb") as f:
+#             news = pickle.load(f)
+#             self.encoded_news = news["encoded_news"][:, :self.signal_length]
+#             self.attn_mask = news["attn_mask"][:, :self.signal_length]
+#             if self.granularity in ["avg","sum"]:
+#                 self.subwords = news["subwords_all"][:, :self.signal_length]
+#             elif self.granularity == "first":
+#                 self.subwords = news["subwords_first"][:, :self.signal_length]
+#             else:
+#                 self.subwords = None
+
+#         if self.reducer in ["bm25", "entity", "first", "keyword"]:
+#             with open(self.cache_directory + "news.pkl", "rb") as f:
+#                 news = pickle.load(f)
+#                 self.encoded_news_original = news["encoded_news"][:, :self.signal_length]
+#                 self.attn_mask_original = news["attn_mask"][:, :self.signal_length]
+#                 if self.granularity in ["avg","sum"]:
+#                     self.subwords_original = news["subwords_all"][:, :self.signal_length]
+#                 elif self.granularity == "first":
+#                     self.subwords_original = news["subwords_first"][:, :self.signal_length]
+#                 else:
+#                     self.subwords_original = None
+
+#         if manager.reducer == "matching":
+#             if not manager.no_dedup:
+#                 from utils.utils import DeDuplicate
+#                 refiner = DeDuplicate(manager)
+#             else:
+#                 from utils.utils import DoNothing
+#                 refiner = DoNothing()
+#         elif manager.reducer in ["bm25", "none", "entity", "first", "keyword"]:
+#             refiner = None
+#         elif manager.reducer == "bow":
+#             from utils.utils import CountFreq
+#             refiner = CountFreq(manager)
+
+#         self.init_refinement(refiner)
+
+
+
+
+#     def init_refinement(self, refiner):
+#         """
+#             token level refinement, determined by reducer
+
+#             matching -> deduplicate
+#             bm25 -> truncate
+#             bow -> count
+#         """
+#         if self.reducer == "matching":
+#             refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
+#             self.attn_mask_dedup = refined_mask
+#             # truncate the attention mask
+#             self.attn_mask = self.attn_mask
+
+#         elif self.reducer in ["bm25", "entity", "first", "keyword"]:
+#             # [CLS] and [SEP], actually, [SEP] is virtual
+#             self.encoded_news = self.encoded_news[:, :self.k + 1]
+#             self.attn_mask = self.attn_mask[:, :self.k + 1]
+#             # truncate the original text tokens
+#             self.encoded_news_original = self.encoded_news_original
+#             self.attn_mask_original = self.attn_mask_original
+#             # [CLS] and [SEP]
+#             if self.subwords is not None:
+#                 self.subwords = self.subwords[:, :self.k + 1]
+
+#         elif self.reducer == "bow":
+#             refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
+#             self.encoded_news = refined_news
+#             self.attn_mask = refined_mask
+
+
+#     def __len__(self):
+#         """
+#             return length of the whole dataset
+#         """
+#         return len(self.imprs)
+
+
+#     def __getitem__(self,index):
+#         """ return data
+#         Args:
+#             index: the index for stored impression
+
+#         Returns:
+#             back_dic: dictionary of data slice
+#         """
+
+#         impr = self.imprs[index] # (impression_index, news_index)
+#         impr_index = impr[0]
+#         impr_news = impr[1]
+#         user_index = self.uindexes[impr_index]
+
+#         # pad in his_id, not in histories
+#         his_ids = self.histories[impr_index][:self.his_size]
+#         # true means the corresponding history news is padded
+#         his_mask = np.zeros((self.his_size, 1))
+#         his_mask[:len(his_ids)] = 1
+
+#         if self.descend_history:
+#             his_ids = his_ids[::-1] + [0] * (self.his_size - len(his_ids))
+#         else:
+#             his_ids = his_ids + [0] * (self.his_size - len(his_ids))
+
+#         his_encoded_index = self.encoded_news[his_ids]
+#         his_attn_mask = self.attn_mask[his_ids]
+
+#         back_dic = {
+#             "impr_index": impr_index + 1,
+#             "user_id": user_index,
+#             "his_id": np.asarray(his_ids),
+#             "his_encoded_index": his_encoded_index,
+#             "his_attn_mask": his_attn_mask,
+#             "his_mask": his_mask,
+#         }
+
+#         if self.subwords is not None:
+#             if self.reducer in ["bm25","entity","first"]:
+#                 his_subword_index = self.subwords[his_ids]
+#             else:
+#                 his_subword_index = self.subwords[his_ids]
+#             back_dic["his_subword_index"] = his_subword_index
+
+#         if self.reducer == "matching":
+#             his_attn_mask_dedup = self.attn_mask_dedup[his_ids]
+#             back_dic["his_refined_mask"] = his_attn_mask_dedup
+
+#         elif self.reducer in ["bm25","entity","first"]:
+#             back_dic["his_attn_mask"] = back_dic["his_attn_mask"]
+
+#         elif self.reducer == "bow":
+#             back_dic["his_refined_mask"] = back_dic["his_attn_mask"]
+
+#         return back_dic

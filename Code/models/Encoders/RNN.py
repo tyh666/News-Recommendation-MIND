@@ -74,9 +74,6 @@ class LSTUR(nn.Module):
         self.userEmbedding = nn.Embedding(manager.get_user_num() + 1, self.hidden_dim)
         nn.init.zeros_(self.userEmbedding.weight[0])
 
-        # self.register_buffer('default_c0', torch.zeros(1, manager.batch_size, self.hidden_dim), persistent=False)
-        self.register_buffer('default_user_index', torch.zeros(manager.batch_size, dtype=torch.long), persistent=False)
-
         for name, param in self.rnn.named_parameters():
             if 'weight' in name:
                 nn.init.orthogonal_(param)
@@ -92,6 +89,9 @@ class LSTUR(nn.Module):
             user_repr: user representation (coarse), [batch_size, 1, hidden_dim]
         """
         batch_size = news_repr.size(0)
-        masked_user_index = self.default_user_index[:batch_size].bernoulli_() * user_index
+        # mask by p
+        default_user_index = torch.zeros(batch_size, dtype=torch.long, device=news_repr.device)
+        masked_user_index = default_user_index.bernoulli_() * user_index
+        
         _, user_repr = self.rnn(news_repr.flip(dims=[1]), (self.userEmbedding(masked_user_index).unsqueeze(0), torch.zeros(1, batch_size, self.hidden_dim, device=news_repr.device)))
         return user_repr[0].transpose(0,1)

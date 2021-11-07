@@ -1,69 +1,17 @@
 ## Environment
 ``` bash
-if [ -d /data/v-pezhang/nn/lib/python3.8/site-packages/torch ];
-then
 git config --global user.name 'namespace-Pt'
 git config --global user.email 'zpt@ruc.edu.cn'
 sudo apt-get install screen -y
 sudo apt-get install rsync -y
 conda init
-echo 'alias nn="conda activate /data/v-pezhang/nn"' >> ~/.bashrc
-echo 'alias pt="screen -r -d pt"' >> ~/.bashrc
-source ~/.bashrc
-
-# /data/v-pezhang/nn/bin/pip install torch==1.9.1+cu111 -f https://download.pytorch.org/whl/torch_stable.html
-
-sleep infinity
-
-else
-git config --global user.name 'namespace-Pt'
-git config --global user.email 'zpt@ruc.edu.cn'
-
-conda create --prefix /data/v-pezhang/nn python=3.8 -y
-conda init
-echo 'alias nn="conda activate /data/v-pezhang/nn"' >> ~/.bashrc
-source ~/.bashrc
-nn
-/data/v-pezhang/nn/bin/pip install torch==1.9.1+cu111 -f https://download.pytorch.org/whl/torch_stable.html
-/data/v-pezhang/nn/bin/pip install tensorboard ipython jupyter notebook typing pandas scipy scikit-learn transformers
-
-cd /data/
-mkdir v-pezhang
-cd v-pezhang
-mkdir Data
-mkdir Code
-cd Code
-git clone https://github.com/namespace-Pt/Document-Reduction.git
-
-sudo apt-get install rsync -y
-sudo apt-get install screen -y
-sleep infinity
-fi
-```
-
-- `python==3.8`
-- `torch==1.7.1`
-
-
-
-git config --global user.name 'namespace-Pt'
-git config --global user.email 'zpt@ruc.edu.cn'
-sudo apt-get install screen -y
-sudo apt-get install rsync -y
-
-conda create --prefix /data/v-pezhang/gf python=3.6 -y
-conda init
-
 echo 'alias nn="conda activate /data/v-pezhang/nn"' >> ~/.bashrc
 echo 'alias pt="screen -r -d pt"' >> ~/.bashrc
 echo 'alias gf="conda activate /data/v-pezhang/gf"' >> ~/.bashrc
+
 source ~/.bashrc
-
-/data/v-pezhang/gf/bin/pip install torch==1.8.0+cu111 -f https://download.pytorch.org/whl/torch_stable.html
-/data/v-pezhang/gf/bin/pip install scikit-learn transformers==3.4.0
-
 sleep infinity
-
+```
 
 ## Instruction
 ```bash
@@ -80,6 +28,8 @@ python -m scripts.tesrec -m train -s demo -bs=5 -is=10
 python -m scripts.sfi -m train -s demo -k=5 -is=10 -sl=20 -bs=10 --no_dedup
 
 python -m scripts.tesrec -m encode -s large
+python -m scripts.tesrec -m analyse -s large
+python -m scripts.tesrec -m recall -s large
 python -m scripts.tesrec -m inspect -s large -ck=60000 -d=-1
 
 python -m scripts.tesrec -m test -s large -ck=589

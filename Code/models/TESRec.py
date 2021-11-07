@@ -300,6 +300,7 @@ class TESRec(BaseModel):
             his_news_encoded_embedding = None
             his_news_repr = None
         # no need to calculate this if ps_terms are fixed in advance
+
         if self.reducer.name == 'matching':
             user_repr = self.encoderU(his_news_repr, his_mask=x['his_mask'].to(self.device), user_index=x['user_id'].to(self.device))
         else:
