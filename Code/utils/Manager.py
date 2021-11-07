@@ -320,11 +320,10 @@ class Manager():
             return loader,
 
         elif self.mode == "recall":
-            file_directory_train = self.path + "MIND/MINDlarge_dev/"
+            from .MIND import MIND_recall
+            file_directory = self.path + "MIND/MINDlarge_dev/"
 
-            logger.info("setting npratio=0 to only return positive instance")
-            self.npratio = 0
-            dataset = MIND(self, file_directory_train)
+            dataset = MIND_recall(self, file_directory)
             loader = DataLoader(dataset, batch_size=self.batch_size, pin_memory=pin_memory,
                                     num_workers=num_workers, drop_last=False)
 
@@ -1054,26 +1053,42 @@ class Manager():
         news_reprs = torch.load("data/cache/{}/large/dev/news.pt".format(self.name), map_location=torch.device(model.device))
         news = news_reprs[news_set]
 
-        print(news.shape)
+        del news_set
+        del news_reprs
+        ngpus = faiss.get_num_gpus()
 
+        print("number of GPUs:", ngpus)
         INDEX = faiss.IndexFlatIP(news.size(-1))
+        # INDEX = faiss.index_cpu_to_all_gpus(INDEX)
+        INDEX = faiss.index_cpu_to_gpu(faiss.StandardGpuResources(), self.device, INDEX)
+
+        print("why")
         INDEX.add(news.cpu().numpy())
 
         self.load(model, self.checkpoint)
 
         recalls = []
+        count = 0
 
         for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
+            t1 = time.time()
+            cdd_id = x['cdd_id'].numpy()
             user_repr = model.encode_user(x)[0].cpu().numpy()
+            t2 = time.time()
             _, index = INDEX.search(user_repr, self.recall_ratio)
-
-            cdd_id = x['cdd_id'].cpu().numpy()
+            t3 = time.time()
             recall = (cdd_id == index).sum(axis=-1)
+            t4 = time.time()
+
+            # print("transfer time:{}, search time:{}, operation time:{}".format(t2-t1, t3-t2, t4-t3))
             recalls.append(recall)
 
+            count += 1
+            if count > 10:
+                break
+
         recalls = np.concatenate(recalls, axis=0)
-        print(recalls.shape)
-        recall_rate = recalls.mean(recalls)
+        recall_rate = np.mean(recalls)
         logger.info("recall@{} : {}".format(self.recall_ratio, recall_rate))
 
 
@@ -1401,6 +1416,7 @@ class Manager():
         """
         map original cdd id to the one that's limited to the faiss index
         """
+        import pickle
         logger.info("mapping original cdd id to the one that's limited to the faiss index...")
 
         # get the index of news that appeared in impressions
@@ -1423,8 +1439,8 @@ class Manager():
         for i,x in enumerate(news_set):
             cddid2idx[x] = i
 
-        with open("data/dictionaries/cddid2idx_recall.json", "w") as f:
-            json.dump(cddid2idx, f, ensure_ascii=False)
+        with open("data/dictionaries/cddid2idx_recall.pkl", "wb") as f:
+            pickle.dump(cddid2idx, f)
 
 
     def construct_whole_dataset(self):

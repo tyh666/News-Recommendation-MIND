@@ -105,6 +105,8 @@ python -m scripts.esm -m test -s large -ck=150000
 - [ ] k from 1 to ? 1,2,3,4,5,8,10
 - [ ] whether to compare memory consumption
 
+- [ ] how to treat user with multiple clicks
+
 ## Preprocess
 - [x] remove stop words
   - not necessary
