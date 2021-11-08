@@ -98,7 +98,7 @@ class Matching_Reducer(nn.Module):
         else:
             ps_terms = ps_terms * (F.softmax(score_k, dim=-1).unsqueeze(-1))
 
-        if hasattr(self, 'order_embedding'):
+        if hasattr(self, 'segment_embedding'):
             ps_terms += self.segment_embedding
 
         # flatten the selected terms into one dimension

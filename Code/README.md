@@ -1,7 +1,7 @@
 ## Environment
 ``` bash
 git config --global user.name 'namespace-Pt'
-git config --global user.email 'zpt@ruc.edu.cn'
+git config --global user.email 'namespace.pt@gmail.com'
 sudo apt-get install screen -y
 sudo apt-get install rsync -y
 conda init
@@ -45,17 +45,20 @@ python -m scripts.esm -m test -s large -ck=150000
 - [x] online deployment
 - [x] avg/first trained better in personalization
 - [x] retrieval dataset
-  - [ ] use elasticsearch: concatenated key terms as query, the full news as document
 - [x] whether to highlight one-tower user encoder
 - [x] whether to mention DBLP in introduction\
-- [ ] compare efficiency in training/testing?
+- [x] compare efficiency in training/testing?
   - metric for efficiency?
 - [x] term/token?
 - [x] position distribution of selected terms?
 - [x] k from 1 to ? 1,2,3,4,5,8,10
 - [x] whether to compare memory consumption
 
-- [ ] how to treat user with multiple clicks
+- how to treat user with multiple clicks
+- use token/term/stem for sparse recall
+- how to reconcile multiple documents
+- highlight end-to-end select
+- 
 
 ## Preprocess
 - [x] remove stop words

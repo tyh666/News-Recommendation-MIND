@@ -6,7 +6,7 @@ class config:
     batch_size_news = 100
     batch_size_history = 100
 
-    k = 5
+    k = 3
     threshold = -float('inf')
     title_length = 20
     abs_length = 40
@@ -19,7 +19,7 @@ class config:
     impr_size = 10
 
     dropout_p = 0.2
-    device = 'cpu'
+    device = 0
     lr = 1e-4
     bert_lr = 3e-5
     metrics = 'auc,mean_mrr,ndcg@5,ndcg@10'

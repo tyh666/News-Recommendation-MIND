@@ -53,7 +53,7 @@ class Manager():
             parser.add_argument("-f", "--fast", dest="fast", help="enable fast evaluation/test", default=True)
             parser.add_argument("-n", "--news", dest="news", help="which news to inspect", type=int, default=None)
             parser.add_argument("-c", "--case", dest="case", help="whether to return the sample for case study", action="store_true", default=False)
-
+            parser.add_argument("-rc", "--recall_type", dest="recall_type", help="recall type", choices=["s","d","sd"], default=None)
 
             parser.add_argument("-bs", "--batch_size", dest="batch_size",
                                 help="batch size", type=int, default=32)
@@ -79,7 +79,8 @@ class Manager():
                                 help="save/evaluate the model every step", type=int, default=10000)
             parser.add_argument("-ck","--checkpoint", dest="checkpoint",
                                 help="load the model from checkpoint before training/evaluating", type=int, default=0)
-
+            parser.add_argument("-hst","--hold_step", dest="hold_step",
+                                help="keep training until step > hold_step", type=int, default=50000)
             parser.add_argument("-lr", dest="lr",
                                 help="learning rate of non-bert modules", type=float, default=1e-4)
             parser.add_argument("-blr", "--bert_lr", dest="bert_lr",
@@ -146,6 +147,13 @@ class Manager():
             if args.bert == 'unilm':
                 args.unilm_path = args.path + 'bert_cache/UniLM/unilm2-base-uncased.bin'
                 args.unilm_config_path = args.path + 'bert_cache/UniLM/unilm2-base-uncased-config.json'
+
+            if args.recall_type is not None:
+                # set to recall mode
+                args.mode = "recall"
+
+            if args.step < args.hold_step:
+                args.hold_step = args.step - 1
 
             if args.scale == 'demo':
                 args.no_email = True
@@ -563,7 +571,7 @@ class Manager():
             news_reprs = torch.zeros(self.get_news_num() + 1, model.hidden_dim, device=model.device)
 
             for x in tqdm(loaders[1], smoothing=self.smoothing, ncols=120, leave=True):
-                news_repr = model.encode_news(x)
+                news_repr = model.encode_news(x).squeeze(-2)
                 news_reprs[x['cdd_id']] = news_repr
 
             # must save for other processes to load
@@ -720,7 +728,7 @@ class Manager():
                     #     writer.add_scalar("data_loss",
                     #                     total_loss/total_steps)
 
-                if steps % save_step == 0 and (steps > 30000 and self.scale != 'demo' or steps > 0 and self.scale == 'demo'):
+                if steps % save_step == 0 and (steps in [150000,180000,200000,210000,220000,230000,240000] and self.scale == "whole" or steps > self.hold_step and self.scale == "large" or steps > 0 and self.scale == "demo"):
                     print("\n")
                     with torch.no_grad():
                         result = self.evaluate(model, loaders[1:], log=False)
@@ -831,7 +839,7 @@ class Manager():
             news_reprs = torch.zeros(self.get_news_num() + 1, model.hidden_dim, device=model.device)
 
             for x in tqdm(loaders[1], smoothing=self.smoothing, ncols=120, leave=True):
-                news_repr = model.encode_news(x)
+                news_repr = model.encode_news(x).squeeze(-2)
                 news_reprs[x['cdd_id']] = news_repr
 
             torch.save(news_reprs, cache_directory + "news.pt")
@@ -950,7 +958,7 @@ class Manager():
 
         for x in loader_inspect:
 
-            _, term_indexes = model.encode_user(x)
+            term_indexes = model.encode_user(x)[1]
 
             his_encoded_index = x["his_encoded_index"][0][:, 1:]
             if self.reducer == "bow":
@@ -1020,7 +1028,7 @@ class Manager():
         # user_reprs = []
         start_time = time.time()
         for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
-            user_repr = model.encode_user(x)[0]
+            user_repr = model.encode_user(x)[0].squeeze(-2)
             # print(user_repr.shape)
             # user_reprs.append(user_repr)
 
@@ -1052,44 +1060,83 @@ class Manager():
         recall from the given corpus
         """
 
-        logger.info("dense recalling by user representation...")
-        import faiss
+        if self.recall_type == "d":
+            self.load(model, self.checkpoint)
 
-        news_set = torch.load('data/recall/news.pt', map_location=torch.device(model.device))
+            logger.info("dense recalling by user representation...")
+            import faiss
 
-        news_reprs = torch.load("data/cache/{}/large/dev/news.pt".format(self.name), map_location=torch.device(model.device))
-        news = news_reprs[news_set]
+            news_set = torch.load('data/recall/news.pt', map_location=torch.device(model.device))
 
-        del news_set
-        del news_reprs
-        ngpus = faiss.get_num_gpus()
+            news_reprs = torch.load("data/cache/{}/large/dev/news.pt".format(self.name), map_location=torch.device(model.device))
+            news = news_reprs[news_set]
 
-        INDEX = faiss.IndexFlatIP(news.size(-1))
-        # INDEX = faiss.index_cpu_to_all_gpus(INDEX)
-        INDEX = faiss.index_cpu_to_gpu(faiss.StandardGpuResources(), self.device, INDEX)
+            del news_set
+            del news_reprs
+            ngpus = faiss.get_num_gpus()
 
-        INDEX.add(news.cpu().numpy())
+            INDEX = faiss.IndexFlatIP(news.size(-1))
+            # INDEX = faiss.index_cpu_to_all_gpus(INDEX)
+            INDEX = faiss.index_cpu_to_gpu(faiss.StandardGpuResources(), self.device, INDEX)
 
-        self.load(model, self.checkpoint)
+            INDEX.add(news.cpu().numpy())
 
-        recalls = []
+            recalls = []
+            for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
+                t1 = time.time()
+                cdd_id = x['cdd_id'].numpy()
+                user_repr = model.encode_user(x)[0].squeeze(-2).cpu().numpy()
+                t2 = time.time()
+                _, index = INDEX.search(user_repr, self.recall_ratio)
+                t3 = time.time()
+                recall = (cdd_id == index).sum(axis=-1)
+                t4 = time.time()
 
-        for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
-            t1 = time.time()
-            cdd_id = x['cdd_id'].numpy()
-            user_repr = model.encode_user(x)[0].cpu().numpy()
-            t2 = time.time()
-            _, index = INDEX.search(user_repr, self.recall_ratio)
-            t3 = time.time()
-            recall = (cdd_id == index).sum(axis=-1)
-            t4 = time.time()
+                # print("transfer time:{}, search time:{}, operation time:{}".format(t2-t1, t3-t2, t4-t3))
+                recalls.append(recall)
 
-            # print("transfer time:{}, search time:{}, operation time:{}".format(t2-t1, t3-t2, t4-t3))
-            recalls.append(recall)
+            recalls = np.concatenate(recalls, axis=0)
+            recall_rate = np.mean(recalls)
+            logger.info("recall@{} : {}".format(self.recall_ratio, recall_rate))
 
-        recalls = np.concatenate(recalls, axis=0)
-        recall_rate = np.mean(recalls)
-        logger.info("recall@{} : {}".format(self.recall_ratio, recall_rate))
+        elif self.recall_type == "s":
+            try:
+                self.load(model, self.checkpoint)
+            except:
+                # in case we want to test the model trained with token granularity with other granularity
+                old_name = self.name
+                new_name = re.sub(self.granularity, 'token', self.name)
+                logger.warning("failed to load {}, resort to load {}".format(self.name, new_name))
+
+                self.name = new_name
+                self.load(model, self.checkpoint)
+                self.name = old_name
+
+            logger.info("sparse recalling by extracted terms...")
+
+            recall = 0
+            count = 0
+            for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
+                t1 = time.time()
+
+                cdd_encoded_index = x['cdd_encoded_index'][:, 0, 1:].numpy()
+                batch_size = cdd_encoded_index.shape[0]
+
+                kid = model.encode_user(x)[1]
+                ps_terms = x['his_encoded_index'][:, :, 1:].to(self.device).gather(index=kid, dim=-1).view(batch_size, -1).cpu().numpy()
+
+                t2 = time.time()
+
+                for i in range(batch_size):
+                    recall += np.any(np.in1d(cdd_encoded_index[i], ps_terms[i]))
+                    count += 1
+
+                t3 = time.time()
+
+                # print("transfer time:{}, search time:{}".format(t2-t1, t3-t2))
+
+            recall_rate = recall / count
+            logger.info("recall : {}".format(recall_rate))
 
 
     @torch.no_grad()
