@@ -1262,7 +1262,7 @@ class Manager():
     def get_special_token_id(self, token):
         special_token_map = {
             "bert":{
-                "[PAD]": 100,
+                "[PAD]": 0,
                 "[CLS]": 101,
                 "[SEP]": 102,
             },
@@ -1272,7 +1272,7 @@ class Manager():
                 "[SEP]": 2,
             },
             "unilm":{
-                "[PAD]": 100,
+                "[PAD]": 0,
                 "[CLS]": 101,
                 "[SEP]": 102,
             },

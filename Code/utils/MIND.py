@@ -53,6 +53,8 @@ class MIND(Dataset):
         self.behav_path_train = self.cache_directory + "behaviors.pkl"
         self.behav_path_eval = self.cache_directory + "{}/{}".format(self.impr_size, "behaviors.pkl")
 
+        self.pad_token_id = manager.get_special_token_id('[PAD]')
+
         # only preprocess on the master node, the worker can directly load the cache
         if manager.rank in [-1, 0]:
             if (self.mode == 'train' and not os.path.exists(self.behav_path_train)) or (self.mode != 'train' and not os.path.exists(self.behav_path_eval)):
@@ -84,7 +86,6 @@ class MIND(Dataset):
 
                 self.max_token_length = 512
                 self.max_reduction_length = 30
-                self.pad_token_id = manager.get_special_token_id('[PAD]')
 
                 try:
                     # VERY IMPORTANT!!!
@@ -606,7 +607,7 @@ class MIND(Dataset):
             matching -> deduplicate
             bow -> count
         """
-        sep_pos = self.encoded_news[:, -1] != 0
+        sep_pos = self.encoded_news[:, -1] != self.pad_token_id
         self.encoded_news[:, -1] = 102 * sep_pos
         self.attn_mask[:, -1] = 1 * sep_pos
 
