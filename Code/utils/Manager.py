@@ -1149,6 +1149,8 @@ class Manager():
         if self.rank in [-1, 0]:
             logger.info("collecting extracted terms' position distribution...")
 
+        self.load(model, self.checkpoint)
+
         def construct_heuristic_extracted_term_indice():
             logger.info("constructing heuristicly extracted term indices...")
             import pickle
@@ -1213,22 +1215,21 @@ class Manager():
             kids = model.encode_user(x)[1]
             term_num = kids.numel()
             kids = kids.cpu().numpy()
-            # for kid in kids.reshape(-1, self.k):
-            #     kid_positions[kid] += 1
+            for kid in kids.reshape(-1, self.k):
+                kid_positions[kid] += 1
 
-            for his_id in x['his_id']:
-                his_id = his_id.cpu().numpy()
-                entity_index = entity_indice[his_id]
+            # for his_id in x['his_id']:
+            #     his_id = his_id.cpu().numpy()
+            #     entity_index = entity_indice[his_id]
 
-                entity_overlap = kids - entity_index
-                recall_entity = (entity_overlap == 0).sum() / term_num
-                recall_entity_all.append(recall_entity)
+            #     entity_overlap = kids - entity_index
+            #     recall_entity = (entity_overlap == 0).sum() / term_num
+            #     recall_entity_all.append(recall_entity)
 
-                count += 1
+            #     count += 1
 
-        logger.info("entity recall rate: {}".format(np.asarray(recall_entity_all).sum() / count))
-
-        # np.save("data/cache/kid_pos.npy", kid_positions)
+        # logger.info("entity recall rate: {}".format(np.asarray(recall_entity_all).sum() / count))
+        np.save("data/cache/kid_pos.npy", kid_positions)
 
         # pos = []
         # for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
