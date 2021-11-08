@@ -968,8 +968,9 @@ class MIND_history(Dataset):
 
         pat = re.search('MIND/(.*_(.*)/)', file_directory)
 
+        # must use this mode and scale
         self.mode = "dev"
-        self.scale = manager.scale
+        self.scale = "large"
 
         if manager.case:
             file_name = "MINDlarge_dev/"

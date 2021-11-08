@@ -1001,7 +1001,7 @@ class Manager():
 
                 ps_terms = terms[term_index]
 
-                if ps_terms[0] == "[UNK]":
+                if ps_terms[0] == "[PAD]":
                     break
                 else:
                     print("[personalized terms]\n\t {}".format(" ".join(ps_terms)))
