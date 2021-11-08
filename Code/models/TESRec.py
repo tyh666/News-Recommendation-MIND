@@ -3,10 +3,10 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .BaseModel import BaseModel
+from .TwoTowerBaseModel import TwoTowerBaseModel
 from .Encoders.BERT import BERT_Encoder
 
-class TESRec(BaseModel):
+class TESRec(TwoTowerBaseModel):
     """
     Tow tower model with selection
 

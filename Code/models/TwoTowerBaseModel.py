@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class BaseModel(nn.Module):
+class TwoTowerBaseModel(nn.Module):
     def __init__(self, manager):
         super().__init__()
 
@@ -77,7 +77,7 @@ class BaseModel(nn.Module):
 
         return logits, kid
 
-    
+
     def predict_fast(self, x):
         # [bs, cs, hd]
         cdd_repr = self.news_reprs(x['cdd_id'].to(self.device))

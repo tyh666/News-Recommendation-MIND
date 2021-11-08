@@ -3,9 +3,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from transformers import AutoModel
-from .BaseModel import BaseModel
+from .TwoTowerBaseModel import TwoTowerBaseModel
 
-class XFormer(BaseModel):
+class XFormer(TwoTowerBaseModel):
     def __init__(self, manager):
         super().__init__(manager)
 

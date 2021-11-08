@@ -4,12 +4,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from transformers import AutoModel
-from .BaseModel import BaseModel
+from .TwoTowerBaseModel import TwoTowerBaseModel
 from .Encoders.BERT import BERT_Encoder
 from models.UniLM.configuration_tnlrv3 import TuringNLRv3Config
 from models.UniLM.modeling import TuringNLRv3ForSequenceClassification, relative_position_bucket
 
-class PLM(BaseModel):
+class PLM(TwoTowerBaseModel):
     """
     Tow tower model with selection
 
@@ -293,7 +293,7 @@ class PLM(BaseModel):
         return user_repr
 
 
-class PLM2(BaseModel):
+class PLM2(TwoTowerBaseModel):
     """
     Tow tower model with selection
 
@@ -492,7 +492,7 @@ class PLM2(BaseModel):
         return logits
 
 
-class PLM3(BaseModel):
+class PLM3(TwoTowerBaseModel):
     """
     Tow tower model with selection
 
