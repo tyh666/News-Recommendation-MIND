@@ -13,6 +13,28 @@ source ~/.bashrc
 sleep infinity
 ```
 
+git config --global user.name 'namespace-Pt'
+git config --global user.email 'namespace.pt@gmail.com'
+sudo apt-get install screen -y
+sudo apt-get install rsync -y
+conda init
+echo 'alias nn="conda activate /data/v-pezhang/nn"' >> ~/.bashrc
+echo 'alias pt="screen -r -d pt"' >> ~/.bashrc
+echo 'alias gf="conda activate /data/v-pezhang/gf"' >> ~/.bashrc
+source ~/.bashrc
+
+cd /data/v-pezhang/
+git clone https://github.com/namespace-Pt/GraphSage-NewsFormer.git
+conda create --prefix /data/v-pezhang/rc python=3.8 -y
+
+conda activate /data/v-pezhang/rc
+
+/data/v-pezhang/rc/bin/pip install transformers==3.4.0 scikit-learn pandas
+/data/v-pezhang/rc/bin/pip install torch==1.9.1+cu111 -f https://download.pytorch.org/whl/torch_stable.html
+
+conda activate /data/v-pezhang/vc
+
+
 ## Instruction
 ```bash
 cd /data/v-pezhang/Code/Document-Reduction/Code

@@ -1204,7 +1204,7 @@ class Manager():
 
         # bm25_positions = np.array([0] * (self.signal_length - 1))
         # entity_positions = np.array([0] * (self.signal_length - 1))
-        kid_positions = np.array([0] * (self.signal_length - 1))
+        kid_positions = np.array([0] * (self.signal_length + 1))
 
         recall_entity_all = []
         recall_nonentity_all = []
@@ -1213,6 +1213,7 @@ class Manager():
         for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
             # strip off [CLS] and [SEP]
             kids = model.encode_user(x)[1]
+            kids = kids.masked_fill(~(x['his_mask'].to(self.device).bool()), self.signal_length)
             term_num = kids.numel()
             kids = kids.cpu().numpy()
             for kid in kids.reshape(-1, self.k):
