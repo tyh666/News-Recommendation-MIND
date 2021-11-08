@@ -141,6 +141,12 @@ class MIND(Dataset):
                 self.subwords = None
 
         if self.reducer in ["bm25", "entity", "first", "keyword"]:
+            self.encoded_news = self.encoded_news[:, :self.k + 1]
+            self.attn_mask = self.attn_mask[:, :self.k + 1]
+            # [CLS] and [SEP]
+            if self.subwords is not None:
+                self.subwords = self.subwords[:, :self.k + 1]
+
             with open(self.cache_directory + "news.pkl", "rb") as f:
                 news = pickle.load(f)
                 self.encoded_news_original = news["encoded_news"][:, :self.signal_length]
@@ -598,23 +604,20 @@ class MIND(Dataset):
             token level refinement, determined by reducer
 
             matching -> deduplicate
-            bm25 -> truncate
             bow -> count
         """
+        sep_pos = self.encoded_news[:, -1] != 0
+        self.encoded_news[:, -1] = 102 * sep_pos
+        self.attn_mask[:, -1] = 1 * sep_pos
+
+        if hasattr(self, "encoded_news_original"):
+            sep_pos = self.encoded_news_original[:, -1] != 0
+            self.encoded_news_original[:, -1] = 102 * sep_pos
+            self.attn_mask_original[:, -1] = 1 * sep_pos
+
         if self.reducer == "matching":
             refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
             self.attn_mask_dedup = refined_mask
-
-        elif self.reducer in ["bm25", "entity", "first", "keyword"]:
-            # [CLS] and [SEP], actually, [SEP] is virtual
-            self.encoded_news = self.encoded_news[:, :self.k + 1]
-            self.attn_mask = self.attn_mask[:, :self.k + 1]
-            # truncate the original text tokens
-            self.encoded_news_original = self.encoded_news_original
-            self.attn_mask_original = self.attn_mask_original
-            # [CLS] and [SEP]
-            if self.subwords is not None:
-                self.subwords = self.subwords[:, :self.k + 1]
 
         elif self.reducer == "bow":
             refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
@@ -665,10 +668,10 @@ class MIND(Dataset):
             # pad in his_id, not in histories
             his_ids = self.histories[impr_index][:self.his_size]
             # true means the corresponding history news is padded
-            his_mask = torch.zeros((self.his_size, 1))
+            his_mask = np.zeros((self.his_size, 1))
             his_mask[:len(his_ids)] = 1
 
-            cdd_mask = torch.zeros((cdd_size, 1))
+            cdd_mask = np.zeros((cdd_size, 1))
             cdd_mask[:neg_num + 1] = 1
 
             if self.descend_history:
@@ -729,7 +732,7 @@ class MIND(Dataset):
             # pad in his_id, not in histories
             his_ids = self.histories[impr_index][:self.his_size]
             # true means the corresponding history news is padded
-            his_mask = torch.zeros((self.his_size, 1))
+            his_mask = np.zeros((self.his_size, 1))
             his_mask[:len(his_ids)] = 1
 
             if self.descend_history:
@@ -788,7 +791,7 @@ class MIND(Dataset):
             # pad in his_id, not in histories
             his_ids = self.histories[impr_index][:self.his_size]
             # true means the corresponding history news is padded
-            his_mask = torch.zeros((self.his_size, 1))
+            his_mask = np.zeros((self.his_size, 1))
             his_mask[:len(his_ids)] = 1
 
             if self.descend_history:
@@ -1192,7 +1195,7 @@ class MIND_history(Dataset):
 
 
 class MIND_recall(Dataset):
-    """ Map Style Dataset for MIND, use bert tokenizer
+    """ Map Style Dataset for MIND
 
     Args:
         manager(dict): pre-defined dictionary of hyper parameters
@@ -1214,7 +1217,7 @@ class MIND_recall(Dataset):
         self.cache_directory = "/".join(["data/cache", manager.get_bert_for_cache(), file_name])
         self.news_path = self.cache_directory + manager.get_news_file_for_load()
 
-        self.behav_path = self.cache_directory + "behaviors.pkl"
+        self.behav_path = self.cache_directory + "recall.pkl"
 
         # get mapping from original cdd index to the one in faiss
         try:
@@ -1309,8 +1312,6 @@ class MIND_recall(Dataset):
         # only store positive behavior
         # list of lists, each list represents a
         imprs = []
-        negatives = []
-
         os.makedirs(self.cache_directory, exist_ok=True)
 
         with open(self.behaviors_file, "r", encoding="utf-8") as rd:
@@ -1325,9 +1326,12 @@ class MIND_recall(Dataset):
                 # user will always in uid2index
                 uindex = self.uid2index[uid]
 
+                pos_news = []
                 for news, label in zip(impr_news, labels):
                     if label == 1:
-                        imprs.append((impr_index, news))
+                        pos_news.append(news)
+
+                imprs.append((impr_index, pos_news))
 
                 # 1 impression correspond to 1 of each of the following properties
                 histories.append(history)
@@ -1356,8 +1360,6 @@ class MIND_recall(Dataset):
         if self.reducer == "matching":
             refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
             self.attn_mask_dedup = refined_mask
-            # truncate the attention mask
-            self.attn_mask = self.attn_mask
 
         elif self.reducer in ["bm25", "entity", "first", "keyword"]:
             # [CLS] and [SEP], actually, [SEP] is virtual
@@ -1400,20 +1402,18 @@ class MIND_recall(Dataset):
         # each time called to return positive one sample
         cdd_ids = [self.cdd2index[impr_news]]
 
-        cdd_size = 1
+        cdd_size = len(cdd_ids)
 
-        label = np.asarray([1])
-
+        label = np.ones((cdd_size))
         label = np.arange(0, len(cdd_ids), 1)[label == 1][0]
 
         # pad in his_id, not in histories
         his_ids = self.histories[impr_index][:self.his_size]
         # true means the corresponding history news is padded
-        his_mask = torch.zeros((self.his_size, 1))
+        his_mask = np.zeros((self.his_size, 1))
         his_mask[:len(his_ids)] = 1
 
-        cdd_mask = torch.zeros((cdd_size, 1))
-        cdd_mask[:1] = 1
+        cdd_mask = np.ones((cdd_size, 1))
 
         if self.descend_history:
             his_ids = his_ids[::-1] + [0] * (self.his_size - len(his_ids))

@@ -245,7 +245,10 @@ def my_collate(data):
         for k, v in d.items():
             result[k].append(v)
     for k, v in result.items():
-        result[k] = torch.from_numpy(np.asarray(v))
+        if k != "cdd_id":
+            result[k] = torch.from_numpy(np.asarray(v))
+        else:
+            result[k] = v
     return dict(result)
 
 

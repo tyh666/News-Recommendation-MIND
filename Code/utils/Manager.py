@@ -336,11 +336,12 @@ class Manager():
 
         elif self.mode == "recall":
             from .MIND import MIND_recall
+            from .utils import my_collate
             file_directory = self.path + "MIND/MINDlarge_dev/"
 
             dataset = MIND_recall(self, file_directory)
             loader = DataLoader(dataset, batch_size=self.batch_size_news, pin_memory=pin_memory,
-                                    num_workers=num_workers, drop_last=False)
+                                    num_workers=num_workers, drop_last=False, collate_fn=my_collate)
 
             return loader,
 
@@ -1397,7 +1398,7 @@ class Manager():
             "bert": 511,
             "deberta": 511,
             "unilm": 511,
-            "longformer": 4094,
+            "longformer": 1000,
             "bigbird": 1000
         }
         return length_map[self.bert]
