@@ -239,13 +239,13 @@ def getVocab(file):
     return dic
 
 
-def my_collate(data):
+def collate_recall(data):
     result = defaultdict(list)
     for d in data:
         for k, v in d.items():
             result[k].append(v)
     for k, v in result.items():
-        if k != "cdd_id":
+        if "cdd" not in k:
             result[k] = torch.from_numpy(np.asarray(v))
         else:
             result[k] = v

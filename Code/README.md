@@ -40,7 +40,7 @@ conda activate /data/v-pezhang/vc
 cd /data/v-pezhang/Code/Document-Reduction/Code
 python -m scripts.tesrec -m train -s large -ws=2
 python -m scripts.plm -m train -s large -ws=2 -st=40000 -bs=8
-python -m scripts.xformer -m train -s large -sl=20 -ws=2
+python -m scripts.xformer -m train -s large -sl=10 -ws=2
 
 python -m scripts.plm -m train -s demo -bs=5 -is=10 -d=2 -sl=30
 python -m scripts.tesrec -m train -s demo -bs=5 -is=10

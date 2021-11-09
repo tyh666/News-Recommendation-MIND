@@ -42,9 +42,9 @@ class TESRec(TwoTowerBaseModel):
 
 
         if aggregator is not None:
-            manager.name = '__'.join(['tesrec', manager.bert, manager.encoderN, manager.encoderU, manager.reducer, manager.aggregator, manager.granularity, str(manager.k)])
+            manager.name = '__'.join(['tesrec', manager.bert, manager.encoderN, manager.encoderU, manager.reducer, manager.aggregator, manager.granularity, str(manager.k), "new"])
         else:
-            manager.name = '__'.join(['tesrec', manager.bert, manager.encoderN, manager.encoderU, manager.reducer, manager.granularity, str(manager.k)])
+            manager.name = '__'.join(['tesrec', manager.bert, manager.encoderN, manager.encoderU, manager.reducer, manager.granularity, str(manager.k), "new"])
 
         self.name = manager.name
 

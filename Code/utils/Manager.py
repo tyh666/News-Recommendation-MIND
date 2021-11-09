@@ -336,12 +336,12 @@ class Manager():
 
         elif self.mode == "recall":
             from .MIND import MIND_recall
-            from .utils import my_collate
+            from .utils import collate_recall
             file_directory = self.path + "MIND/MINDlarge_dev/"
 
             dataset = MIND_recall(self, file_directory)
             loader = DataLoader(dataset, batch_size=self.batch_size_news, pin_memory=pin_memory,
-                                    num_workers=num_workers, drop_last=False, collate_fn=my_collate)
+                                    num_workers=num_workers, drop_last=False, collate_fn=collate_recall)
 
             return loader,
 
@@ -1082,22 +1082,24 @@ class Manager():
 
             INDEX.add(news.cpu().numpy())
 
-            recalls = []
+            recall = 0
+            count = 0
             for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
                 t1 = time.time()
-                cdd_id = x['cdd_id'].numpy()
+                cdd_id = x['cdd_id']
                 user_repr = model.encode_user(x)[0].squeeze(-2).cpu().numpy()
                 t2 = time.time()
                 _, index = INDEX.search(user_repr, self.recall_ratio)
                 t3 = time.time()
-                recall = (cdd_id == index).sum(axis=-1)
+
+                for i,batch in enumerate(cdd_id):
+                    rec = np.sum(np.in1d(batch, index[i]))
+                    recall += rec
+                    count += 1
                 t4 = time.time()
-
                 # print("transfer time:{}, search time:{}, operation time:{}".format(t2-t1, t3-t2, t4-t3))
-                recalls.append(recall)
 
-            recalls = np.concatenate(recalls, axis=0)
-            recall_rate = np.mean(recalls)
+            recall_rate = recall / count
             logger.info("recall@{} : {}".format(self.recall_ratio, recall_rate))
 
         elif self.recall_type == "s":
@@ -1120,7 +1122,7 @@ class Manager():
             for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
                 t1 = time.time()
 
-                cdd_encoded_index = x['cdd_encoded_index'][:, 0, 1:].numpy()
+                cdd_encoded_index = x['cdd_encoded_index'][:, 0, 1:]
                 batch_size = cdd_encoded_index.shape[0]
 
                 kid = model.encode_user(x)[1]
@@ -1129,7 +1131,7 @@ class Manager():
                 t2 = time.time()
 
                 for i in range(batch_size):
-                    recall += np.any(np.in1d(cdd_encoded_index[i], ps_terms[i]))
+                    recall += np.sum(np.in1d(cdd_encoded_index[i], ps_terms[i]))
                     count += 1
 
                 t3 = time.time()
@@ -1398,7 +1400,7 @@ class Manager():
             "bert": 511,
             "deberta": 511,
             "unilm": 511,
-            "longformer": 1000,
+            "longformer": 511,
             "bigbird": 1000
         }
         return length_map[self.bert]

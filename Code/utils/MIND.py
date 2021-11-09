@@ -873,6 +873,8 @@ class MIND_news(Dataset):
         self.cache_directory = "/".join(["data/cache", manager.get_bert_for_cache(), file_name])
         self.news_path = self.cache_directory + manager.get_news_file_for_load()
 
+        self.pad_token_id = manager.get_special_token_id('[PAD]')
+
         if not (os.path.exists(self.cache_directory + "news.pkl") and os.path.exists(self.cache_directory + "bm25.pkl") and os.path.exists(self.cache_directory + "entity.pkl")):
             raise ValueError("please initialize MIND dataset before initializing MIND_news")
 
@@ -904,6 +906,10 @@ class MIND_news(Dataset):
             bm25 -> truncate
             bow -> count
         """
+        sep_pos = self.encoded_news[:, -1] != self.pad_token_id
+        self.encoded_news[:, -1] = 102 * sep_pos
+        self.attn_mask[:, -1] = 1 * sep_pos
+
         if refiner is not None:
             refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
             self.encoded_news = refined_news
@@ -971,6 +977,7 @@ class MIND_history(Dataset):
         # must use this mode and scale
         self.mode = "dev"
         self.scale = "large"
+        self.pad_token_id = manager.get_special_token_id('[PAD]')
 
         if manager.case:
             file_name = "MINDlarge_dev/"
@@ -1030,6 +1037,12 @@ class MIND_history(Dataset):
                 self.subwords = None
 
         if self.reducer in ["bm25", "entity", "first", "keyword"]:
+            self.encoded_news = self.encoded_news[:, :self.k + 1]
+            self.attn_mask = self.attn_mask[:, :self.k + 1]
+            # [CLS] and [SEP]
+            if self.subwords is not None:
+                self.subwords = self.subwords[:, :self.k + 1]
+
             with open(self.cache_directory + "news.pkl", "rb") as f:
                 news = pickle.load(f)
                 self.encoded_news_original = news["encoded_news"][:, :self.signal_length]
@@ -1106,25 +1119,20 @@ class MIND_history(Dataset):
             token level refinement, determined by reducer
 
             matching -> deduplicate
-            bm25 -> truncate
             bow -> count
         """
+        sep_pos = self.encoded_news[:, -1] != self.pad_token_id
+        self.encoded_news[:, -1] = 102 * sep_pos
+        self.attn_mask[:, -1] = 1 * sep_pos
+
+        if hasattr(self, "encoded_news_original"):
+            sep_pos = self.encoded_news_original[:, -1] != 0
+            self.encoded_news_original[:, -1] = 102 * sep_pos
+            self.attn_mask_original[:, -1] = 1 * sep_pos
+
         if self.reducer == "matching":
             refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
             self.attn_mask_dedup = refined_mask
-            # truncate the attention mask
-            self.attn_mask = self.attn_mask
-
-        elif self.reducer in ["bm25", "entity", "first", "keyword"]:
-            # [CLS] and [SEP], actually, [SEP] is virtual
-            self.encoded_news = self.encoded_news[:, :self.k + 1]
-            self.attn_mask = self.attn_mask[:, :self.k + 1]
-            # truncate the original text tokens
-            self.encoded_news_original = self.encoded_news_original
-            self.attn_mask_original = self.attn_mask_original
-            # [CLS] and [SEP]
-            if self.subwords is not None:
-                self.subwords = self.subwords[:, :self.k + 1]
 
         elif self.reducer == "bow":
             refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
@@ -1220,6 +1228,7 @@ class MIND_recall(Dataset):
         self.news_path = self.cache_directory + manager.get_news_file_for_load()
 
         self.behav_path = self.cache_directory + "recall.pkl"
+        self.pad_token_id = manager.get_special_token_id('[PAD]')
 
         # get mapping from original cdd index to the one in faiss
         try:
@@ -1271,6 +1280,12 @@ class MIND_recall(Dataset):
                 self.subwords = None
 
         if self.reducer in ["bm25", "entity", "first", "keyword"]:
+            self.encoded_news = self.encoded_news[:, :self.k + 1]
+            self.attn_mask = self.attn_mask[:, :self.k + 1]
+            # [CLS] and [SEP]
+            if self.subwords is not None:
+                self.subwords = self.subwords[:, :self.k + 1]
+
             with open(self.cache_directory + "news.pkl", "rb") as f:
                 news = pickle.load(f)
                 self.encoded_news_original = news["encoded_news"][:, :self.signal_length]
@@ -1356,23 +1371,20 @@ class MIND_recall(Dataset):
             token level refinement, determined by reducer
 
             matching -> deduplicate
-            bm25 -> truncate
             bow -> count
         """
+        sep_pos = self.encoded_news[:, -1] != self.pad_token_id
+        self.encoded_news[:, -1] = 102 * sep_pos
+        self.attn_mask[:, -1] = 1 * sep_pos
+
+        if hasattr(self, "encoded_news_original"):
+            sep_pos = self.encoded_news_original[:, -1] != 0
+            self.encoded_news_original[:, -1] = 102 * sep_pos
+            self.attn_mask_original[:, -1] = 1 * sep_pos
+
         if self.reducer == "matching":
             refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
             self.attn_mask_dedup = refined_mask
-
-        elif self.reducer in ["bm25", "entity", "first", "keyword"]:
-            # [CLS] and [SEP], actually, [SEP] is virtual
-            self.encoded_news = self.encoded_news[:, :self.k + 1]
-            self.attn_mask = self.attn_mask[:, :self.k + 1]
-            # truncate the original text tokens
-            self.encoded_news_original = self.encoded_news_original
-            self.attn_mask_original = self.attn_mask_original
-            # [CLS] and [SEP]
-            if self.subwords is not None:
-                self.subwords = self.subwords[:, :self.k + 1]
 
         elif self.reducer == "bow":
             refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
@@ -1401,21 +1413,13 @@ class MIND_recall(Dataset):
         impr_news = impr[1]
         user_index = self.uindexes[impr_index]
 
-        # each time called to return positive one sample
-        cdd_ids = [self.cdd2index[impr_news]]
-
-        cdd_size = len(cdd_ids)
-
-        label = np.ones((cdd_size))
-        label = np.arange(0, len(cdd_ids), 1)[label == 1][0]
+        cdd_ids = impr_news
 
         # pad in his_id, not in histories
         his_ids = self.histories[impr_index][:self.his_size]
         # true means the corresponding history news is padded
         his_mask = np.zeros((self.his_size, 1))
         his_mask[:len(his_ids)] = 1
-
-        cdd_mask = np.ones((cdd_size, 1))
 
         if self.descend_history:
             his_ids = his_ids[::-1] + [0] * (self.his_size - len(his_ids))
@@ -1427,6 +1431,8 @@ class MIND_recall(Dataset):
         his_encoded_index = self.encoded_news[his_ids]
         his_attn_mask = self.attn_mask[his_ids]
 
+        cdd_ids = [self.cdd2index[x] for x in cdd_ids]
+
         back_dic = {
             "user_id": user_index,
             "cdd_id": np.asarray(cdd_ids),
@@ -1435,9 +1441,7 @@ class MIND_recall(Dataset):
             "his_encoded_index": his_encoded_index,
             "cdd_attn_mask": cdd_attn_mask,
             "his_attn_mask": his_attn_mask,
-            "cdd_mask": cdd_mask,
             "his_mask": his_mask,
-            "label": label
         }
 
         # word-level

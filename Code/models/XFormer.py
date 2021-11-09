@@ -91,11 +91,11 @@ class XFormer(TwoTowerBaseModel):
 
         # do not add extra [SEP]
         his_news = x["his_encoded_index"].to(self.device)
-        cls_token_id = his_news[:, :, [0]]
+        cls_token_id = his_news[:, 0, [0]]
         his_news = his_news[:, :, 1:].reshape(batch_size, -1)[:, :self.max_length]
         his_news = torch.cat([cls_token_id, his_news], dim=-1)
 
-        cls_token_mask = his_attn_mask[:, :, [0]]
+        cls_token_mask = his_attn_mask[:, 0, [0]]
         his_attn_mask = his_attn_mask[:, :, 1:].reshape(batch_size, -1)[:, :self.max_length]
         his_attn_mask = torch.cat([cls_token_mask, his_attn_mask], dim=-1)
 
