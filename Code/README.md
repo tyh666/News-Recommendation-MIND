@@ -56,27 +56,11 @@ python -m scripts.esm -m test -s large -ck=150000
 ```
 
 ## TODO
-- [x] Do I need to compare a text summarization model?
-- [x] first > matching
-- [x] BERT encoderN cost too much
-- [x] longformer necessary?
-- [x] online deployment
-- [x] avg/first trained better in personalization
-- [x] retrieval dataset
-- [x] whether to highlight one-tower user encoder
-- [x] whether to mention DBLP in introduction\
-- [x] compare efficiency in training/testing?
-  - metric for efficiency?
-- [x] term/token?
-- [x] position distribution of selected terms?
-- [x] k from 1 to ? 1,2,3,4,5,8,10
-- [x] whether to compare memory consumption
-
-- how to treat user with multiple clicks
-- use token/term/stem for sparse recall
-- how to reconcile multiple documents
-- highlight end-to-end select
--
+- [ ] case study
+- [ ] graphsage with selection
+- [ ] sparse + dense recall
+  - [ ] faiss index start from 0
+- [ ] encode user
 
 ## Preprocess
 - [x] remove stop words

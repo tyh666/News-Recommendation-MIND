@@ -271,6 +271,106 @@ class Partition_Sampler():
         return self.end - self.start
 
 
+
+    def construct_inverted_index(corpus, score_func):
+    """ construct inverted index on corpus according to score_func
+    key: token
+    value: list of tuples, the first element in a tuple is document index in the corpus; the second one is its score
+    """
+    logger.info("initializing inverted index of scoring function {}...".format(score_func.name))
+    inverted_index = defaultdict(list)
+    for i,document in enumerate(corpus):
+        token_set = set()
+        # strip [CLS]
+        for token in document:
+            if token not in token_set:
+                inverted_index[token].append([i, score_func(token, i)])
+                token_set.add(token)
+
+    for k,v in inverted_index.items():
+        v = np.asarray(v)
+        # sort by the last column i.e. score
+        inverted_index[k] = v[v[:, 1].argsort()[::-1]]
+
+    return inverted_index
+    # inverted_index = [[]] * token_num
+    # for i,document in enumerate(corpus):
+    #     token_set = set()
+    #     # strip [CLS]
+    #     for token in document:
+    #         if token not in token_set:
+    #             inverted_index[token].append([i, score_func(token, i)])
+    #             token_set.add(token)
+
+    # for i,v in enumerate(inverted_index):
+    #     v = np.asarray(v)
+    #     # sort by the last column i.e. score
+    #     inverted_index[i] = v[v[:, 1].argsort()[::-1]]
+
+    # inverted_index = np.asarray(inverted_index, dtype=object)
+
+    # return inverted_index
+
+
+
+class BM25_token(object):
+    """
+    compute bm25 score of every term in the corpus
+    """
+    def __init__(self, documents, k=2, epsilon=0.5):
+        """
+        Args:
+            documents: list of tokens
+        """
+        self.name = "bm25-token"
+
+        self.k = k
+        self.epsilon = epsilon
+        # initialize tf and idf
+        self._build_tf_idf(documents)
+        logger.info("initializing token-level BM25...")
+
+    def _build_tf_idf(self, documents):
+        """
+        build term frequencies (how many times a term occurs in one news) and document frequencies (how many documents contains a term)
+        """
+        doc_count = len(documents)
+
+        tfs = []
+        df = defaultdict(int)
+        for document in documents:
+            tf = defaultdict(int)
+            # strip [CLS]
+            for token in document[1:]:
+                # term frequency in this document
+                tf[token] += 1
+                # global document frequency
+                df[token] += 1
+            tfs.append(tf)
+
+        self.tfs = tfs
+
+        idf = defaultdict(float)
+        for word,freq in df.items():
+            idf[word] = math.log((doc_count - freq + 0.5 ) / (freq + 0.5) + 1)
+        # inverse document frequency
+        self.idf = idf
+
+    def __call__(self, token, doc_idx):
+        """
+        compute bm25 score of the given token
+
+        Args:
+            token: int
+
+        Returns:
+            bm25 score of the token
+        """
+        tf = self.tfs[doc_idx][token]
+        score = (self.idf[token] * tf * (self.k + 1)) / (tf + self.k)
+        return score
+
+
 class BM25(object):
     """
     compute bm25 score on the entire corpus, instead of the one limited by signal_length
@@ -302,7 +402,6 @@ class BM25(object):
             idf[word] = math.log((doc_count - freq + 0.5 ) / (freq + 0.5) + 1)
 
         self.idf = idf
-
 
     def __call__(self, documents):
         """

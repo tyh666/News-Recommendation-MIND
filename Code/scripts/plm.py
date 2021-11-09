@@ -50,9 +50,17 @@ def main(rank, manager):
     elif manager.mode == 'encode':
         manager.encode(plm, loaders)
 
+    elif manager.mode == 'analyse':
+        manager.collect_kid(plm, loaders)
+
+    elif manager.mode == 'recall':
+        manager.recall(plm, loaders)
+
 
 if __name__ == "__main__":
     manager = Manager()
+
+    # default settings
     manager.reducer = 'none'
     manager.hidden_dim = 768
 

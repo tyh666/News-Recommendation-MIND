@@ -32,7 +32,6 @@ class TwoTowerBaseModel(nn.Module):
                 self.register_buffer('his_dest', torch.zeros((manager.batch_size, self.his_size, self.signal_length * self.signal_length)), persistent=False)
 
 
-
     def init_encoding(self):
         """
         prepare for fast encoding

@@ -22,6 +22,8 @@ class XFormer(TwoTowerBaseModel):
             nn.init.xavier_normal_(self.userBias)
 
         manager.name = '__'.join(['xformer', manager.bert, manager.granularity])
+        # used in fast evaluate
+        self.name = manager.name
 
 
     def encode_news(self, x):

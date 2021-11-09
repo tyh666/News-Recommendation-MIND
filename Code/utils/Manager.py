@@ -4,6 +4,7 @@ import os
 import logging
 import argparse
 import json
+import pickle
 import time
 import random
 import smtplib
@@ -924,7 +925,6 @@ class Manager():
         """
         inspect personalized terms
         """
-        import pickle
         from transformers import AutoTokenizer
 
         model.eval()
@@ -1062,9 +1062,9 @@ class Manager():
         """
 
         if self.recall_type == "d":
+            logger.info("dense recalling by user representation...")
             import faiss
             self.load(model, self.checkpoint)
-            logger.info("dense recalling by user representation...")
 
             news_set = torch.load('data/recall/news.pt', map_location=torch.device(model.device))
 
@@ -1078,48 +1078,127 @@ class Manager():
             INDEX = faiss.IndexFlatIP(news.size(-1))
             # INDEX = faiss.index_cpu_to_all_gpus(INDEX)
             INDEX = faiss.index_cpu_to_gpu(faiss.StandardGpuResources(), self.device, INDEX)
-
             INDEX.add(news.cpu().numpy())
 
             recall = 0
             count = 0
+
+            model.init_embedding()
             for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
                 t1 = time.time()
-                cdd_id = x['cdd_id']
                 user_repr = model.encode_user(x)[0].squeeze(-2).cpu().numpy()
                 t2 = time.time()
                 _, index = INDEX.search(user_repr, self.recall_ratio)
                 t3 = time.time()
 
-                for i,batch in enumerate(cdd_id):
-                    rec = np.sum(np.in1d(batch, index[i]))
-                    recall += rec
+                for i,cdd_id in enumerate(x['cdd_id']):
+                    recall += np.sum(np.in1d(cdd_id, index[i]))
                     count += 1
                 t4 = time.time()
                 # print("transfer time:{}, search time:{}, operation time:{}".format(t2-t1, t3-t2, t4-t3))
+            model.destroy_embedding()
 
             recall_rate = recall / count
             logger.info("recall@{} : {}".format(self.recall_ratio, recall_rate))
 
+
         elif self.recall_type == "s":
-            self.load(model, self.checkpoint)
             logger.info("sparse recalling by extracted terms...")
+            try:
+                with open("data/recall/inverted_index_bm25.pkl", "rb") as f:
+                    inverted_index = pickle.load(f)
+            except FileNotFoundError:
+                from .utils import BM25_token, construct_inverted_index
+                with open("data/cache/bert/MINDlarge_dev/news.pkl", "rb") as f:
+                    news = pickle.load(f)['encoded_news']
+                news_set = torch.load('data/recall/news.pt')
+                news_collection = news[news_set]
+                # initialize inverted index
+                bm25 = BM25_token(news_collection)
+                inverted_index = construct_inverted_index(news_collection, bm25)
+                with open("data/recall/inverted_index_bm25.pkl", "wb") as f:
+                    pickle.dump(inverted_index, f)
+
+            self.load(model, self.checkpoint)
+
+            recall_10 = 0
+            recall_50 = 0
+            recall_100 = 0
+            count = 0
+            # total news number
+            news_num = 6997
+            for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
+                t1 = time.time()
+                kid = model.encode_user(x)[1]
+                batch_size = x['his_encoded_index'].size(0)
+                ps_terms = x['his_encoded_index'][:, :, 1:].to(self.device).gather(index=kid, dim=-1).view(batch_size, -1).cpu().numpy()
+                t2 = time.time()
+
+                for query, cdd_id in zip(ps_terms, x['cdd_id']):
+                    news_score_all = np.zeros(news_num)
+                    for token in query:
+                        news_and_scores = inverted_index[token]
+                        # this token not occured in news collection
+                        if len(news_and_scores) == 0:
+                            continue
+                        news_score_all[news_and_scores[:, 0].astype('int32')[:100]] += news_and_scores[:, 1][:100]
+
+                    recalled_news = np.argsort(news_score_all)[::-1]
+                    recall_10 += np.sum(np.in1d(cdd_id, recalled_news[:10]))
+                    recall_50 += np.sum(np.in1d(cdd_id, recalled_news[:50]))
+                    recall_100 += np.sum(np.in1d(cdd_id, recalled_news[:100]))
+
+                    count += 1
+
+                t3 = time.time()
+
+                # print("transfer time:{}, search time:{}".format(t2-t1, t3-t2))
+
+            recall_rate = recall / count
+            logger.info("recall@10 : {}; recall@50 : {}; recall@100 : {}".format(recall_rate))
+
+
+        elif self.recall_type == "sd":
+            try:
+                with open("data/recall/inverted_index_bm25.pkl", "rb") as f:
+                    inverted_index = pickle.load(f)
+            except FileNotFoundError:
+                from .utils import BM25_token, construct_inverted_index
+                with open("data/cache/bert/MINDlarge_dev/news.pkl", "rb") as f:
+                    news = pickle.load(f)['encoded_news']
+                news_set = torch.load('data/recall/news.pt')
+                news_collection = news[news_set]
+                # initialize inverted index
+                bm25 = BM25_token(news_collection)
+                inverted_index = construct_inverted_index(news_collection, bm25)
+                with open("data/recall/inverted_index_bm25.pkl", "wb") as f:
+                    pickle.dump(inverted_index, f)
+
+            self.load(model, self.checkpoint)
+            logger.info("sparse recalling then dense ranking by extracted terms and user representation respectively...")
 
             recall = 0
             count = 0
+            # total news number
+            news_num = 6997
             for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
                 t1 = time.time()
-
-                cdd_encoded_index = x['cdd_encoded_index'][:, 0, 1:]
-                batch_size = cdd_encoded_index.shape[0]
-
                 kid = model.encode_user(x)[1]
+                batch_size = x['his_encoded_index'].size(0)
                 ps_terms = x['his_encoded_index'][:, :, 1:].to(self.device).gather(index=kid, dim=-1).view(batch_size, -1).cpu().numpy()
-
                 t2 = time.time()
 
-                for i in range(batch_size):
-                    recall += np.sum(np.in1d(cdd_encoded_index[i], ps_terms[i]))
+                for query, cdd_id in zip(ps_terms, x['cdd_id']):
+                    news_score_all = np.zeros(news_num)
+                    for token in query:
+                        news_and_scores = inverted_index[token]
+                        # this token not occured in news collection
+                        if len(news_and_scores) == 0:
+                            continue
+                        news_score_all[news_and_scores[0]] += news_and_scores[1]
+
+                    recalled_news = np.argsort(news_score_all)[::-1][:self.recall_ratio]
+                    recall += np.sum(np.in1d(cdd_id, recalled_news))
                     count += 1
 
                 t3 = time.time()
@@ -1128,11 +1207,6 @@ class Manager():
 
             recall_rate = recall / count
             logger.info("recall : {}".format(recall_rate))
-
-        elif self.recall_type == "sd":
-            self.load(model, self.checkpoint)
-            logger.info("sparse recalling then dense ranking by extracted terms and user representation respectively...")
-
 
 
     @torch.no_grad()
@@ -1149,7 +1223,6 @@ class Manager():
 
         def construct_heuristic_extracted_term_indice():
             logger.info("constructing heuristicly extracted term indices...")
-            import pickle
             news = pickle.load(open('data/cache/bert/MINDlarge_dev/news.pkl','rb'))['encoded_news']
             bm25 = pickle.load(open('data/cache/bert/MINDlarge_dev/bm25.pkl','rb'))['encoded_news']
             entity = pickle.load(open('data/cache/bert/MINDlarge_dev/entity.pkl','rb'))['encoded_news']
@@ -1461,14 +1534,12 @@ class Manager():
         """
         map original cdd id to the one that's limited to the faiss index
         """
-        import pickle
         logger.info("mapping original cdd id to the one that's limited to the faiss index...")
 
         # get the index of news that appeared in impressions
         try:
             news_set = torch.load('data/recall/news.pt', map_location='cpu')
         except:
-            import pickle
             behaviors = pickle.load(open('data/cache/bert/MINDlarge_dev/1000/behaviors.pkl','rb'))
             imprs = behaviors['imprs']
             news_set = set()
