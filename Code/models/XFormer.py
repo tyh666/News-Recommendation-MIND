@@ -21,19 +21,7 @@ class XFormer(TwoTowerBaseModel):
             self.userBias = nn.Parameter(torch.randn(1,manager.bert_dim))
             nn.init.xavier_normal_(self.userBias)
 
-        self.hidden_dim = manager.bert_dim
-
-        self.granularity = manager.granularity
-        if self.granularity != 'token':
-            self.register_buffer('cdd_dest', torch.zeros((self.batch_size, self.impr_size, self.signal_length * self.signal_length)), persistent=False)
-            if manager.reducer in ["bm25", "entity", "first"]:
-                self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, (manager.k + 2) * (manager.k + 2))), persistent=False)
-            else:
-                self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, self.signal_length * self.signal_length)), persistent=False)
-
-
         manager.name = '__'.join(['xformer', manager.bert, manager.granularity])
-        self.name = manager.name
 
 
     def encode_news(self, x):

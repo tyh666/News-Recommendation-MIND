@@ -21,6 +21,17 @@ class TwoTowerBaseModel(nn.Module):
         self.signal_length = manager.signal_length
         self.device = manager.device
 
+        self.hidden_dim = manager.bert_dim
+
+        self.granularity = manager.granularity
+        if self.granularity != 'token':
+            self.register_buffer('cdd_dest', torch.zeros((manager.batch_size, self.impr_size, self.signal_length * self.signal_length)), persistent=False)
+            if manager.reducer in ["bm25", "entity", "first"]:
+                self.register_buffer('his_dest', torch.zeros((manager.batch_size, self.his_size, (manager.k + 1) * (manager.k + 1))), persistent=False)
+            else:
+                self.register_buffer('his_dest', torch.zeros((manager.batch_size, self.his_size, self.signal_length * self.signal_length)), persistent=False)
+
+
 
     def init_encoding(self):
         """

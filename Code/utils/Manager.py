@@ -109,7 +109,7 @@ class Manager():
 
             parser.add_argument("--npratio", dest="npratio", help="the number of unclicked news to sample when training", type=int, default=4)
             parser.add_argument("--metrics", dest="metrics", help="metrics for evaluating the model", type=str, default="")
-            parser.add_argument("-rt", "--recall_ratio", dest="recall_ratio", help="recall@K", type=int, default=5)
+            parser.add_argument("-rt", "--recall_ratio", dest="recall_ratio", help="recall@K", type=int, default=10)
 
             parser.add_argument("-g", "--granularity", dest="granularity", help="the granularity for reduction", choices=["token", "avg", "first", "sum"], default="token")
             parser.add_argument("-emb", "--embedding", dest="embedding", help="choose embedding", choices=["bert","random","deberta"], default="bert")
@@ -1062,10 +1062,9 @@ class Manager():
         """
 
         if self.recall_type == "d":
-            self.load(model, self.checkpoint)
-
-            logger.info("dense recalling by user representation...")
             import faiss
+            self.load(model, self.checkpoint)
+            logger.info("dense recalling by user representation...")
 
             news_set = torch.load('data/recall/news.pt', map_location=torch.device(model.device))
 
@@ -1103,18 +1102,7 @@ class Manager():
             logger.info("recall@{} : {}".format(self.recall_ratio, recall_rate))
 
         elif self.recall_type == "s":
-            try:
-                self.load(model, self.checkpoint)
-            except:
-                # in case we want to test the model trained with token granularity with other granularity
-                old_name = self.name
-                new_name = re.sub(self.granularity, 'token', self.name)
-                logger.warning("failed to load {}, resort to load {}".format(self.name, new_name))
-
-                self.name = new_name
-                self.load(model, self.checkpoint)
-                self.name = old_name
-
+            self.load(model, self.checkpoint)
             logger.info("sparse recalling by extracted terms...")
 
             recall = 0
@@ -1140,6 +1128,11 @@ class Manager():
 
             recall_rate = recall / count
             logger.info("recall : {}".format(recall_rate))
+
+        elif self.recall_type == "sd":
+            self.load(model, self.checkpoint)
+            logger.info("sparse recalling then dense ranking by extracted terms and user representation respectively...")
+
 
 
     @torch.no_grad()

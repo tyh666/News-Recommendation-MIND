@@ -32,21 +32,10 @@ class TESRec(TwoTowerBaseModel):
 
         self.hidden_dim = manager.bert_dim
 
-        self.granularity = manager.granularity
-        if self.granularity != 'token':
-            self.register_buffer('cdd_dest', torch.zeros((self.batch_size, self.impr_size, self.signal_length * self.signal_length)), persistent=False)
-            if manager.reducer in ["bm25", "entity", "first"]:
-                self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, (manager.k + 2) * (manager.k + 2))), persistent=False)
-            else:
-                self.register_buffer('his_dest', torch.zeros((self.batch_size, self.his_size, self.signal_length * self.signal_length)), persistent=False)
-
-
         if aggregator is not None:
             manager.name = '__'.join(['tesrec', manager.bert, manager.encoderN, manager.encoderU, manager.reducer, manager.aggregator, manager.granularity, str(manager.k), "new"])
         else:
             manager.name = '__'.join(['tesrec', manager.bert, manager.encoderN, manager.encoderU, manager.reducer, manager.granularity, str(manager.k), "new"])
-
-        self.name = manager.name
 
 
     def encode_news(self, x):
