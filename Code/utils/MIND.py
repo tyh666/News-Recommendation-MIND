@@ -973,29 +973,25 @@ class MIND_history(Dataset):
             manager.impr_size = 1000
 
         pat = re.search('MIND/(.*_(.*)/)', file_directory)
-
-        # must use this mode and scale
-        self.mode = "dev"
-        self.scale = "large"
+        file_name = pat.group(1)
+        self.mode = pat.group(2)
+        if self.mode == 'test':
+            self.scale = 'large'
         self.pad_token_id = manager.get_special_token_id('[PAD]')
 
+        self.cache_directory = "/".join(["data/cache", manager.get_bert_for_cache(), file_name])
+        self.news_path = self.cache_directory + manager.get_news_file_for_load()
         if manager.case:
-            file_name = "MINDlarge_dev/"
-            self.cache_directory = "/".join(["data/cache", manager.get_bert_for_cache(), file_name])
-            self.news_path = self.cache_directory + manager.get_news_file_for_load()
             self.behav_path_eval = file_directory + "case.pkl"
 
             self.behaviors_file = file_directory + "behaviors.tsv"
             logger.info("encoding user behaviors of {}...".format(self.behaviors_file))
-            self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_dev.json".format(self.scale))
+            self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_{}.json".format(self.scale, self.mode))
             self.uid2index = getId2idx("data/dictionaries/uid2idx_{}.json".format(self.scale))
 
             self.init_behaviors()
 
         else:
-            file_name = pat.group(1)
-            self.cache_directory = "/".join(["data/cache", manager.get_bert_for_cache(), file_name])
-            self.news_path = self.cache_directory + manager.get_news_file_for_load()
             self.behav_path_eval = self.cache_directory + "{}/{}".format(self.impr_size, "behaviors.pkl")
 
             logger.info("process NO.{} loading cached user tokenization from {}".format(manager.rank, self.behav_path_eval))

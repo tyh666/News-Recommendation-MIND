@@ -61,6 +61,7 @@ python -m scripts.esm -m test -s large -ck=150000
 - [ ] sparse + dense recall
   - [ ] faiss index start from 0
 - [ ] encode user
+- [ ] reformer
 
 ## Preprocess
 - [x] remove stop words

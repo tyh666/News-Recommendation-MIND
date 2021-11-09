@@ -272,7 +272,7 @@ class Partition_Sampler():
 
 
 
-    def construct_inverted_index(corpus, score_func):
+def construct_inverted_index(corpus, score_func):
     """ construct inverted index on corpus according to score_func
     key: token
     value: list of tuples, the first element in a tuple is document index in the corpus; the second one is its score

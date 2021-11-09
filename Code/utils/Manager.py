@@ -55,6 +55,7 @@ class Manager():
             parser.add_argument("-n", "--news", dest="news", help="which news to inspect", type=int, default=None)
             parser.add_argument("-c", "--case", dest="case", help="whether to return the sample for case study", action="store_true", default=False)
             parser.add_argument("-rc", "--recall_type", dest="recall_type", help="recall type", choices=["s","d","sd"], default=None)
+            parser.add_argument("-ip", "--inspect_type", dest="inspect_type", help="the dataset to inspect", choices=["dev","test"], default=None)
 
             parser.add_argument("-bs", "--batch_size", dest="batch_size",
                                 help="batch size", type=int, default=32)
@@ -152,6 +153,9 @@ class Manager():
             if args.recall_type is not None:
                 # set to recall mode
                 args.mode = "recall"
+
+            if args.inspect_type is not None:
+                args.mode = "inspect"
 
             if args.step < args.hold_step:
                 args.hold_step = args.step - 1
@@ -290,18 +294,17 @@ class Manager():
 
         elif self.mode == "inspect":
             # if case study
+            file_directory = self.path + "MIND/MINDlarge_{}/".format(self.inspect_type)
             if self.case:
-                file_directory_dev = "data/case/"
-                dataset_dev = MIND_history(self, file_directory_dev)
-                loader_dev = DataLoader(dataset_dev, batch_size=1, pin_memory=pin_memory,
+                dataset = MIND_history(self, file_directory)
+                loader = DataLoader(dataset, batch_size=1, pin_memory=pin_memory,
                     num_workers=num_workers, drop_last=False)
             else:
-                file_directory_dev = self.path + "MIND/MINDlarge_dev/"
-                dataset_dev = MIND_history(self, file_directory_dev)
-                loader_dev = DataLoader(dataset_dev, batch_size=1, pin_memory=pin_memory,
+                dataset = MIND_history(self, file_directory)
+                loader = DataLoader(dataset, batch_size=1, pin_memory=pin_memory,
                     num_workers=num_workers, drop_last=False)
 
-            return loader_dev,
+            return loader,
 
         elif self.mode == "test":
             file_directory_test = self.path + "MIND/MINDlarge_test/"
@@ -1067,7 +1070,6 @@ class Manager():
             self.load(model, self.checkpoint)
 
             news_set = torch.load('data/recall/news.pt', map_location=torch.device(model.device))
-
             news_reprs = torch.load("data/cache/{}/large/dev/news.pt".format(self.name), map_location=torch.device(model.device))
             news = news_reprs[news_set]
 
@@ -1121,9 +1123,7 @@ class Manager():
 
             self.load(model, self.checkpoint)
 
-            recall_10 = 0
-            recall_50 = 0
-            recall_100 = 0
+            recalls = np.array([0.,0.,0.])
             count = 0
             # total news number
             news_num = 6997
@@ -1144,9 +1144,9 @@ class Manager():
                         news_score_all[news_and_scores[:, 0].astype('int32')[:100]] += news_and_scores[:, 1][:100]
 
                     recalled_news = np.argsort(news_score_all)[::-1]
-                    recall_10 += np.sum(np.in1d(cdd_id, recalled_news[:10]))
-                    recall_50 += np.sum(np.in1d(cdd_id, recalled_news[:50]))
-                    recall_100 += np.sum(np.in1d(cdd_id, recalled_news[:100]))
+                    recalls[0] += np.sum(np.in1d(cdd_id, recalled_news[:10]))
+                    recalls[1] += np.sum(np.in1d(cdd_id, recalled_news[:50]))
+                    recalls[2] += np.sum(np.in1d(cdd_id, recalled_news[:100]))
 
                     count += 1
 
@@ -1154,11 +1154,12 @@ class Manager():
 
                 # print("transfer time:{}, search time:{}".format(t2-t1, t3-t2))
 
-            recall_rate = recall / count
-            logger.info("recall@10 : {}; recall@50 : {}; recall@100 : {}".format(recall_rate))
+            recall_rates = recalls / count
+            logger.info("recall@10 : {}; recall@50 : {}; recall@100 : {}".format(recall_rates[0], recall_rates[1], recall_rates[2]))
 
 
         elif self.recall_type == "sd":
+            logger.info("sparse recalling then dense ranking by extracted terms and user representation respectively...")
             try:
                 with open("data/recall/inverted_index_bm25.pkl", "rb") as f:
                     inverted_index = pickle.load(f)
@@ -1174,39 +1175,53 @@ class Manager():
                 with open("data/recall/inverted_index_bm25.pkl", "wb") as f:
                     pickle.dump(inverted_index, f)
 
-            self.load(model, self.checkpoint)
-            logger.info("sparse recalling then dense ranking by extracted terms and user representation respectively...")
+            news_set = torch.load('data/recall/news.pt', map_location=torch.device(model.device))
+            news_reprs = torch.load("data/cache/{}/large/dev/news.pt".format(self.name), map_location=torch.device(model.device))
+            news = news_reprs[news_set]
 
-            recall = 0
+            hidden_dim = news.size(-1)
+
+            self.load(model, self.checkpoint)
+
             count = 0
-            # total news number
-            news_num = 6997
+            recalls = np.array([0.,0.,0.])
             for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
                 t1 = time.time()
-                kid = model.encode_user(x)[1]
+                user_reprs, kid = model.encode_user(x)
                 batch_size = x['his_encoded_index'].size(0)
                 ps_terms = x['his_encoded_index'][:, :, 1:].to(self.device).gather(index=kid, dim=-1).view(batch_size, -1).cpu().numpy()
                 t2 = time.time()
 
-                for query, cdd_id in zip(ps_terms, x['cdd_id']):
-                    news_score_all = np.zeros(news_num)
+                for query, user_repr, cdd_id in zip(ps_terms, user_reprs, x['cdd_id']):
+                    recalled_news_ids = set()
                     for token in query:
                         news_and_scores = inverted_index[token]
                         # this token not occured in news collection
                         if len(news_and_scores) == 0:
                             continue
-                        news_score_all[news_and_scores[0]] += news_and_scores[1]
 
-                    recalled_news = np.argsort(news_score_all)[::-1][:self.recall_ratio]
-                    recall += np.sum(np.in1d(cdd_id, recalled_news))
+                        # dedup recalled news
+                        recalled_news_ids.update(news_and_scores[:, 0].astype('int32').tolist())
+
+                    recalled_news_ids = torch.tensor(list(recalled_news_ids), device=news.device)
+                    # N, D
+                    recalled_news = news[recalled_news_ids]
+                    # N, 1
+                    recalled_news_score = recalled_news.matmul(user_repr.view(hidden_dim, 1)).squeeze(-1)
+                    # sort
+                    recalled_news_ids = recalled_news_ids[recalled_news_score.argsort(descending=True)[:100]].cpu().numpy()
+
+                    recalls[0] += np.sum(np.in1d(cdd_id, recalled_news_ids[:10]))
+                    recalls[1] += np.sum(np.in1d(cdd_id, recalled_news_ids[:50]))
+                    recalls[2] += np.sum(np.in1d(cdd_id, recalled_news_ids[:100]))
                     count += 1
 
                 t3 = time.time()
 
                 # print("transfer time:{}, search time:{}".format(t2-t1, t3-t2))
 
-            recall_rate = recall / count
-            logger.info("recall : {}".format(recall_rate))
+            recall_rate = recalls / count
+            logger.info("recall@10 : {}; recall@50 : {}; recall@100 : {}".format(recall_rates[0], recall_rates[1], recall_rates[2]))
 
 
     @torch.no_grad()
@@ -1236,7 +1251,7 @@ class Manager():
                 entity_index = []
 
                 # for each token in the first 3 bm25, find its position in the original news
-                for tok1 in b[1:4]:
+                for tok1 in b[1:self.k + 1]:
                     found = False
                     for i,tok2 in enumerate(n[1:100]):
                         if tok1 == tok2:
@@ -1246,7 +1261,7 @@ class Manager():
                     if not found:
                         bm25_index.append(-1)
 
-                for tok1 in e[1:4]:
+                for tok1 in e[1:self.k + 1]:
                     found = False
                     for i,tok2 in enumerate(n[1:100]):
                         if tok1 == tok2:
@@ -1261,13 +1276,15 @@ class Manager():
 
             bm25_indice = np.asarray(bm25_indice)
             entity_indice = np.asarray(entity_indice)
+
+            os.makedirs("data/cache/kid", exist_ok=True)
             np.save("data/cache/kid/bm25.npy", bm25_indice)
             np.save("data/cache/kid/entity.npy", entity_indice)
             return bm25_indice, entity_indice
 
         try:
             bm25_indice = np.load('data/cache/kid/bm25.npy')
-            entity_indice = np.load('data/cache/kid/bm25.npy')
+            entity_indice = np.load('data/cache/kid/entity.npy')
         except:
             bm25_indice, entity_indice = construct_heuristic_extracted_term_indice()
 
@@ -1275,30 +1292,24 @@ class Manager():
         # entity_positions = np.array([0] * (self.signal_length - 1))
         kid_positions = np.array([0] * (self.signal_length + 1))
 
-        recall_entity_all = []
-        recall_nonentity_all = []
-
         count = 0
+        entity_recall = 0.
+
         for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
             # strip off [CLS] and [SEP]
             kids = model.encode_user(x)[1]
             kids = kids.masked_fill(~(x['his_mask'].to(self.device).bool()), self.signal_length)
             term_num = kids.numel()
             kids = kids.cpu().numpy()
-            for kid in kids.reshape(-1, self.k):
+            for kid, his_id in zip(kids.reshape(-1, self.k), x['his_id'].view(-1).cpu().numpy()):
                 kid_positions[kid] += 1
 
-            # for his_id in x['his_id']:
-            #     his_id = his_id.cpu().numpy()
-            #     entity_index = entity_indice[his_id]
+                entity_index = entity_indice[his_id]
 
-            #     entity_overlap = kids - entity_index
-            #     recall_entity = (entity_overlap == 0).sum() / term_num
-            #     recall_entity_all.append(recall_entity)
+                entity_recall += np.sum(np.in1d(entity_index, kid))
+                count += 1
 
-            #     count += 1
-
-        # logger.info("entity recall rate: {}".format(np.asarray(recall_entity_all).sum() / count))
+        logger.info("entity recall rate: {}".format(entity_recall / count))
         np.save("data/cache/kid_pos.npy", kid_positions)
 
         # pos = []

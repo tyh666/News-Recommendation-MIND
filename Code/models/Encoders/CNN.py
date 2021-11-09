@@ -42,7 +42,7 @@ class CNN_Encoder(nn.Module):
         """
         signal_length = news_embedding.size(2)
         cnn_input = news_embedding.view(-1, signal_length, self.embedding_dim).transpose(-2, -1)
-        cnn_output = self.Relu(self.cnn(cnn_input)).transpose(-2, -1).view(*news_embedding.shape[:-1], self.hidden_dim)
+        cnn_output = self.cnn(cnn_input).transpose(-2, -1).view(*news_embedding.shape[:-1], self.hidden_dim)
 
         if attn_mask is not None:
             news_repr = scaled_dp_attention(self.query_words, self.Tanh(self.wordQueryProject(cnn_output)), cnn_output, attn_mask.unsqueeze(-2)).squeeze(dim=-2)
