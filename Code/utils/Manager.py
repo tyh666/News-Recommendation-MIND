@@ -126,7 +126,7 @@ class Manager():
 
             parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=3)
             parser.add_argument("-thr", "--threshold", dest="threshold", help="threshold to mask terms", default=-float("inf"), type=float)
-            parser.add_argument("-b", "--bert", dest="bert", help="choose bert model", choices=["bert", "deberta", "unilm", "longformer", "bigbird"], default="bert")
+            parser.add_argument("-b", "--bert", dest="bert", help="choose bert model", choices=["bert", "deberta", "unilm", "longformer", "bigbird", "reformer"], default="bert")
 
             parser.add_argument("--tb", dest="tb", action="store_true", default=False)
             parser.add_argument("-sd","--seed", dest="seed", default=42, type=int)
@@ -1364,6 +1364,11 @@ class Manager():
                 "[PAD]": 0,
                 "[CLS]": 65,
                 "[SEP]": 66
+            },
+            "reformer":{
+                "[PAD]": 2,
+                "[CLS]": 1,
+                "[SEP]": 2
             }
         }
         return special_token_map[self.bert][token]
@@ -1440,7 +1445,8 @@ class Manager():
             "deberta": "microsoft/deberta-base",
             "unilm": "bert-base-uncased",
             "longformer": "allenai/longformer-base-4096",
-            "bigbird": "google/bigbird-roberta-base"
+            "bigbird": "google/bigbird-roberta-base",
+            "reformer": "google/reformer-crime-and-punishment"
         }
         return bert_map[self.bert]
 
@@ -1454,7 +1460,8 @@ class Manager():
             "deberta": "deberta",
             "unilm": "bert",
             "longformer": "longformer",
-            "bigbird": "bigbird"
+            "bigbird": "bigbird",
+            "reformer": "reformer"
         }
         return bert_map[self.bert]
 
@@ -1478,7 +1485,8 @@ class Manager():
             "deberta": 511,
             "unilm": 511,
             "longformer": 511,
-            "bigbird": 1000
+            "bigbird": 1000,
+            "reformer": 2000,
         }
         return length_map[self.bert]
 
@@ -1546,7 +1554,7 @@ class Manager():
         map original cdd id to the one that's limited to the faiss index
         """
         logger.info("mapping original cdd id to the one that's limited to the faiss index...")
-
+        os.makedirs("data/recall", exist_ok=True)
         # get the index of news that appeared in impressions
         try:
             news_set = torch.load('data/recall/news.pt', map_location='cpu')
@@ -1566,7 +1574,7 @@ class Manager():
         for i,x in enumerate(news_set):
             cddid2idx[x] = i
 
-        with open("data/dictionaries/cddid2idx_recall.pkl", "wb") as f:
+        with open("data/recall/cddid2idx_recall.pkl", "wb") as f:
             pickle.dump(cddid2idx, f)
 
 

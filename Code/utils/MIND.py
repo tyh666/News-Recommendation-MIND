@@ -433,6 +433,77 @@ class MIND(Dataset):
                     f
                 )
 
+        def parse_texts_ngram(tokenizer, texts, news_path, max_length):
+            """
+            convert texts to tokens indices and get subword indices
+            """
+            # manually set padding token
+            tokenizer.pad_token = tokenizer.eos_token
+
+            text_toks = []
+            attention_masks = []
+            # subwords_all = []
+            # subwords_first = []
+            for i, text in enumerate(tqdm(texts, ncols=120, leave=True)):
+                if i == 0:
+                    token_ids = [self.pad_token_id] * max_length
+                    attn_mask = [0] * max_length
+                    # subword_first = [[0,0]] * max_length
+                    # subword_all = [[0,0]] * max_length
+
+                else:
+                    token_ouput = tokenizer(text, padding='max_length', truncation=True, max_length=max_length - 1)
+                    token_ouput["input_ids"].insert(0, "<s>")
+                    token_ouput["attention_mask"].insert(0, 1)
+
+                    token_ids = token_ouput['input_ids']
+                    attn_mask = token_ouput['attention_mask']
+                    # tokens = tokenizer.convert_ids_to_tokens(token_ids)
+
+                    # maintain subword entry
+                    # subword_all = []
+                    # mask subword entry
+                    # subword_first = []
+                    # i = -1
+                    # j = -1
+                    # for token in tokens:
+                    #     if token == '[PAD]':
+                    #         subword_all.append([0,0])
+                    #         subword_first.append([0,0])
+
+                    #     elif token.startswith("##"):
+                    #         j += 1
+                    #         subword_all.append([i,j])
+                    #         subword_first.append([0,0])
+
+                    #     else:
+                    #         i += 1
+                    #         j += 1
+                    #         subword_all.append([i,j])
+                    #         subword_first.append([i,j])
+
+                text_toks.append(token_ids)
+                attention_masks.append(attn_mask)
+                # subwords_all.append(subword_all)
+                # subwords_first.append(subword_first)
+
+            # encode news
+            encoded_news = np.asarray(text_toks)
+            attn_mask = np.asarray(attention_masks)
+
+            # subwords_all = np.asarray(subwords_all)
+            # subwords_first = np.asarray(subwords_first)
+
+            with open(news_path, "wb") as f:
+                pickle.dump(
+                    {
+                        "encoded_news": encoded_news,
+                        "attn_mask": attn_mask,
+                        # "subwords_first": subwords_first,
+                        # "subwords_all": subwords_all,
+                    },
+                    f
+                )
 
         if self.bert in ['bert', 'unilm']:
             logger.info("tokenizing news...")
@@ -466,6 +537,14 @@ class MIND(Dataset):
             if not no_keyword:
                 logger.info("tokenizing keywords...")
                 parse_texts_sentencepiece(self.tokenizer, keywords, self.cache_directory + "keyword.pkl", self.max_reduction_length)
+
+        elif self.bert in ['reformer']:
+            logger.info("tokenizing news...")
+            parse_texts_ngram(self.tokenizer, articles, self.cache_directory + "news.pkl", self.max_token_length)
+            logger.info("tokenizing bm25 ordered news...")
+            parse_texts_ngram(self.tokenizer, articles_bm25, self.cache_directory + "bm25.pkl", self.max_reduction_length)
+            logger.info("tokenizing entities...")
+            parse_texts_ngram(self.tokenizer, entities, self.cache_directory + "entity.pkl", self.max_reduction_length)
 
 
     def init_behaviors(self):
@@ -972,7 +1051,7 @@ class MIND_history(Dataset):
             # must modify here
             manager.impr_size = 1000
 
-        pat = re.search('MIND/(.*_(.*)/)', file_directory)
+        pat = re.search('/(MIND\w*?_(.*)/)', file_directory)
         file_name = pat.group(1)
         self.mode = pat.group(2)
         if self.mode == 'test':
@@ -1228,11 +1307,11 @@ class MIND_recall(Dataset):
 
         # get mapping from original cdd index to the one in faiss
         try:
-            with open("data/dictionaries/cddid2idx_recall.pkl", "rb") as f:
+            with open("data/recall/cddid2idx_recall.pkl", "rb") as f:
                 self.cdd2index = pickle.load(f)
         except:
             manager.construct_cddidx_for_recall()
-            with open("data/dictionaries/cddid2idx_recall.pkl", "rb") as f:
+            with open("data/recall/cddid2idx_recall.pkl", "rb") as f:
                 self.cdd2index = pickle.load(f)
 
         # only preprocess on the master node, the worker can directly load the cache

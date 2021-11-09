@@ -58,10 +58,11 @@ python -m scripts.esm -m test -s large -ck=150000
 ## TODO
 - [ ] case study
 - [ ] graphsage with selection
-- [ ] sparse + dense recall
+- [x] sparse + dense recall
   - [ ] faiss index start from 0
-- [ ] encode user
-- [ ] reformer
+- [x] encode user
+- [x] reformer
+- [ ] save_best
 
 ## Preprocess
 - [x] remove stop words

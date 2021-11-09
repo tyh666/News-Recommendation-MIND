@@ -17,6 +17,15 @@ class XFormer(TwoTowerBaseModel):
         self.bert_name = manager.bert
         self.max_length = manager.get_max_length_for_truncating()
 
+        if self.bert_name in ["reformer"]:
+            self.pooler = nn.Sequential(
+                nn.Dropout(p=0.05),
+                nn.Linear(self.bert.config.hidden_size * 2, self.bert.config.hidden_size),
+                nn.Tanh(),
+                nn.Dropout(p=0.05),
+                nn.Linear(self.bert.config.hidden_size, self.bert.config.hidden_size)
+            )
+
         if manager.debias:
             self.userBias = nn.Parameter(torch.randn(1,manager.bert_dim))
             nn.init.xavier_normal_(self.userBias)
@@ -51,7 +60,10 @@ class XFormer(TwoTowerBaseModel):
 
         cdd_news = x["cdd_encoded_index"].to(self.device).view(-1, self.signal_length)
         cdd_attn_mask = cdd_attn_mask.view(-1, self.signal_length)
-        cdd_news_repr = self.bert(cdd_news, cdd_attn_mask).pooler_output
+        if self.bert_name in ["reformer"]:
+            cdd_news_repr = self.pooler(self.bert(cdd_news, cdd_attn_mask)[:, 0])
+        else:
+            cdd_news_repr = self.bert(cdd_news, cdd_attn_mask).pooler_output
         cdd_news_repr = cdd_news_repr.view(batch_size, -1, self.hidden_dim)
         return cdd_news_repr
 
@@ -89,7 +101,10 @@ class XFormer(TwoTowerBaseModel):
         his_attn_mask = his_attn_mask[:, :, 1:].reshape(batch_size, -1)[:, :self.max_length]
         his_attn_mask = torch.cat([cls_token_mask, his_attn_mask], dim=-1)
 
-        user_repr = self.bert(his_news, his_attn_mask).pooler_output
+        if self.bert_name in ["reformer"]:
+            user_repr = self.pooler(self.bert(his_news, his_attn_mask)[:, 0])
+        else:
+            user_repr = self.bert(his_news, his_attn_mask).pooler_output
         user_repr = user_repr.unsqueeze(1)
 
         if hasattr(self, 'userBias'):
