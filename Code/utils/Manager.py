@@ -157,8 +157,9 @@ class Manager():
             if args.inspect_type is not None:
                 args.mode = "inspect"
 
-            if args.step < args.hold_step:
-                args.hold_step = args.step - 1
+            # in order to debug
+            if args.step == 1:
+                args.hold_step = 0
 
             if args.scale == 'demo':
                 args.no_email = True
