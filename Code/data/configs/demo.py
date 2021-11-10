@@ -16,7 +16,7 @@ class config:
     npratio = 4
     his_size = 50
     cdd_size = 5
-    impr_size = 1000
+    impr_size = 2000
 
     dropout_p = 0.2
     device = 0

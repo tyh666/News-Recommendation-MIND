@@ -961,8 +961,8 @@ class MIND_news(BaseDataset):
             dict of training data, including |npratio+1| cdd news word vector, |his_size+1| his news word vector etc.
         """
 
-        cdd_encoded_index = self.encoded_news[idx]
-        cdd_attn_mask = self.attn_mask[idx]
+        cdd_encoded_index = self.encoded_news[[idx]]
+        cdd_attn_mask = self.attn_mask[[idx]]
 
         back_dic = {
             "cdd_id": idx,
@@ -971,7 +971,7 @@ class MIND_news(BaseDataset):
         }
 
         if self.subwords is not None:
-            cdd_subword_index = self.subwords[idx]
+            cdd_subword_index = self.subwords[[idx]]
             back_dic["cdd_subword_index"] = cdd_subword_index
 
         return back_dic

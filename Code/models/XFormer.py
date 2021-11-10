@@ -50,7 +50,6 @@ class XFormer(TwoTowerBaseModel):
         encode news of loader_news
         """
         # encode news with MIND_news
-        B, N, L = x['cdd_encoded_index'].size()
         if self.granularity != 'token':
             cdd_dest = self.cdd_dest[:B]
             cdd_subword_index = x['cdd_subword_index'].to(self.device)
@@ -69,6 +68,11 @@ class XFormer(TwoTowerBaseModel):
             cdd_attn_mask = x['cdd_attn_mask'].to(self.device)
 
         cdd_news = x["cdd_encoded_index"].to(self.device)
+        # when encoding
+        # if cdd_news.dim() == 2:
+        #     cdd_news = cdd_news.unsqueeze(1)
+        B, N, L = cdd_news.size()
+
         if self.bert_name in ["reformer"]:
             cdd_news = torch.cat([cdd_news, self.pad_token_id.expand(B, N, self.max_length - L)], dim=-1).view(-1, self.max_length)
             cdd_attn_mask = torch.cat([cdd_attn_mask, self.pad_token_mask.expand(B, N, self.max_length - L)], dim=-1).view(-1, self.max_length)

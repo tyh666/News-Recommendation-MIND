@@ -64,7 +64,7 @@ class Manager():
             parser.add_argument("-hs", "--his_size", dest="his_size",
                                 help="history size", type=int, default=50)
             parser.add_argument("-is", "--impr_size", dest="impr_size",
-                                help="impression size for evaluating", type=int, default=100)
+                                help="impression size for evaluating", type=int, default=2000)
             parser.add_argument("-sl", "--signal_length", dest="signal_length",
                             help="length of the bert tokenized tokens", type=int, default=100)
 
@@ -351,15 +351,16 @@ class Manager():
             return loader,
 
 
-    def save(self, model, step, optimizer=None):
+    def save(self, model, step, optimizer=None, best=False):
         """
             shortcut for saving the model and optimizer
         """
-        save_path = "data/model_params/{}/{}_step{}.model".format(
-            self.name, self.scale, step)
+        if best:
+            save_path = "data/model_params/{}/best.model".format(self.name)
+        else:
+            save_path = "data/model_params/{}/{}_step{}.model".format(self.name, self.scale, step)
 
         logger.info("saving model at {}...".format(save_path))
-
         model_dict = model.state_dict()
 
         save_dict = {}
@@ -369,13 +370,14 @@ class Manager():
         torch.save(save_dict, save_path)
 
 
-    def load(self, model, step, optimizer=None, strict=True):
+    def load(self, model, step, optimizer=None, strict=True, best=False):
         """
             shortcut for loading model and optimizer parameters
         """
-
-        save_path = "data/model_params/{}/{}_step{}.model".format(
-            self.name, self.scale, step)
+        if best:
+            save_path = "data/model_params/{}/best.model".format(self.name)
+        else:
+            save_path = "data/model_params/{}/{}_step{}.model".format(self.name, self.scale, step)
 
         logger.info("loading model from {}...".format(save_path))
 
@@ -736,6 +738,8 @@ class Manager():
 
                 if steps % save_step == 0 and (steps in [150000,180000,200000,210000,220000,230000,240000] and self.scale == "whole" or steps > self.hold_step and self.scale == "large" or steps > 0 and self.scale == "demo"):
                     print("\n")
+                    self.save(model, steps, optimizer)
+
                     with torch.no_grad():
                         result = self.evaluate(model, loaders[1:], log=False)
 
@@ -744,7 +748,7 @@ class Manager():
 
                             if result["auc"] > best_res["auc"]:
                                 best_res = result
-                                self.save(model, steps, optimizer)
+                                self.save(model, steps, optimizer, name="best")
                                 self._log(result)
 
                         # prevent SIGABRT
