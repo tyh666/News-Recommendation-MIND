@@ -1487,7 +1487,7 @@ class Manager():
             "unilm": (512, 10),
             "longformer": (512, 10),
             "bigbird": (1024, 20),
-            "reformer": (2560, 52),
+            "reformer": (640, 15),
         }
         return length_map[self.bert]
 

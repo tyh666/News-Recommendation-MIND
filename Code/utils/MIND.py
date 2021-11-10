@@ -30,7 +30,7 @@ class BaseDataset(Dataset):
         self.reducer = manager.reducer
         self.granularity = manager.granularity
 
-        pat = re.search('/(MIND(\w*?)_(.*)/)', file_directory)
+        pat = re.search('/(MIND(\w*?)_(.*))/', file_directory)
         file_name = pat.group(1)
         self.scale = pat.group(2)
         self.mode = pat.group(3)
@@ -114,7 +114,7 @@ class BaseDataset(Dataset):
                 else:
                     for k,v in behaviors.items():
                         setattr(self, k, v)
-        except:
+        except FileNotFoundError:
             assert manager.mode == "inspect" and manager.case, "init_behavior fails, please ensure that you're in case study mode"
 
         logger.info("process NO.{} loading cached news tokenization from {}".format(manager.rank, self.news_cache_path))
