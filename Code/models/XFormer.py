@@ -15,9 +15,9 @@ class XFormer(TwoTowerBaseModel):
         )
 
         self.bert_name = manager.bert
-        self.max_length = manager.get_max_length_for_truncating()
+        self.max_length, self.max_length_per_history = manager.get_max_length_for_truncating()
 
-        if self.bert_name in ["reformer"]:
+        if self.bert_name == "reformer":
             self.pooler = nn.Sequential(
                 nn.Dropout(p=0.05),
                 nn.Linear(self.bert.config.hidden_size * 2, self.bert.config.hidden_size),
@@ -25,6 +25,10 @@ class XFormer(TwoTowerBaseModel):
                 nn.Dropout(p=0.05),
                 nn.Linear(self.bert.config.hidden_size, self.bert.config.hidden_size)
             )
+            # self.bert.config.max_embedding_size = self.max_length_per_history * self.his_size + 1
+            self.register_buffer("pad_token_id", 2 * torch.ones(1, 1, 1), persistent=False)
+            self.register_buffer("pad_token_mask", torch.zeros(1, 1, 1))
+            self.bert.config.axial_pos_shape = (40, 64)
 
         if manager.debias:
             self.userBias = nn.Parameter(torch.randn(1,manager.bert_dim))
@@ -40,14 +44,14 @@ class XFormer(TwoTowerBaseModel):
         encode news of loader_news
         """
         # encode news with MIND_news
-        batch_size = x['cdd_encoded_index'].size(0)
+        B, N, L = x['cdd_encoded_index'].size()
         if self.granularity != 'token':
-            cdd_dest = self.cdd_dest[:batch_size]
+            cdd_dest = self.cdd_dest[:B]
             cdd_subword_index = x['cdd_subword_index'].to(self.device)
             cdd_subword_index = cdd_subword_index[:, :, 0] * self.signal_length + cdd_subword_index[:, :, 1]
 
             cdd_subword_prefix = cdd_dest.scatter(dim=-1, index=cdd_subword_index, value=1)
-            cdd_subword_prefix = cdd_subword_prefix.view(batch_size, self.signal_length, self.signal_length)
+            cdd_subword_prefix = cdd_subword_prefix.view(B, self.signal_length, self.signal_length)
 
             if self.granularity == 'avg':
                 # average subword embeddings as the word embedding
@@ -61,10 +65,12 @@ class XFormer(TwoTowerBaseModel):
         cdd_news = x["cdd_encoded_index"].to(self.device).view(-1, self.signal_length)
         cdd_attn_mask = cdd_attn_mask.view(-1, self.signal_length)
         if self.bert_name in ["reformer"]:
+            cdd_news = torch.cat(cdd_news, self.pad_token_id.expand(B, N, self.max_length - L))
+            cdd_attn_mask = torch.cat(cdd_attn_mask, self.pad_token_mask.expand(B, N, self.max_length - L))
             cdd_news_repr = self.pooler(self.bert(cdd_news, cdd_attn_mask)[:, 0])
         else:
             cdd_news_repr = self.bert(cdd_news, cdd_attn_mask).pooler_output
-        cdd_news_repr = cdd_news_repr.view(batch_size, -1, self.hidden_dim)
+        cdd_news_repr = cdd_news_repr.view(B, -1, self.hidden_dim)
         return cdd_news_repr
 
 
@@ -94,11 +100,11 @@ class XFormer(TwoTowerBaseModel):
         # do not add extra [SEP]
         his_news = x["his_encoded_index"].to(self.device)
         cls_token_id = his_news[:, 0, [0]]
-        his_news = his_news[:, :, 1:].reshape(batch_size, -1)[:, :self.max_length]
+        his_news = his_news[:, :, 1:self.max_length_per_history + 1].reshape(batch_size, -1)[:, :self.max_length - 1]
         his_news = torch.cat([cls_token_id, his_news], dim=-1)
 
         cls_token_mask = his_attn_mask[:, 0, [0]]
-        his_attn_mask = his_attn_mask[:, :, 1:].reshape(batch_size, -1)[:, :self.max_length]
+        his_attn_mask = his_attn_mask[:, :, 1:self.max_length_per_history + 1].reshape(batch_size, -1)[:, :self.max_length - 1]
         his_attn_mask = torch.cat([cls_token_mask, his_attn_mask], dim=-1)
 
         if self.bert_name in ["reformer"]:

@@ -38,21 +38,21 @@ conda activate /data/v-pezhang/vc
 ## Instruction
 ```bash
 cd /data/v-pezhang/Code/Document-Reduction/Code
-python -m scripts.tesrec -m train -s large -ws=2
-python -m scripts.plm -m train -s large -ws=2 -st=40000 -bs=8
-python -m scripts.xformer -m train -s large -sl=10 -ws=2
+python tesrec.py -m train -s large -ws=2
+python plm.py -m train -s large -ws=2 -st=40000 -bs=8
+python xformer.py -m train -s large -sl=10 -ws=2
 
-python -m scripts.plm -m train -s demo -bs=5 -is=10 -d=2 -sl=30
-python -m scripts.tesrec -m train -s demo -bs=5 -is=10
+python plm.py -m train -s demo -bs=5 -is=10 -d=2 -sl=30
+python tesrec.py -m train -s demo -bs=5 -is=10
 
-python -m scripts.tesrec -m encode -s large
-python -m scripts.tesrec -m analyse -s large -ck=230000
-python -m scripts.tesrec -m recall -s large
-python -m scripts.tesrec -m inspect -s large -ck=230000 -d=-1
+python tesrec.py -m encode -s large
+python tesrec.py -m analyse -s large -ck=230000
+python tesrec.py -m recall -s large
+python tesrec.py -m inspect -s large -ck=230000 -d=-1
 
-python -m scripts.tesrec -m test -s large -ck=589
-python -m scripts.plm -m test -s large -ck=589
-python -m scripts.esm -m test -s large -ck=150000
+python tesrec.py -m test -s large -ck=589
+python plm.py -m test -s large -ck=589
+python esm -m test -s large -ck=150000
 ```
 
 ## TODO

@@ -13,56 +13,52 @@ from utils.utils import newsample, getId2idx, tokenize, getVocab
 
 logger = logging.getLogger(__name__)
 
-class MIND(Dataset):
-    """ Map Style Dataset for MIND, use bert tokenizer
 
-    Args:
-        manager(dict): pre-defined dictionary of hyper parameters
-        file_directory(str): directory to news and behaviors file
-    """
-
-    def __init__(self, manager, file_directory):
-        # initiate the whole iterator
-        self.npratio = manager.npratio
-        self.shuffle_pos = manager.shuffle_pos
-        self.signal_length = manager.signal_length
+class BaseDataset(Dataset):
+    def __init__(self, manager, file_directory) -> None:
+        super().__init__()
         self.his_size = manager.his_size
         self.impr_size = manager.impr_size
+
         self.k = manager.k
+        self.signal_length = manager.signal_length
+
+        self.npratio = manager.npratio
+        self.shuffle_pos = manager.shuffle_pos
         self.descend_history = manager.descend_history
+
         self.reducer = manager.reducer
         self.granularity = manager.granularity
 
-        pat = re.search('MIND/(.*_(.*)/)', file_directory)
+        pat = re.search('/(MIND(\w*?)_(.*)/)', file_directory)
         file_name = pat.group(1)
-        self.mode = pat.group(2)
+        self.scale = pat.group(2)
+        self.mode = pat.group(3)
 
-        self.scale = manager.scale
-        if self.mode == 'test':
-            self.scale = 'large'
+        cache_directory = "data/cache/MIND"
+        news_cache_directory = "/".join([cache_directory, "news", manager.get_bert_for_cache(), file_name])
 
-        # fast predict doesn't need to control impression size, 500 is supposed to contain all candidates within one impression
-        if manager.fast or manager.mode == 'inspect':
-            self.impr_size = 1000
-            # must modify here
-            manager.impr_size = 1000
+        if self.mode == "train":
+            behav_cache_directory = "/".join([cache_directory, "behaviors", file_name])
+        else:
+            behav_cache_directory = "/".join([cache_directory, "behaviors", file_name, str(self.impr_size)])
 
-        self.cache_directory = "/".join(["data/cache", manager.get_bert_for_cache(), file_name])
-        self.news_path = self.cache_directory + manager.get_news_file_for_load()
-
-        self.behav_path_train = self.cache_directory + "behaviors.pkl"
-        self.behav_path_eval = self.cache_directory + "{}/{}".format(self.impr_size, "behaviors.pkl")
+        self.behav_cache_path = "/".join([behav_cache_directory, "behaviors.pkl"])
+        self.news_cache_path = "/".join([news_cache_directory, manager.get_news_file_for_load()])
+        # used in manager.inspect()
+        self.news_cache_directory = news_cache_directory
 
         self.pad_token_id = manager.get_special_token_id('[PAD]')
+        self.sep_token_id = manager.get_special_token_id('[SEP]')
 
-        # only preprocess on the master node, the worker can directly load the cache
+        # initialize all caches on master node
         if manager.rank in [-1, 0]:
-            if (self.mode == 'train' and not os.path.exists(self.behav_path_train)) or (self.mode != 'train' and not os.path.exists(self.behav_path_eval)):
+            # only do this in the basic modes
+            if not os.path.exists(self.behav_cache_path):
                 self.behaviors_file = file_directory + "behaviors.tsv"
                 logger.info("encoding user behaviors of {}...".format(self.behaviors_file))
+                os.makedirs(behav_cache_directory, exist_ok=True)
                 try:
-                    # VERY IMPORTANT!!!
-                    # The nid2idx dictionary must follow the original order of news in news.tsv
                     self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_{}.json".format(self.scale, self.mode))
                 except FileNotFoundError:
                     manager.construct_nid2idx(mode=self.mode)
@@ -72,65 +68,57 @@ class MIND(Dataset):
                 except FileNotFoundError:
                     manager.construct_uid2idx()
                     self.uid2index = getId2idx("data/dictionaries/uid2idx_{}.json".format(self.scale))
-
                 self.init_behaviors()
 
+            # FIXME: gather all reducer functions
+            if not os.path.exists(self.news_cache_path):
+                self.news_file = file_directory + "news.tsv"
+                logger.info("encoding news of {}...".format(self.news_file))
+                os.makedirs(news_cache_directory, exist_ok=True)
+                self.news_cache_directory = news_cache_directory + '/'
 
-            if not (os.path.exists(self.cache_directory + "news.pkl") and os.path.exists(self.cache_directory + "bm25.pkl") and os.path.exists(self.cache_directory + "entity.pkl") and os.path.exists(self.cache_directory + "keyword.pkl")):
                 from transformers import AutoTokenizer
                 self.tokenizer = AutoTokenizer.from_pretrained(manager.get_bert_for_load(), cache_dir=manager.path + "bert_cache/")
-
-                self.file_directory = file_directory
-                logger.info("encoding news of {}...".format(self.file_directory + "news.tsv"))
                 self.bert = manager.bert
-
                 self.max_token_length = 512
                 self.max_reduction_length = 30
-
-                try:
-                    # VERY IMPORTANT!!!
-                    # The nid2idx dictionary must follow the original order of news in news.tsv
-                    self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_{}.json".format(self.scale, self.mode))
-                except FileNotFoundError:
-                    manager.construct_nid2idx(mode=self.mode)
-                    self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_{}.json".format(self.scale, self.mode))
-
                 self.init_news()
 
         # synchronize all processes
         if manager.world_size > 1:
             dist.barrier()
 
-        behav_path = self.behav_path_train if self.mode == 'train' else self.behav_path_eval
-        logger.info("process NO.{} loading cached user behavior from {}".format(manager.rank, behav_path))
+        logger.info("process NO.{} loading cached user behavior from {}".format(manager.rank, self.behav_cache_path))
 
-        with open(behav_path, "rb") as f:
-            behaviors = pickle.load(f)
-            if manager.news is not None:
-                assert manager.mode == 'inspect', "target news only available in INSPECT mode"
-                logger.info("rank {} extracting users who browsed news {}".format(manager.rank, manager.news))
+        try:
+            with open(self.behav_cache_path, "rb") as f:
+                behaviors = pickle.load(f)
+                # target at one news
+                if manager.news is not None:
+                    assert manager.mode == 'inspect', "target news only available in INSPECT mode"
+                    logger.info("rank {} extracting users who browsed news {}".format(manager.rank, manager.news))
 
-                news = manager.news
-                imprs = []
+                    news = manager.news
+                    imprs = []
 
-                self.histories = behaviors['histories']
-                self.uindexes = behaviors['uindexes']
+                    self.histories = behaviors['histories']
+                    self.uindexes = behaviors['uindexes']
 
-                for i in behaviors['imprs']:
-                    impr_index = i[0]
+                    for i in behaviors['imprs']:
+                        impr_index = i[0]
+                        # limit the length of user history to his_size
+                        if news in self.histories[impr_index][:self.his_size]:
+                            imprs.append(i)
+                    self.imprs = imprs
 
-                    # limit the length of user history to his_size
-                    if news in self.histories[impr_index][:self.his_size]:
-                        imprs.append(i)
+                else:
+                    for k,v in behaviors.items():
+                        setattr(self, k, v)
+        except:
+            assert manager.mode == "inspect" and manager.case, "init_behavior fails, please ensure that you're in case study mode"
 
-                self.imprs = imprs
-
-            else:
-                for k,v in behaviors.items():
-                    setattr(self, k, v)
-
-        logger.info("process NO.{} loading cached news tokenization from {}".format(manager.rank, self.news_path))
-        with open(self.news_path, "rb") as f:
+        logger.info("process NO.{} loading cached news tokenization from {}".format(manager.rank, self.news_cache_path))
+        with open(self.news_cache_path, "rb") as f:
             news = pickle.load(f)
             self.encoded_news = news["encoded_news"][:, :self.signal_length]
             self.attn_mask = news["attn_mask"][:, :self.signal_length]
@@ -142,13 +130,14 @@ class MIND(Dataset):
                 self.subwords = None
 
         if self.reducer in ["bm25", "entity", "first", "keyword"]:
+            # prune encoded news index
             self.encoded_news = self.encoded_news[:, :self.k + 1]
             self.attn_mask = self.attn_mask[:, :self.k + 1]
-            # [CLS] and [SEP]
+            # [CLS]
             if self.subwords is not None:
                 self.subwords = self.subwords[:, :self.k + 1]
 
-            with open(self.cache_directory + "news.pkl", "rb") as f:
+            with open("/".join([cache_directory, manager.get_bert_for_cache(), "news.pkl"]), "rb") as f:
                 news = pickle.load(f)
                 self.encoded_news_original = news["encoded_news"][:, :self.signal_length]
                 self.attn_mask_original = news["attn_mask"][:, :self.signal_length]
@@ -164,13 +153,19 @@ class MIND(Dataset):
                 from utils.utils import DeDuplicate
                 refiner = DeDuplicate(manager)
             else:
-                from utils.utils import DoNothing
-                refiner = DoNothing()
+                refiner = None
         elif manager.reducer in ["bm25", "none", "entity", "first", "keyword"]:
             refiner = None
         elif manager.reducer == "bow":
             from utils.utils import CountFreq
             refiner = CountFreq(manager)
+
+        # set the last token of a sequence to [SEP]
+        sep_pos = self.encoded_news[:, -1] != self.pad_token_id
+        self.encoded_news[:, -1] = self.sep_token_id * sep_pos
+        if hasattr(self, "encoded_news_original"):
+            sep_pos = self.encoded_news_original[:, -1] != 0
+            self.encoded_news_original[:, -1] = self.sep_token_id * sep_pos
 
         self.init_refinement(refiner)
 
@@ -188,7 +183,7 @@ class MIND(Dataset):
         articles = [""]
         entities = [""]
         keywords = [""]
-        with open(self.file_directory + "news.tsv", "r", encoding="utf-8") as rd:
+        with open(self.news_file, "r", encoding="utf-8") as rd:
             for idx in tqdm(rd, ncols=120, leave=True):
                 nid, vert, subvert, title, ab, url, title_entity, abs_entity = idx.strip("\n").split("\t")
                 article = " ".join([title, ab, subvert])
@@ -453,7 +448,7 @@ class MIND(Dataset):
 
                 else:
                     token_ouput = tokenizer(text, padding='max_length', truncation=True, max_length=max_length - 1)
-                    token_ouput["input_ids"].insert(0, "<s>")
+                    token_ouput["input_ids"].insert(0, 2)
                     token_ouput["attention_mask"].insert(0, 1)
 
                     token_ids = token_ouput['input_ids']
@@ -507,44 +502,44 @@ class MIND(Dataset):
 
         if self.bert in ['bert', 'unilm']:
             logger.info("tokenizing news...")
-            parse_texts_bert(self.tokenizer, articles, self.cache_directory + "news.pkl", self.max_token_length)
+            parse_texts_bert(self.tokenizer, articles, self.news_cache_directory + "news.pkl", self.max_token_length)
             logger.info("tokenizing bm25 ordered news...")
-            parse_texts_bert(self.tokenizer, articles_bm25, self.cache_directory + "bm25.pkl", self.max_reduction_length)
+            parse_texts_bert(self.tokenizer, articles_bm25, self.news_cache_directory + "bm25.pkl", self.max_reduction_length)
             logger.info("tokenizing entities...")
-            parse_texts_bert(self.tokenizer, entities, self.cache_directory + "entity.pkl", self.max_reduction_length)
+            parse_texts_bert(self.tokenizer, entities, self.news_cache_directory + "entity.pkl", self.max_reduction_length)
             if not no_keyword:
                 logger.info("tokenizing keywords...")
-                parse_texts_bert(self.tokenizer, keywords, self.cache_directory + "keyword.pkl", self.max_reduction_length)
+                parse_texts_bert(self.tokenizer, keywords, self.news_cache_directory + "keyword.pkl", self.max_reduction_length)
 
         elif self.bert in ['deberta', 'longformer']:
             logger.info("tokenizing news...")
-            parse_texts_wordpiece(self.tokenizer, articles, self.cache_directory + "news.pkl", self.max_token_length)
+            parse_texts_wordpiece(self.tokenizer, articles, self.news_cache_directory + "news.pkl", self.max_token_length)
             logger.info("tokenizing bm25 ordered news...")
-            parse_texts_wordpiece(self.tokenizer, articles_bm25, self.cache_directory + "bm25.pkl", self.max_reduction_length)
+            parse_texts_wordpiece(self.tokenizer, articles_bm25, self.news_cache_directory + "bm25.pkl", self.max_reduction_length)
             logger.info("tokenizing entities...")
-            parse_texts_wordpiece(self.tokenizer, entities, self.cache_directory + "entity.pkl", self.max_reduction_length)
+            parse_texts_wordpiece(self.tokenizer, entities, self.news_cache_directory + "entity.pkl", self.max_reduction_length)
             if not no_keyword:
                 logger.info("tokenizing keywords...")
-                parse_texts_wordpiece(self.tokenizer, keywords, self.cache_directory + "keyword.pkl", self.max_reduction_length)
+                parse_texts_wordpiece(self.tokenizer, keywords, self.news_cache_directory + "keyword.pkl", self.max_reduction_length)
 
         elif self.bert in ['bigbird']:
             logger.info("tokenizing news...")
-            parse_texts_sentencepiece(self.tokenizer, articles, self.cache_directory + "news.pkl", self.max_token_length)
+            parse_texts_sentencepiece(self.tokenizer, articles, self.news_cache_directory + "news.pkl", self.max_token_length)
             logger.info("tokenizing bm25 ordered news...")
-            parse_texts_sentencepiece(self.tokenizer, articles_bm25, self.cache_directory + "bm25.pkl", self.max_reduction_length)
+            parse_texts_sentencepiece(self.tokenizer, articles_bm25, self.news_cache_directory + "bm25.pkl", self.max_reduction_length)
             logger.info("tokenizing entities...")
-            parse_texts_sentencepiece(self.tokenizer, entities, self.cache_directory + "entity.pkl", self.max_reduction_length)
+            parse_texts_sentencepiece(self.tokenizer, entities, self.news_cache_directory + "entity.pkl", self.max_reduction_length)
             if not no_keyword:
                 logger.info("tokenizing keywords...")
-                parse_texts_sentencepiece(self.tokenizer, keywords, self.cache_directory + "keyword.pkl", self.max_reduction_length)
+                parse_texts_sentencepiece(self.tokenizer, keywords, self.news_cache_directory + "keyword.pkl", self.max_reduction_length)
 
         elif self.bert in ['reformer']:
             logger.info("tokenizing news...")
-            parse_texts_ngram(self.tokenizer, articles, self.cache_directory + "news.pkl", self.max_token_length)
+            parse_texts_ngram(self.tokenizer, articles, self.news_cache_directory + "news.pkl", self.max_token_length)
             logger.info("tokenizing bm25 ordered news...")
-            parse_texts_ngram(self.tokenizer, articles_bm25, self.cache_directory + "bm25.pkl", self.max_reduction_length)
+            parse_texts_ngram(self.tokenizer, articles_bm25, self.news_cache_directory + "bm25.pkl", self.max_reduction_length)
             logger.info("tokenizing entities...")
-            parse_texts_ngram(self.tokenizer, entities, self.cache_directory + "entity.pkl", self.max_reduction_length)
+            parse_texts_ngram(self.tokenizer, entities, self.news_cache_directory + "entity.pkl", self.max_reduction_length)
 
 
     def init_behaviors(self):
@@ -565,9 +560,6 @@ class MIND(Dataset):
             # list of lists, each list represents a
             imprs = []
             negatives = []
-
-            os.makedirs(self.cache_directory, exist_ok=True)
-
             with open(self.behaviors_file, "r", encoding="utf-8") as rd:
                 for idx in tqdm(rd, ncols=120, leave=True):
                     _, uid, time, history, impr = idx.strip("\n").split("\t")
@@ -602,16 +594,13 @@ class MIND(Dataset):
                 "uindexes": uindexes
             }
 
-            with open(self.behav_path_train, "wb") as f:
+            with open(self.behav_cache_path, "wb") as f:
                 pickle.dump(save_dict, f)
 
         # store every behavior
         elif self.mode == "dev":
             # list of every cdd news index along with its impression index and label
             imprs = []
-
-            os.makedirs(self.cache_directory + str(self.impr_size), exist_ok=True)
-
             with open(self.behaviors_file, "r", encoding="utf-8") as rd:
                 for idx in tqdm(rd, ncols=120, leave=True):
                     _, uid, time, history, impr = idx.strip("\n").split("\t")
@@ -639,16 +628,13 @@ class MIND(Dataset):
                 "uindexes": uindexes
             }
 
-            with open(self.behav_path_eval, "wb") as f:
+            with open(self.behav_cache_path, "wb") as f:
                 pickle.dump(save_dict, f)
 
         # store every behavior
         elif self.mode == "test":
             # list of every cdd news index along with its impression index and label
             imprs = []
-
-            os.makedirs(self.cache_directory + str(self.impr_size), exist_ok=True)
-
             with open(self.behaviors_file, "r", encoding="utf-8") as rd:
                 for idx in tqdm(rd, ncols=120, leave=True):
                     _, uid, time, history, impr = idx.strip("\n").split("\t")
@@ -675,25 +661,19 @@ class MIND(Dataset):
                 "uindexes": uindexes
             }
 
-            with open(self.behav_path_eval, "wb") as f:
+            with open(self.behav_cache_path, "wb") as f:
                 pickle.dump(save_dict, f)
 
 
     def init_refinement(self, refiner):
         """
-            token level refinement, determined by reducer
+            token level refinement
 
-            matching -> deduplicate
-            bow -> count
+            1. dedplicate for matching reducer
+            2. count frequency for bog reducer
         """
-        sep_pos = self.encoded_news[:, -1] != self.pad_token_id
-        self.encoded_news[:, -1] = 102 * sep_pos
-        self.attn_mask[:, -1] = 1 * sep_pos
-
-        if hasattr(self, "encoded_news_original"):
-            sep_pos = self.encoded_news_original[:, -1] != 0
-            self.encoded_news_original[:, -1] = 102 * sep_pos
-            self.attn_mask_original[:, -1] = 1 * sep_pos
+        if refiner is None:
+            return
 
         if self.reducer == "matching":
             refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
@@ -703,6 +683,18 @@ class MIND(Dataset):
             refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
             self.encoded_news = refined_news
             self.attn_mask = refined_mask
+
+
+
+class MIND(BaseDataset):
+    def __init__(self, manager, file_directory):
+        """ Map Style Dataset for MIND
+
+        Args:
+            manager(dict): pre-defined dictionary of hyper parameters
+            file_directory(str): directory to news and behaviors file
+        """
+        super().__init__(manager, file_directory)
 
 
     def __len__(self):
@@ -925,71 +917,28 @@ class MIND(Dataset):
             raise ValueError("Mode {} not defined".format(self.mode))
 
 
-class MIND_news(Dataset):
-    """ Map Dataset for MIND, return each news for encoding
 
-    Args:
-        manager
-        news_file(str): path of news_file
-        mode(str): train/test
-    """
-
+class MIND_news(BaseDataset):
     def __init__(self, manager, file_directory):
-        # initiate the whole iterator
-        self.npratio = manager.npratio
-        self.signal_length = manager.signal_length
-        self.his_size = manager.his_size
-        self.impr_size = manager.impr_size
-        self.k = manager.k
-        self.descend_history = manager.descend_history
-        self.reducer = manager.reducer
-        self.granularity = manager.granularity
+        """ Map Dataset for MIND, return each news in news.tsv
 
-        pat = re.search('MIND/(.*_(.*)/)', file_directory)
-        file_name = pat.group(1)
-        self.mode = pat.group(2)
-
-        self.cache_directory = "/".join(["data/cache", manager.get_bert_for_cache(), file_name])
-        self.news_path = self.cache_directory + manager.get_news_file_for_load()
-
-        self.pad_token_id = manager.get_special_token_id('[PAD]')
-
-        if not (os.path.exists(self.cache_directory + "news.pkl") and os.path.exists(self.cache_directory + "bm25.pkl") and os.path.exists(self.cache_directory + "entity.pkl")):
-            raise ValueError("please initialize MIND dataset before initializing MIND_news")
-
-        logger.info("process NO.{} loading cached news tokenization from {}".format(manager.rank, self.news_path))
-        with open(self.news_path, "rb") as f:
-            news = pickle.load(f)
-            self.encoded_news = news["encoded_news"][:, :self.signal_length]
-            self.attn_mask = news["attn_mask"][:, :self.signal_length]
-            if self.granularity in ["avg","sum"]:
-                self.subwords = news["subwords_all"][:, :self.signal_length]
-            elif self.granularity == "first":
-                self.subwords = news["subwords_first"][:, :self.signal_length]
-            else:
-                self.subwords = None
-
-        refiner = None
-        if manager.reducer == "bow":
-            from utils.utils import CountFreq
-            refiner = CountFreq(manager)
-
-        self.init_refinement(refiner)
+        Args:
+            manager(dict): pre-defined dictionary of hyper parameters
+            file_directory(str): directory to news and behaviors file
+        """
+        super().__init__(manager, file_directory)
 
 
     def init_refinement(self, refiner):
         """
-            token level refinement, determined by reducer
+            Override the original method to avoid adding an extra attn_mask_dedup to the dataset;
+            Instead, only process bog refiner
 
-            matching -> deduplicate
-            bm25 -> truncate
             bow -> count
         """
-        sep_pos = self.encoded_news[:, -1] != self.pad_token_id
-        self.encoded_news[:, -1] = 102 * sep_pos
-        self.attn_mask[:, -1] = 1 * sep_pos
-
-        if refiner is not None:
+        if refiner is None:
+            return
+        if self.reducer == "bow":
             refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
             self.encoded_news = refined_news
             self.attn_mask = refined_mask
@@ -1028,7 +977,8 @@ class MIND_news(Dataset):
         return back_dic
 
 
-class MIND_history(Dataset):
+
+class MIND_history(BaseDataset):
     """ Map Style Dataset for MIND, only load history behavior
 
     Args:
@@ -1037,115 +987,11 @@ class MIND_history(Dataset):
     """
 
     def __init__(self, manager, file_directory):
-        # initiate the whole iterator
-        self.signal_length = manager.signal_length
-        self.his_size = manager.his_size
-        self.k = manager.k
-        self.descend_history = manager.descend_history
-        self.reducer = manager.reducer
-        self.granularity = manager.granularity
-
-        self.impr_size = manager.impr_size
-        if manager.fast or manager.mode == 'inspect':
-            self.impr_size = 1000
-            # must modify here
-            manager.impr_size = 1000
-
-        pat = re.search('/(MIND\w*?_(.*)/)', file_directory)
-        file_name = pat.group(1)
-        self.mode = pat.group(2)
-        if self.mode == 'test':
-            self.scale = 'large'
-        self.pad_token_id = manager.get_special_token_id('[PAD]')
-
-        self.cache_directory = "/".join(["data/cache", manager.get_bert_for_cache(), file_name])
-        self.news_path = self.cache_directory + manager.get_news_file_for_load()
+        super().__init__(manager, file_directory)
         if manager.case:
-            self.behav_path_eval = file_directory + "case.pkl"
+            self.refresh_behaviors()
 
-            self.behaviors_file = file_directory + "behaviors.tsv"
-            logger.info("encoding user behaviors of {}...".format(self.behaviors_file))
-            self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_{}.json".format(self.scale, self.mode))
-            self.uid2index = getId2idx("data/dictionaries/uid2idx_{}.json".format(self.scale))
-
-            self.init_behaviors()
-
-        else:
-            self.behav_path_eval = self.cache_directory + "{}/{}".format(self.impr_size, "behaviors.pkl")
-
-            logger.info("process NO.{} loading cached user tokenization from {}".format(manager.rank, self.behav_path_eval))
-            with open(self.behav_path_eval, "rb") as f:
-                behaviors = pickle.load(f)
-                if manager.news is not None:
-                    assert manager.mode == 'inspect', "target news only available in INSPECT mode"
-                    logger.info("rank {} extracting users who browsed news {}".format(manager.rank, manager.news))
-
-                    news = manager.news
-                    imprs = []
-
-                    self.histories = behaviors['histories']
-                    self.uindexes = behaviors['uindexes']
-
-                    for i in behaviors['imprs']:
-                        impr_index = i[0]
-
-                        # limit the length of user history to his_size
-                        if news in self.histories[impr_index][:self.his_size]:
-                            imprs.append(i)
-
-                    self.imprs = imprs
-
-                else:
-                    for k,v in behaviors.items():
-                        setattr(self, k, v)
-
-        logger.info("process NO.{} loading cached news tokenization from {}".format(manager.rank, self.news_path))
-        with open(self.news_path, "rb") as f:
-            news = pickle.load(f)
-            self.encoded_news = news["encoded_news"][:, :self.signal_length]
-            self.attn_mask = news["attn_mask"][:, :self.signal_length]
-            if self.granularity in ["avg","sum"]:
-                self.subwords = news["subwords_all"][:, :self.signal_length]
-            elif self.granularity == "first":
-                self.subwords = news["subwords_first"][:, :self.signal_length]
-            else:
-                self.subwords = None
-
-        if self.reducer in ["bm25", "entity", "first", "keyword"]:
-            self.encoded_news = self.encoded_news[:, :self.k + 1]
-            self.attn_mask = self.attn_mask[:, :self.k + 1]
-            # [CLS] and [SEP]
-            if self.subwords is not None:
-                self.subwords = self.subwords[:, :self.k + 1]
-
-            with open(self.cache_directory + "news.pkl", "rb") as f:
-                news = pickle.load(f)
-                self.encoded_news_original = news["encoded_news"][:, :self.signal_length]
-                self.attn_mask_original = news["attn_mask"][:, :self.signal_length]
-                if self.granularity in ["avg","sum"]:
-                    self.subwords_original = news["subwords_all"][:, :self.signal_length]
-                elif self.granularity == "first":
-                    self.subwords_original = news["subwords_first"][:, :self.signal_length]
-                else:
-                    self.subwords_original = None
-
-        if manager.reducer == "matching":
-            if not manager.no_dedup:
-                from utils.utils import DeDuplicate
-                refiner = DeDuplicate(manager)
-            else:
-                from utils.utils import DoNothing
-                refiner = DoNothing()
-        elif manager.reducer in ["bm25", "none", "entity", "first", "keyword"]:
-            refiner = None
-        elif manager.reducer == "bow":
-            from utils.utils import CountFreq
-            refiner = CountFreq(manager)
-
-        self.init_refinement(refiner)
-
-
-    def init_behaviors(self):
+    def refresh_behaviors(self):
         """
             init behavior logs given behaviors file.
         """
@@ -1153,15 +999,9 @@ class MIND_history(Dataset):
         histories = []
         # list of user index
         uindexes = []
-        # list of impression indexes
-        # self.impr_indexes = []
-
         impr_index = 0
-
         # list of every cdd news index along with its impression index and label
         imprs = []
-
-        os.makedirs(self.cache_directory + str(self.impr_size), exist_ok=True)
 
         with open(self.behaviors_file, "r", encoding="utf-8") as rd:
             for idx in tqdm(rd, ncols=120, leave=True):
@@ -1170,13 +1010,12 @@ class MIND_history(Dataset):
                 history = [self.nid2index[i] for i in history.split()]
 
                 impr_news = [self.nid2index[i.split("-")[0]] for i in impr.split()]
-                labels = [int(i.split("-")[1]) for i in impr.split()]
                 # user will always in uid2index
                 uindex = self.uid2index[uid]
 
                 # store every impression
                 for i in range(0, len(impr_news), self.impr_size):
-                    imprs.append((impr_index, impr_news[i:i+self.impr_size], labels[i:i+self.impr_size]))
+                    imprs.append((impr_index, impr_news[i:i+self.impr_size]))
 
                 # 1 impression correspond to 1 of each of the following properties
                 histories.append(history)
@@ -1187,32 +1026,6 @@ class MIND_history(Dataset):
         self.imprs = imprs
         self.histories = histories
         self.uindexes = uindexes
-
-
-    def init_refinement(self, refiner):
-        """
-            token level refinement, determined by reducer
-
-            matching -> deduplicate
-            bow -> count
-        """
-        sep_pos = self.encoded_news[:, -1] != self.pad_token_id
-        self.encoded_news[:, -1] = 102 * sep_pos
-        self.attn_mask[:, -1] = 1 * sep_pos
-
-        if hasattr(self, "encoded_news_original"):
-            sep_pos = self.encoded_news_original[:, -1] != 0
-            self.encoded_news_original[:, -1] = 102 * sep_pos
-            self.attn_mask_original[:, -1] = 1 * sep_pos
-
-        if self.reducer == "matching":
-            refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
-            self.attn_mask_dedup = refined_mask
-
-        elif self.reducer == "bow":
-            refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
-            self.encoded_news = refined_news
-            self.attn_mask = refined_mask
 
 
     def __len__(self):
@@ -1233,7 +1046,6 @@ class MIND_history(Dataset):
 
         impr = self.imprs[index] # (impression_index, news_index)
         impr_index = impr[0]
-        impr_news = impr[1]
         user_index = self.uindexes[impr_index]
 
         # pad in his_id, not in histories
@@ -1279,7 +1091,8 @@ class MIND_history(Dataset):
         return back_dic
 
 
-class MIND_recall(Dataset):
+
+class MIND_recall(BaseDataset):
     """ Map Style Dataset for MIND
 
     Args:
@@ -1288,23 +1101,7 @@ class MIND_recall(Dataset):
     """
 
     def __init__(self, manager, file_directory):
-        self.shuffle_pos = manager.shuffle_pos
-        self.signal_length = manager.signal_length
-        self.his_size = manager.his_size
-        self.k = manager.k
-        self.descend_history = manager.descend_history
-        self.reducer = manager.reducer
-        self.granularity = manager.granularity
-
-        pat = re.search('MIND/(.*_(.*)/)', file_directory)
-        file_name = pat.group(1)
-
-        self.cache_directory = "/".join(["data/cache", manager.get_bert_for_cache(), file_name])
-        self.news_path = self.cache_directory + manager.get_news_file_for_load()
-
-        self.behav_path = self.cache_directory + "recall.pkl"
-        self.pad_token_id = manager.get_special_token_id('[PAD]')
-
+        super().__init__(manager, file_directory)
         # get mapping from original cdd index to the one in faiss
         try:
             with open("data/recall/cddid2idx_recall.pkl", "rb") as f:
@@ -1313,79 +1110,6 @@ class MIND_recall(Dataset):
             manager.construct_cddidx_for_recall()
             with open("data/recall/cddid2idx_recall.pkl", "rb") as f:
                 self.cdd2index = pickle.load(f)
-
-        # only preprocess on the master node, the worker can directly load the cache
-        if manager.rank in [-1, 0]:
-            if not os.path.exists(self.behav_path):
-                self.behaviors_file = file_directory + "behaviors.tsv"
-                logger.info("encoding user behaviors of {}...".format(self.behaviors_file))
-                try:
-                    # VERY IMPORTANT!!!
-                    # The nid2idx dictionary must follow the original order of news in news.tsv
-                    self.nid2index = getId2idx("data/dictionaries/nid2idx_large_dev.json")
-                except FileNotFoundError:
-                    manager.construct_nid2idx(mode=self.mode)
-                    self.nid2index = getId2idx("data/dictionaries/nid2idx_large_dev.json")
-                try:
-                    self.uid2index = getId2idx("data/dictionaries/uid2idx_large.json")
-                except FileNotFoundError:
-                    manager.construct_uid2idx()
-                    self.uid2index = getId2idx("data/dictionaries/uid2idx_large.json")
-
-                self.init_behaviors()
-
-        behav_path = self.behav_path
-        logger.info("process NO.{} loading cached user behavior from {}".format(manager.rank, behav_path))
-
-        with open(behav_path, "rb") as f:
-            behaviors = pickle.load(f)
-            for k,v in behaviors.items():
-                setattr(self, k, v)
-
-        logger.info("process NO.{} loading cached news tokenization from {}".format(manager.rank, self.news_path))
-        with open(self.news_path, "rb") as f:
-            news = pickle.load(f)
-            self.encoded_news = news["encoded_news"][:, :self.signal_length]
-            self.attn_mask = news["attn_mask"][:, :self.signal_length]
-            if self.granularity in ["avg","sum"]:
-                self.subwords = news["subwords_all"][:, :self.signal_length]
-            elif self.granularity == "first":
-                self.subwords = news["subwords_first"][:, :self.signal_length]
-            else:
-                self.subwords = None
-
-        if self.reducer in ["bm25", "entity", "first", "keyword"]:
-            self.encoded_news = self.encoded_news[:, :self.k + 1]
-            self.attn_mask = self.attn_mask[:, :self.k + 1]
-            # [CLS] and [SEP]
-            if self.subwords is not None:
-                self.subwords = self.subwords[:, :self.k + 1]
-
-            with open(self.cache_directory + "news.pkl", "rb") as f:
-                news = pickle.load(f)
-                self.encoded_news_original = news["encoded_news"][:, :self.signal_length]
-                self.attn_mask_original = news["attn_mask"][:, :self.signal_length]
-                if self.granularity in ["avg","sum"]:
-                    self.subwords_original = news["subwords_all"][:, :self.signal_length]
-                elif self.granularity == "first":
-                    self.subwords_original = news["subwords_first"][:, :self.signal_length]
-                else:
-                    self.subwords_original = None
-
-        if manager.reducer == "matching":
-            if not manager.no_dedup:
-                from utils.utils import DeDuplicate
-                refiner = DeDuplicate(manager)
-            else:
-                from utils.utils import DoNothing
-                refiner = DoNothing()
-        elif manager.reducer in ["bm25", "none", "entity", "first", "keyword"]:
-            refiner = None
-        elif manager.reducer == "bow":
-            from utils.utils import CountFreq
-            refiner = CountFreq(manager)
-
-        self.init_refinement(refiner)
 
 
     def init_behaviors(self):
@@ -1398,14 +1122,10 @@ class MIND_recall(Dataset):
         uindexes = []
         # list of impression indexes
         # self.impr_indexes = []
-
         impr_index = 0
-
         # only store positive behavior
         # list of lists, each list represents a
         imprs = []
-        os.makedirs(self.cache_directory, exist_ok=True)
-
         with open(self.behaviors_file, "r", encoding="utf-8") as rd:
             for idx in tqdm(rd, ncols=120, leave=True):
                 _, uid, time, history, impr = idx.strip("\n").split("\t")
@@ -1439,32 +1159,6 @@ class MIND_recall(Dataset):
 
         with open(self.behav_path, "wb") as f:
             pickle.dump(save_dict, f)
-
-
-    def init_refinement(self, refiner):
-        """
-            token level refinement, determined by reducer
-
-            matching -> deduplicate
-            bow -> count
-        """
-        sep_pos = self.encoded_news[:, -1] != self.pad_token_id
-        self.encoded_news[:, -1] = 102 * sep_pos
-        self.attn_mask[:, -1] = 1 * sep_pos
-
-        if hasattr(self, "encoded_news_original"):
-            sep_pos = self.encoded_news_original[:, -1] != 0
-            self.encoded_news_original[:, -1] = 102 * sep_pos
-            self.attn_mask_original[:, -1] = 1 * sep_pos
-
-        if self.reducer == "matching":
-            refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
-            self.attn_mask_dedup = refined_mask
-
-        elif self.reducer == "bow":
-            refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
-            self.encoded_news = refined_news
-            self.attn_mask = refined_mask
 
 
     def __len__(self):

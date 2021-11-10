@@ -45,7 +45,7 @@ class TwoTowerBaseModel(nn.Module):
         """
         prepare for fast inferring
         """
-        self.cache_directory = "data/cache/{}/{}/{}/".format(self.name, self.scale, self.mode)
+        self.cache_directory = "data/cache/tensors/{}/{}/{}/".format(self.name, self.scale, self.mode)
         self.news_reprs = nn.Embedding.from_pretrained(torch.load(self.cache_directory + "news.pt", map_location=torch.device(self.device)))
 
 

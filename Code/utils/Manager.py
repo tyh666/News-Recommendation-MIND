@@ -569,7 +569,7 @@ class Manager():
 
         # encode and save news representations only on the master node
         if self.rank in [-1, 0]:
-            cache_directory = "data/cache/{}/{}/dev/".format(self.name, self.scale)
+            cache_directory = "data/cache/tensors/{}/{}/dev/".format(self.name, self.scale)
             os.makedirs(cache_directory, exist_ok=True)
             logger.info("fast evaluate, encoding news...")
 
@@ -837,7 +837,7 @@ class Manager():
             model = model.module
 
         if self.rank in [-1, 0]:
-            cache_directory = "data/cache/{}/{}/test/".format(self.name, self.scale)
+            cache_directory = "data/cache/tensors/{}/{}/test/".format(self.name, self.scale)
             os.makedirs(cache_directory, exist_ok=True)
             logger.info("encoding news...")
 
@@ -936,11 +936,11 @@ class Manager():
 
         loader_inspect = loaders[0]
 
-        with open(loader_inspect.dataset.cache_directory + "news.pkl", "rb") as f:
+        with open(loader_inspect.dataset.news_cache_directory + "news.pkl", "rb") as f:
             news = pickle.load(f)["encoded_news"][:, :self.signal_length]
-        with open(loader_inspect.dataset.cache_directory + "bm25.pkl", "rb") as f:
+        with open(loader_inspect.dataset.news_cache_directory + "bm25.pkl", "rb") as f:
             bm25_terms = pickle.load(f)["encoded_news"][:, :self.k + 1]
-        with open(loader_inspect.dataset.cache_directory + "entity.pkl", "rb") as f:
+        with open(loader_inspect.dataset.news_cache_directory + "entity.pkl", "rb") as f:
             entities = pickle.load(f)["encoded_news"][:, :self.k + 1]
 
         try:
@@ -1221,7 +1221,7 @@ class Manager():
 
                 # print("transfer time:{}, search time:{}".format(t2-t1, t3-t2))
 
-            recall_rate = recalls / count
+            recall_rates = recalls / count
             logger.info("recall@10 : {}; recall@50 : {}; recall@100 : {}".format(recall_rates[0], recall_rates[1], recall_rates[2]))
 
 
@@ -1279,13 +1279,13 @@ class Manager():
             entity_indice = np.asarray(entity_indice)
 
             os.makedirs("data/cache/kid", exist_ok=True)
-            np.save("data/cache/kid/bm25.npy", bm25_indice)
-            np.save("data/cache/kid/entity.npy", entity_indice)
+            np.save("data/cache/tensors/kid/bm25.npy", bm25_indice)
+            np.save("data/cache/tensors/kid/entity.npy", entity_indice)
             return bm25_indice, entity_indice
 
         try:
-            bm25_indice = np.load('data/cache/kid/bm25.npy')
-            entity_indice = np.load('data/cache/kid/entity.npy')
+            bm25_indice = np.load('data/cache/tensors/kid/bm25.npy')
+            entity_indice = np.load('data/cache/tensors/kid/entity.npy')
         except:
             bm25_indice, entity_indice = construct_heuristic_extracted_term_indice()
 
@@ -1311,7 +1311,7 @@ class Manager():
                 count += 1
 
         logger.info("entity recall rate: {}".format(entity_recall / count))
-        np.save("data/cache/kid_pos.npy", kid_positions)
+        np.save("data/cache/tensors/kid_pos.npy", kid_positions)
 
         # pos = []
         # for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
@@ -1482,12 +1482,12 @@ class Manager():
         """
         # subtract 1 because [CLS]
         length_map = {
-            "bert": 511,
-            "deberta": 511,
-            "unilm": 511,
-            "longformer": 511,
-            "bigbird": 1000,
-            "reformer": 2000,
+            "bert": (512, 10),
+            "deberta": (512, 10),
+            "unilm": (512, 10),
+            "longformer": (512, 10),
+            "bigbird": (1024, 20),
+            "reformer": (2560, 52),
         }
         return length_map[self.bert]
 
@@ -1495,6 +1495,8 @@ class Manager():
     def construct_nid2idx(self, scale=None, mode=None):
         """
             Construct news to newsID dictionary, index starting from 1
+            VERY IMPORTANT!!!
+            The nid2idx dictionary must follow the original order of news in news.tsv
         """
         logger.info("mapping news id to news index...")
         nid2index = {}
