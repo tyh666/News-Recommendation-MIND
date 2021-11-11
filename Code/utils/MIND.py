@@ -44,7 +44,11 @@ class MINDBaseDataset(Dataset):
                 behav_cache_directory = "/".join([cache_directory, "behaviors", self.file_name])
             else:
                 behav_cache_directory = "/".join([cache_directory, "behaviors", self.file_name, str(self.impr_size)])
-            self.behav_cache_path = "/".join([behav_cache_directory, "behaviors.pkl"])
+
+            if manager.mode == "recall":
+                self.behav_cache_path = "/".join([behav_cache_directory, "recall.pkl"])
+            else:
+                self.behav_cache_path = "/".join([behav_cache_directory, "behaviors.pkl"])
             # initialize all caches on master node
             if manager.rank in [-1, 0]:
                 # only do this in the basic modes
@@ -1203,7 +1207,7 @@ class MIND_recall(MINDBaseDataset):
             "uindexes": uindexes
         }
 
-        with open(self.behav_path, "wb") as f:
+        with open(self.behav_cache_path, "wb") as f:
             pickle.dump(save_dict, f)
 
 

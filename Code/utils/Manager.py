@@ -54,8 +54,8 @@ class Manager():
             parser.add_argument("-f", "--fast", dest="fast", help="enable fast evaluation/test", default=True)
             parser.add_argument("-n", "--news", dest="news", help="which news to inspect", type=int, default=None)
             parser.add_argument("-c", "--case", dest="case", help="whether to return the sample for case study", action="store_true", default=False)
-            parser.add_argument("-rc", "--recall_type", dest="recall_type", help="recall type", choices=["s","d","sd"], default=None)
-            parser.add_argument("-ip", "--inspect_type", dest="inspect_type", help="the dataset to inspect", choices=["dev","test"], default=None)
+            parser.add_argument("-rt", "--recall_type", dest="recall_type", help="recall type", choices=["s","d","sd"], default=None)
+            parser.add_argument("-it", "--inspect_type", dest="inspect_type", help="the dataset to inspect", choices=["dev","test"], default=None)
 
             parser.add_argument("-bs", "--batch_size", dest="batch_size",
                                 help="batch size", type=int, default=32)
@@ -112,7 +112,7 @@ class Manager():
 
             parser.add_argument("--npratio", dest="npratio", help="the number of unclicked news to sample when training", type=int, default=4)
             parser.add_argument("--metrics", dest="metrics", help="metrics for evaluating the model", type=str, default="")
-            parser.add_argument("-rt", "--recall_ratio", dest="recall_ratio", help="recall@K", type=int, default=10)
+            parser.add_argument("-rr", "--recall_ratio", dest="recall_ratio", help="recall@K", type=int, default=10)
 
             parser.add_argument("-g", "--granularity", dest="granularity", help="the granularity for reduction", choices=["token", "avg", "first", "sum"], default="token")
             parser.add_argument("-emb", "--embedding", dest="embedding", help="choose embedding", choices=["bert","random","deberta"], default="bert")
@@ -1086,7 +1086,11 @@ class Manager():
             self.load(model, self.checkpoint)
 
             news_set = torch.load('data/recall/news.pt', map_location=torch.device(model.device))
-            news_reprs = torch.load("data/cache/{}/large/dev/news.pt".format(self.name), map_location=torch.device(model.device))
+            try:
+                news_reprs = torch.load("data/cache/tensors/{}/large/dev/news.pt".format(self.name), map_location=torch.device(model.device))
+            except:
+                raise FileNotFoundError("please run 'python xxx.py -m dev -ck=xx' first!")
+
             news = news_reprs[news_set]
 
             del news_set
@@ -1098,26 +1102,25 @@ class Manager():
             INDEX = faiss.index_cpu_to_gpu(faiss.StandardGpuResources(), self.device, INDEX)
             INDEX.add(news.cpu().numpy())
 
-            recall = 0
+            recalls = np.array([0.,0.,0.])
             count = 0
 
             model.init_embedding()
             for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
-                t1 = time.time()
+                # t1 = time.time()
                 user_repr = model.encode_user(x)[0].squeeze(-2).cpu().numpy()
-                t2 = time.time()
-                _, index = INDEX.search(user_repr, self.recall_ratio)
-                t3 = time.time()
+                # t2 = time.time()
+                _, index = INDEX.search(user_repr, 100)
+                # t3 = time.time()
 
                 for i,cdd_id in enumerate(x['cdd_id']):
-                    recall += np.sum(np.in1d(cdd_id, index[i]))
+                    recalls[0] += np.sum(np.in1d(cdd_id, index[i][:10]))
+                    recalls[1] += np.sum(np.in1d(cdd_id, index[i][:50]))
+                    recalls[2] += np.sum(np.in1d(cdd_id, index[i][:100]))
                     count += 1
                 t4 = time.time()
                 # print("transfer time:{}, search time:{}, operation time:{}".format(t2-t1, t3-t2, t4-t3))
             model.destroy_embedding()
-
-            recall_rate = recall / count
-            logger.info("recall@{} : {}".format(self.recall_ratio, recall_rate))
 
 
         elif self.recall_type == "s":
@@ -1167,12 +1170,7 @@ class Manager():
                     count += 1
 
                 t3 = time.time()
-
                 # print("transfer time:{}, search time:{}".format(t2-t1, t3-t2))
-
-            recall_rates = recalls / count
-            logger.info("recall@10 : {}; recall@50 : {}; recall@100 : {}".format(recall_rates[0], recall_rates[1], recall_rates[2]))
-
 
         elif self.recall_type == "sd":
             logger.info("sparse recalling then dense ranking by extracted terms and user representation respectively...")
@@ -1236,8 +1234,8 @@ class Manager():
 
                 # print("transfer time:{}, search time:{}".format(t2-t1, t3-t2))
 
-            recall_rates = recalls / count
-            logger.info("recall@10 : {}; recall@50 : {}; recall@100 : {}".format(recall_rates[0], recall_rates[1], recall_rates[2]))
+        recall_rates = recalls / count
+        logger.info("recall@10 : {}; recall@50 : {}; recall@100 : {}".format(recall_rates[0], recall_rates[1], recall_rates[2]))
 
 
     @torch.no_grad()

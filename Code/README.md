@@ -38,21 +38,23 @@ conda activate /data/v-pezhang/vc
 ## Instruction
 ```bash
 cd /data/v-pezhang/Code/Document-Reduction/Code
-python tesrec.py -m train -s large -ws=2
-python plm.py -m train -s large -ws=2 -st=40000 -bs=8
-python xformer.py -m train -s large -sl=10 -ws=2
+python tesrec.py -ws=2
+python plm.py -ws=2 -st=0 -bs=16
+python xformer.py -ws=2 -sl=40 -b=bigbird
 
-python plm.py -m train -s demo -bs=5 -is=10 -d=2 -sl=30
-python tesrec.py -m train -s demo -bs=5 -is=10
+python tesrec.py -s demo -bs=5 -is=10
 
-python tesrec.py -m encode -s large
-python tesrec.py -m analyse -s large -ck=230000
-python tesrec.py -m recall -s large
-python tesrec.py -m inspect -s large -ck=230000 -d=-1
+python tesrec.py -m encode
+python tesrec.py -m analyse -ck=230000
 
-python tesrec.py -m test -s large -ck=589
-python plm.py -m test -s large -ck=589
-python esm -m test -s large -ck=150000
+python tesrec.py -it=dev -ck=230000
+python tesrec.py -it=test -ck=230000 -n=38
+
+python tesrec.py -rt=sd -ck=230000
+
+python tesrec.py -m test -ck=589
+python plm.py -m test -ck=589
+python esm -m test -ck=150000
 ```
 
 ## TODO
