@@ -185,7 +185,7 @@ class Manager():
 
 
     def __str__(self):
-        return "\n" + json.dumps({k:v for k,v in vars(self).items() if k not in hparam_list}, sort_keys=False, indent=4)
+        return json.dumps({k:v for k,v in vars(self).items() if k not in hparam_list}, sort_keys=True, indent=4)
 
 
     def setup(self, rank):
@@ -1130,7 +1130,7 @@ class Manager():
                     inverted_index = pickle.load(f)
             except FileNotFoundError:
                 from .utils import BM25_token, construct_inverted_index
-                with open("data/cache/bert/MINDlarge_dev/news.pkl", "rb") as f:
+                with open("data/cache/MIND/news/bert/MINDlarge_dev/news.pkl", "rb") as f:
                     news = pickle.load(f)['encoded_news']
                 news_set = torch.load('data/recall/news.pt')
                 news_collection = news[news_set]
@@ -1179,7 +1179,7 @@ class Manager():
                     inverted_index = pickle.load(f)
             except FileNotFoundError:
                 from .utils import BM25_token, construct_inverted_index
-                with open("data/cache/bert/MINDlarge_dev/news.pkl", "rb") as f:
+                with open("data/cache/MIND/news/bert/MINDlarge_dev/news.pkl", "rb") as f:
                     news = pickle.load(f)['encoded_news']
                 news_set = torch.load('data/recall/news.pt')
                 news_collection = news[news_set]
@@ -1190,7 +1190,7 @@ class Manager():
                     pickle.dump(inverted_index, f)
 
             news_set = torch.load('data/recall/news.pt', map_location=torch.device(model.device))
-            news_reprs = torch.load("data/cache/{}/large/dev/news.pt".format(self.name), map_location=torch.device(model.device))
+            news_reprs = torch.load("data/cache/tensors/{}/large/dev/news.pt".format(self.name), map_location=torch.device(model.device))
             news = news_reprs[news_set]
 
             hidden_dim = news.size(-1)
@@ -1215,19 +1215,21 @@ class Manager():
                             continue
 
                         # dedup recalled news
-                        recalled_news_ids.update(news_and_scores[:, 0].astype('int32').tolist())
+                        recalled_news_ids.update(news_and_scores[:, 0].astype('int32'))#.tolist())
 
-                    recalled_news_ids = torch.tensor(list(recalled_news_ids), device=news.device)
-                    # N, D
-                    recalled_news = news[recalled_news_ids]
-                    # N, 1
-                    recalled_news_score = recalled_news.matmul(user_repr.view(hidden_dim, 1)).squeeze(-1)
-                    # sort
-                    recalled_news_ids = recalled_news_ids[recalled_news_score.argsort(descending=True)[:100]].cpu().numpy()
+                    recalls += np.sum(np.in1d(cdd_id, recalled_news_ids))
 
-                    recalls[0] += np.sum(np.in1d(cdd_id, recalled_news_ids[:10]))
-                    recalls[1] += np.sum(np.in1d(cdd_id, recalled_news_ids[:50]))
-                    recalls[2] += np.sum(np.in1d(cdd_id, recalled_news_ids[:100]))
+                    # recalled_news_ids = torch.tensor(list(recalled_news_ids), device=news.device)
+                    # # N, D
+                    # recalled_news = news[recalled_news_ids]
+                    # # N, 1
+                    # recalled_news_score = recalled_news.matmul(user_repr.view(hidden_dim, 1)).squeeze(-1)
+                    # # sort
+                    # recalled_news_ids = recalled_news_ids[recalled_news_score.argsort(descending=True)[:100]].cpu().numpy()
+
+                    # recalls[0] += np.sum(np.in1d(cdd_id, recalled_news_ids[:10]))
+                    # recalls[1] += np.sum(np.in1d(cdd_id, recalled_news_ids[:50]))
+                    # recalls[2] += np.sum(np.in1d(cdd_id, recalled_news_ids[:100]))
                     count += 1
 
                 t3 = time.time()
