@@ -50,9 +50,6 @@ def main(rank, manager):
     elif manager.mode == 'encode':
         manager.encode(plm, loaders)
 
-    elif manager.mode == 'analyse':
-        manager.collect_kid(plm, loaders)
-
     elif manager.mode == 'recall':
         manager.recall(plm, loaders)
 

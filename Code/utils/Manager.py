@@ -82,7 +82,8 @@ class Manager():
             parser.add_argument("-ck","--checkpoint", dest="checkpoint",
                                 help="load the model from checkpoint before training/evaluating", type=int, default=0)
             parser.add_argument("-hst","--hold_step", dest="hold_step",
-                                help="keep training until step > hold_step", type=int, default=50000)
+                                help="keep training until step > hold_step", type=int, default=30000)
+            parser.add_argument("-se", "--save_epoch", help="save after each epoch if declared", action="store_true", default=False)
             parser.add_argument("-lr", dest="lr",
                                 help="learning rate of non-bert modules", type=float, default=1e-4)
             parser.add_argument("-blr", "--bert_lr", dest="bert_lr",
@@ -126,7 +127,7 @@ class Manager():
 
             parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=3)
             parser.add_argument("-thr", "--threshold", dest="threshold", help="threshold to mask terms", default=-float("inf"), type=float)
-            parser.add_argument("-b", "--bert", dest="bert", help="choose bert model", choices=["bert", "deberta", "unilm", "longformer", "bigbird", "reformer"], default="bert")
+            parser.add_argument("-b", "--bert", dest="bert", help="choose bert model", choices=["bert", "deberta", "unilm", "longformer", "bigbird", "reformer", "funnel", "synthesizer", "distill"], default="bert")
 
             parser.add_argument("--tb", dest="tb", action="store_true", default=False)
             parser.add_argument("-sd","--seed", dest="seed", default=42, type=int)
@@ -157,8 +158,8 @@ class Manager():
             if args.inspect_type is not None:
                 args.mode = "inspect"
 
-            # in order to debug
-            if args.step == 1:
+            # 1 for debug, 0 for evaluating only at the end of an epoch
+            if args.step in [0,1]:
                 args.hold_step = 0
 
             if args.scale == 'demo':
@@ -295,12 +296,13 @@ class Manager():
 
         elif self.mode == "inspect":
             # if case study
-            file_directory = self.path + "MIND/MINDlarge_{}/".format(self.inspect_type)
             if self.case:
+                file_directory = "data/case/MINDlarge_{}/".format(self.inspect_type)
                 dataset = MIND_history(self, file_directory)
                 loader = DataLoader(dataset, batch_size=1, pin_memory=pin_memory,
                     num_workers=num_workers, drop_last=False)
             else:
+                file_directory = self.path + "MIND/MINDlarge_{}/".format(self.inspect_type)
                 dataset = MIND_history(self, file_directory)
                 loader = DataLoader(dataset, batch_size=1, pin_memory=pin_memory,
                     num_workers=num_workers, drop_last=False)
@@ -370,14 +372,18 @@ class Manager():
         torch.save(save_dict, save_path)
 
 
-    def load(self, model, step, optimizer=None, strict=True, best=False):
+    def load(self, model, checkpoint, optimizer=None, strict=True, best=False):
         """
             shortcut for loading model and optimizer parameters
         """
+        if checkpoint == 0:
+            logger.warning("not loading any checkpoints!")
+            return
+
         if best:
             save_path = "data/model_params/{}/best.model".format(self.name)
         else:
-            save_path = "data/model_params/{}/{}_step{}.model".format(self.name, self.scale, step)
+            save_path = "data/model_params/{}/{}_step{}.model".format(self.name, self.scale, checkpoint)
 
         logger.info("loading model from {}...".format(save_path))
 
@@ -683,13 +689,19 @@ class Manager():
         """
         steps = 0
         interval = self.interval
+        save_epoch = self.save_epoch
 
         if self.scale == "demo":
             save_step = len(loaders[0]) - 1
             self.fast = False
             # save_step = 1
         else:
-            save_step = self.step
+            if self.step == 0:
+                save_step = len(loaders[0]) - 1
+            else:
+                save_step = self.step
+
+        print(save_step)
 
         distributed = self.world_size > 1
         # if self.tb:
@@ -738,7 +750,8 @@ class Manager():
 
                 if steps % save_step == 0 and (steps in [150000,180000,200000,210000,220000,230000,240000] and self.scale == "whole" or steps > self.hold_step and self.scale == "large" or steps > 0 and self.scale == "demo"):
                     print("\n")
-                    self.save(model, steps, optimizer)
+                    if save_epoch:
+                        self.save(model, steps, optimizer)
 
                     with torch.no_grad():
                         result = self.evaluate(model, loaders[1:], log=False)
@@ -748,7 +761,7 @@ class Manager():
 
                             if result["auc"] > best_res["auc"]:
                                 best_res = result
-                                self.save(model, steps, optimizer, name="best")
+                                self.save(model, steps, optimizer, best=True)
                                 self._log(result)
 
                         # prevent SIGABRT
@@ -1038,8 +1051,6 @@ class Manager():
         start_time = time.time()
         for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
             user_repr = model.encode_user(x)[0].squeeze(-2)
-            # print(user_repr.shape)
-            # user_reprs.append(user_repr)
 
         end_time = time.time()
         logger.info("total encoding time: {}".format(end_time - start_time))
@@ -1343,42 +1354,6 @@ class Manager():
                 return convert_tokens_to_words_wordpiece(tokens)
 
 
-    def get_special_token_id(self, token):
-        special_token_map = {
-            "bert":{
-                "[PAD]": 0,
-                "[CLS]": 101,
-                "[SEP]": 102,
-            },
-            "deberta":{
-                "[PAD]": 0,
-                "[CLS]": 1,
-                "[SEP]": 2,
-            },
-            "unilm":{
-                "[PAD]": 0,
-                "[CLS]": 101,
-                "[SEP]": 102,
-            },
-            "longformer":{
-                "[PAD]": 1,
-                "[CLS]": 0,
-                "[SEP]": 2,
-            },
-            "bigbird":{
-                "[PAD]": 0,
-                "[CLS]": 65,
-                "[SEP]": 66
-            },
-            "reformer":{
-                "[PAD]": 2,
-                "[CLS]": 1,
-                "[SEP]": 2
-            }
-        }
-        return special_token_map[self.bert][token]
-
-
     def get_need_encode_reducers(self):
         """
         get reducers that need selection encoder
@@ -1451,7 +1426,10 @@ class Manager():
             "unilm": "bert-base-uncased",
             "longformer": "allenai/longformer-base-4096",
             "bigbird": "google/bigbird-roberta-base",
-            "reformer": "google/reformer-crime-and-punishment"
+            "reformer": "google/reformer-crime-and-punishment",
+            "funnel": "funnel-transformer/small-base",
+            "synthesizer": "placeholder",
+            "distill": "bert-base-uncased"
         }
         return bert_map[self.bert]
 
@@ -1466,9 +1444,64 @@ class Manager():
             "unilm": "bert",
             "longformer": "longformer",
             "bigbird": "bigbird",
-            "reformer": "reformer"
+            "reformer": "reformer",
+            "funnel": "bert",
+            "synthesizer": "bert",
+            "distill": "bert"
         }
         return bert_map[self.bert]
+
+
+    def get_special_token_id(self, token):
+        special_token_map = {
+            "bert":{
+                "[PAD]": 0,
+                "[CLS]": 101,
+                "[SEP]": 102,
+            },
+            "deberta":{
+                "[PAD]": 0,
+                "[CLS]": 1,
+                "[SEP]": 2,
+            },
+            "unilm":{
+                "[PAD]": 0,
+                "[CLS]": 101,
+                "[SEP]": 102,
+            },
+            "longformer":{
+                "[PAD]": 1,
+                "[CLS]": 0,
+                "[SEP]": 2,
+            },
+            "bigbird":{
+                "[PAD]": 0,
+                "[CLS]": 65,
+                "[SEP]": 66
+            },
+            "reformer":{
+                "[PAD]": 2,
+                "[CLS]": 1,
+                "[SEP]": 2
+            },
+            "funnel":{
+                "[PAD]": 0,
+                "[CLS]": 101,
+                "[SEP]": 102,
+            },
+            "synthesizer":{
+                "[PAD]": 0,
+                "[CLS]": 101,
+                "[SEP]": 102,
+            },
+            "distill":{
+                "[PAD]": 0,
+                "[CLS]": 101,
+                "[SEP]": 102,
+            },
+
+        }
+        return special_token_map[self.bert][token]
 
 
     def get_activation_func(self):
@@ -1489,9 +1522,9 @@ class Manager():
             "bert": (512, 10),
             "deberta": (512, 10),
             "unilm": (512, 10),
-            "longformer": (512, 10),
-            "bigbird": (1024, 20),
-            "reformer": (640, 15),
+            "longformer": (1024, 21),
+            "bigbird": (1024, 21),
+            "reformer": (1280, 26),
         }
         return length_map[self.bert]
 

@@ -31,6 +31,9 @@ def main(rank, manager):
     elif manager.mode == 'inspect':
         manager.inspect(xformer, loaders)
 
+    elif manager.mode == 'encode':
+        manager.encode(xformer, loaders)
+
 
 if __name__ == "__main__":
     manager = Manager()

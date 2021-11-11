@@ -41,6 +41,32 @@ class PLM(TwoTowerBaseModel):
                 nn.GELU()
             )
 
+        elif manager.bert == "funnel":
+            bert = AutoModel.from_pretrained(
+                manager.get_bert_for_load(),
+                cache_dir=manager.path + 'bert_cache/'
+            )
+            self.pooler = do_nothing
+
+        elif manager.bert == "synthesizer":
+            from transformers import BertConfig, BertModel
+            from .Modules.Synthesizer import BertSelfAttention
+            bert_config = BertConfig()
+            # primary bert
+            bert = BertModel(bert_config)
+            # [CLS]
+            bert_config.signal_length = self.signal_length
+            for l in bert.encoder.layer:
+                l.attention.self = BertSelfAttention(bert_config)
+            bert.load_state_dict(BertModel.from_pretrained("bert-base-uncased", cache_dir=manager.path + 'bert_cache/').state_dict(), strict=False)
+
+        elif manager.bert == "distill":
+            bert = AutoModel.from_pretrained(
+                manager.get_bert_for_load(),
+                cache_dir=manager.path + 'bert_cache/'
+            )
+            bert.encoder.layer = bert.encoder.layer[:4]
+
         else:
             bert = AutoModel.from_pretrained(
                 manager.get_bert_for_load(),
@@ -128,3 +154,7 @@ class PLM(TwoTowerBaseModel):
             user_repr = user_repr + self.userBias
 
         return user_repr, None
+
+
+def do_nothing(tensor):
+    return tensor

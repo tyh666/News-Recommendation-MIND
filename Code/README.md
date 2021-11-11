@@ -63,6 +63,7 @@ python esm -m test -s large -ck=150000
 - [x] encode user
 - [x] reformer
 - [ ] save_best
+- [ ] key terms/ keywords/ tokens
 
 ## Preprocess
 - [x] remove stop words

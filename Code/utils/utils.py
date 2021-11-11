@@ -472,7 +472,7 @@ class DeDuplicate(object):
         # do not modify the orginal attention mask
         attn_masks = attn_masks.copy()[:, :self.max_length]
 
-        logger.info("deduplicating...")
+        # logger.info("deduplicating...")
         for i, document in enumerate(documents):
             tokens = set()
             duplicated = []
@@ -506,7 +506,7 @@ class CountFreq(object):
             documents: list of list of tuples, [[(word1 : freq1), ...] ...]
             positions: [[]]
         """
-        logger.info("reducing to Bag-of-Words...")
+        # logger.info("reducing to Bag-of-Words...")
         token_counts = []
         attn_masks = []
 
