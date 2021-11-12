@@ -67,8 +67,7 @@ class PLM(TwoTowerBaseModel):
             )
             self.pooler = nn.Sequential(
                 nn.Linear(manager.bert_dim, manager.bert_dim),
-                nn.ReLU(),
-                nn.Dropout(0.2)
+                nn.GELU()
             )
 
         elif manager.bert == "newsbert":
@@ -120,6 +119,7 @@ class PLM(TwoTowerBaseModel):
         cdd_news_repr = self.bert(cdd_news, cdd_attn_mask)[-1]
         if hasattr(self, 'pooler'):
             cdd_news_repr = self.pooler(cdd_news_repr[:, 0])
+            # cdd_news_repr = cdd_news_repr[:, 0]
         cdd_news_repr = cdd_news_repr.view(batch_size, -1, self.hidden_dim)
         return cdd_news_repr
 
@@ -159,6 +159,7 @@ class PLM(TwoTowerBaseModel):
 
             if hasattr(self, 'pooler'):
                 his_news_repr = self.pooler(his_news_repr[:, 0])
+                # his_news_repr = his_news_repr[:, 0]
             his_news_repr = his_news_repr.view(batch_size, self.his_size, self.hidden_dim)
 
         user_repr = self.encoderU(his_news_repr, his_mask=x['his_mask'])

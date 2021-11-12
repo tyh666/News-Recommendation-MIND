@@ -77,9 +77,10 @@ class TwoTowerBaseModel(nn.Module):
     def forward(self,x):
         cdd_repr = self.encode_news(x)
         user_repr, kid = self.encode_user(x)
-
         score = self.compute_score(cdd_repr, user_repr)
+        print(score)
 
+        return
         if self.training:
             logits = nn.functional.log_softmax(score, dim=1)
         else:

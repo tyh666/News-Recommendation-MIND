@@ -1421,7 +1421,7 @@ class Manager():
             "bigbird": "google/bigbird-roberta-base",
             "reformer": "google/reformer-crime-and-punishment",
             "funnel": "funnel-transformer/small-base",
-            "synthesizer": "placeholder",
+            "synthesizer": "bert-base-uncased",
             "distill": "distilbert-base-uncased",
         }
         return bert_map[self.bert]
@@ -1440,7 +1440,7 @@ class Manager():
             "reformer": "reformer",
             "funnel": "bert",
             "synthesizer": "bert",
-            "distill": "bert"
+            "distill": "distill"
         }
         return bert_map[self.bert]
 

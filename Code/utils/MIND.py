@@ -450,42 +450,35 @@ class MINDBaseDataset(Dataset):
             # subwords_all = []
             # subwords_first = []
             for i, text in enumerate(tqdm(texts, ncols=120, leave=True)):
-                if i == 0:
-                    token_ids = [self.pad_token_id] * max_length
-                    attn_mask = [0] * max_length
-                    # subword_first = [[0,0]] * max_length
-                    # subword_all = [[0,0]] * max_length
+                token_ouput = tokenizer(text, padding='max_length', truncation=True, max_length=max_length - 1)
+                token_ouput["input_ids"].insert(0, 2)
+                token_ouput["attention_mask"].insert(0, 1)
 
-                else:
-                    token_ouput = tokenizer(text, padding='max_length', truncation=True, max_length=max_length - 1)
-                    token_ouput["input_ids"].insert(0, 2)
-                    token_ouput["attention_mask"].insert(0, 1)
+                token_ids = token_ouput['input_ids']
+                attn_mask = token_ouput['attention_mask']
+                # tokens = tokenizer.convert_ids_to_tokens(token_ids)
 
-                    token_ids = token_ouput['input_ids']
-                    attn_mask = token_ouput['attention_mask']
-                    # tokens = tokenizer.convert_ids_to_tokens(token_ids)
+                # maintain subword entry
+                # subword_all = []
+                # mask subword entry
+                # subword_first = []
+                # i = -1
+                # j = -1
+                # for token in tokens:
+                #     if token == '[PAD]':
+                #         subword_all.append([0,0])
+                #         subword_first.append([0,0])
 
-                    # maintain subword entry
-                    # subword_all = []
-                    # mask subword entry
-                    # subword_first = []
-                    # i = -1
-                    # j = -1
-                    # for token in tokens:
-                    #     if token == '[PAD]':
-                    #         subword_all.append([0,0])
-                    #         subword_first.append([0,0])
+                #     elif token.startswith("##"):
+                #         j += 1
+                #         subword_all.append([i,j])
+                #         subword_first.append([0,0])
 
-                    #     elif token.startswith("##"):
-                    #         j += 1
-                    #         subword_all.append([i,j])
-                    #         subword_first.append([0,0])
-
-                    #     else:
-                    #         i += 1
-                    #         j += 1
-                    #         subword_all.append([i,j])
-                    #         subword_first.append([i,j])
+                #     else:
+                #         i += 1
+                #         j += 1
+                #         subword_all.append([i,j])
+                #         subword_first.append([i,j])
 
                 text_toks.append(token_ids)
                 attention_masks.append(attn_mask)
