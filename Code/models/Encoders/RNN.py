@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+from torch.nn.utils.rnn import pack_padded_sequence
 
 class RNN_Encoder(nn.Module):
     def __init__(self, manager):
@@ -47,7 +47,7 @@ class RNN_User_Encoder(nn.Module):
             if 'weight' in name:
                 nn.init.orthogonal_(param)
 
-    def forward(self, news_repr, news_mask):
+    def forward(self, news_repr, **kwargs):
         """
         encode user history into a representation vector
 
@@ -60,9 +60,8 @@ class RNN_User_Encoder(nn.Module):
         """
         if self.descend_history:
             news_repr = news_repr.flip(dims=[1])
-
         # bs
-        lens = news_mask.squeeze(-1).sum(-1)
+        lens = kwargs['his_mask'].squeeze(-1).sum(dim=-1)
         rnn_input = pack_padded_sequence(news_repr, lens, batch_first=True, enforce_sorted=False)
         _, user_repr = self.rnn(rnn_input)
         if type(user_repr) is tuple:

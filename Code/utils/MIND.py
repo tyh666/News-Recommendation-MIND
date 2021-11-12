@@ -761,7 +761,11 @@ class MIND(MINDBaseDataset):
             his_ids = self.histories[impr_index][:self.his_size]
             # true means the corresponding history news is padded
             his_mask = np.zeros((self.his_size, 1))
-            his_mask[:len(his_ids)] = 1
+            his_length = len(his_ids)
+            if his_length == 0:
+                his_mask[0] = 1
+            else:
+                his_mask[:his_length] = 1
 
             cdd_mask = np.zeros((cdd_size, 1))
             cdd_mask[:neg_num + 1] = 1
@@ -825,7 +829,11 @@ class MIND(MINDBaseDataset):
             his_ids = self.histories[impr_index][:self.his_size]
             # true means the corresponding history news is padded
             his_mask = np.zeros((self.his_size, 1))
-            his_mask[:len(his_ids)] = 1
+            his_length = len(his_ids)
+            if his_length == 0:
+                his_mask[0] = 1
+            else:
+                his_mask[:his_length] = 1
 
             if self.descend_history:
                 his_ids = his_ids[::-1] + [0] * (self.his_size - len(his_ids))
@@ -883,7 +891,11 @@ class MIND(MINDBaseDataset):
             his_ids = self.histories[impr_index][:self.his_size]
             # true means the corresponding history news is padded
             his_mask = np.zeros((self.his_size, 1))
-            his_mask[:len(his_ids)] = 1
+            his_length = len(his_ids)
+            if his_length == 0:
+                his_mask[0] = 1
+            else:
+                his_mask[:his_length] = 1
 
             if self.descend_history:
                 his_ids = his_ids + [0] * (self.his_size - len(his_ids))
@@ -1109,7 +1121,11 @@ class MIND_history(MINDBaseDataset):
         his_ids = self.histories[impr_index][:self.his_size]
         # true means the corresponding history news is padded
         his_mask = np.zeros((self.his_size, 1))
-        his_mask[:len(his_ids)] = 1
+        his_length = len(his_ids)
+        if his_length == 0:
+            his_mask[0] = 1
+        else:
+            his_mask[:his_length] = 1
 
         if self.descend_history:
             his_ids = his_ids[::-1] + [0] * (self.his_size - len(his_ids))
@@ -1245,7 +1261,11 @@ class MIND_recall(MINDBaseDataset):
         his_ids = self.histories[impr_index][:self.his_size]
         # true means the corresponding history news is padded
         his_mask = np.zeros((self.his_size, 1))
-        his_mask[:len(his_ids)] = 1
+        his_length = len(his_ids)
+        if his_length == 0:
+            his_mask[0] = 1
+        else:
+            his_mask[:his_length] = 1
 
         if self.descend_history:
             his_ids = his_ids[::-1] + [0] * (self.his_size - len(his_ids))

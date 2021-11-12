@@ -114,11 +114,9 @@ class TESRec(TwoTowerBaseModel):
         # no need to calculate this if ps_terms are fixed in advance
 
         if self.reducer.name == 'matching':
-            user_repr_ext = self.encoderU(his_news_repr, his_mask=x['his_mask'].to(self.device), user_index=x['user_id'].to(self.device))
+            user_repr_ext = self.encoderU(his_news_repr, his_mask=x['his_mask'], user_index=x['user_id'].to(self.device))
         else:
             user_repr_ext = None
-
-        print(user_repr_ext)
 
         ps_terms, ps_term_mask, kid = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr_ext, his_news_repr, his_attn_mask, his_refined_mask)
 
