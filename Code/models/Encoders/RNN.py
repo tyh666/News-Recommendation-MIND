@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 class RNN_Encoder(nn.Module):
     def __init__(self, manager):
@@ -46,21 +47,24 @@ class RNN_User_Encoder(nn.Module):
             if 'weight' in name:
                 nn.init.orthogonal_(param)
 
-    def forward(self, news_repr, **kargs):
+    def forward(self, news_repr, news_mask):
         """
         encode user history into a representation vector
 
         Args:
             news_repr: batch of news representations, [batch_size, *, hidden_dim]
+            news_mask: [batch_size, *, 1]
 
         Returns:
             user_repr: user representation (coarse), [batch_size, 1, hidden_dim]
         """
-        # _, user_repr = self.rnn(news_repr.flip(dims=[1]))
         if self.descend_history:
             news_repr = news_repr.flip(dims=[1])
 
-        _, user_repr = self.rnn(news_repr)
+        # bs
+        lens = news_mask.squeeze(-1).sum(-1)
+        rnn_input = pack_padded_sequence(news_repr, lens, batch_first=True, enforce_sorted=False)
+        _, user_repr = self.rnn(rnn_input)
         if type(user_repr) is tuple:
             user_repr = user_repr[0]
         return user_repr.transpose(0,1)
@@ -92,6 +96,6 @@ class LSTUR(nn.Module):
         # mask by p
         default_user_index = torch.zeros(batch_size, dtype=torch.long, device=news_repr.device)
         masked_user_index = default_user_index.bernoulli_() * user_index
-        
+
         _, user_repr = self.rnn(news_repr.flip(dims=[1]), (self.userEmbedding(masked_user_index).unsqueeze(0), torch.zeros(1, batch_size, self.hidden_dim, device=news_repr.device)))
         return user_repr[0].transpose(0,1)

@@ -976,7 +976,8 @@ class Manager():
 
         logger.info("press <ENTER> to continue")
 
-        target_news = loader_inspect.dataset.nid2index[self.news]
+        if self.news is not None:
+            target_news = loader_inspect.dataset.nid2index[self.news]
 
         for x in loader_inspect:
 
@@ -989,7 +990,7 @@ class Manager():
             his_ids = x["his_id"][0].tolist()
             user_index = x["user_id"][0]
 
-            if target_news is not None:
+            if self.news is not None:
                 for j, his_id in enumerate(his_ids):
                     # skip untargetted news
                     if his_id == target_news:
