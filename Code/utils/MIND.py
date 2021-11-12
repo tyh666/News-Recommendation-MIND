@@ -126,6 +126,10 @@ class MINDBaseDataset(Dataset):
                     self.max_reduction_length = 30
                     self.init_news()
 
+            # synchronize all processes
+            if manager.world_size > 1:
+                dist.barrier()
+                
             # logger.info("process NO.{} loading cached news tokenization from {}".format(manager.rank, self.news_cache_path))
             with open(self.news_cache_path, "rb") as f:
                 news = pickle.load(f)
