@@ -112,6 +112,8 @@ class MINDBaseDataset(Dataset):
             self.pad_token_id = manager.get_special_token_id('[PAD]')
             self.sep_token_id = manager.get_special_token_id('[SEP]')
 
+            print(self.news_cache_path)
+
             if manager.rank in [-1, 0]:
                 # FIXME: gather all reducer functions
                 if not os.path.exists(self.news_cache_path):
@@ -443,7 +445,7 @@ class MINDBaseDataset(Dataset):
             convert texts to tokens indices and get subword indices
             """
             # manually set padding token
-            tokenizer.pad_token = tokenizer.eos_token
+            # tokenizer.pad_token = tokenizer.eos_token
 
             text_toks = []
             attention_masks = []
