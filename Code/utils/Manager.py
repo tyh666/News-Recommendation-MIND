@@ -750,13 +750,13 @@ class Manager():
 
                 if steps % save_step == 0 and (steps in [150000,180000,200000,210000,220000,230000,240000] and self.scale == "whole" or steps > self.hold_step and self.scale == "large" or steps > 0 and self.scale == "demo"):
                     print("\n")
-                    if save_epoch:
-                        self.save(model, steps, optimizer)
-
                     with torch.no_grad():
                         result = self.evaluate(model, loaders[1:], log=False)
 
                         if self.rank in [0,-1]:
+                            if save_epoch:
+                                self.save(model, steps, optimizer)
+
                             result["step"] = steps
 
                             if result["auc"] > best_res["auc"]:
