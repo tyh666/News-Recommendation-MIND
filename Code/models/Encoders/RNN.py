@@ -61,7 +61,7 @@ class RNN_User_Encoder(nn.Module):
         if self.descend_history:
             news_repr = news_repr.flip(dims=[1])
         # bs
-        lens = kwargs['his_mask'].squeeze(-1).sum(dim=-1)
+        lens = kwargs['his_mask'].squeeze(-1).sum(dim=-1).cpu()
         rnn_input = pack_padded_sequence(news_repr, lens, batch_first=True, enforce_sorted=False)
         _, user_repr = self.rnn(rnn_input)
         if type(user_repr) is tuple:

@@ -12,8 +12,10 @@ class BertSelfAttention(nn.Module):
         self.all_head_size = self.num_attention_heads * self.attention_head_size
 
         # self.query = nn.Linear(config.hidden_size, self.all_head_size)
-        self.dense = nn.Linear(config.hidden_size, config.signal_length)
+        self.dense = nn.Linear(config.hidden_size, config.hidden_size)
+
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
+        self.attention_scores = nn.Parameter(torch.empty(1, config.signal_length, config.signal_length))
 
         nn.init.xavier_normal_(self.dense.weight)
 
@@ -33,11 +35,12 @@ class BertSelfAttention(nn.Module):
         output_attentions=False,
     ):
         # B, L, L
-        attention_scores = self.dense(hidden_states)
-
+        # attention_scores = self.dense(hidden_states)
+        hidden_states = self.dense(hidden_states)
+        
         attention_mask = attention_mask.squeeze(1)
         if attention_mask is not None:
-            attention_probs = XSoftmax.apply(attention_scores, attention_mask, -1)
+            attention_probs = XSoftmax.apply(self.attention_scores, attention_mask, -1)
 
         # This is actually dropping out entire tokens to attend to, which might
         # seem a bit unusual, but is taken from the original Transformer paper.

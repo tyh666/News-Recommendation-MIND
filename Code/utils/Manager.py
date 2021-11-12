@@ -1422,7 +1422,7 @@ class Manager():
             "reformer": "google/reformer-crime-and-punishment",
             "funnel": "funnel-transformer/small-base",
             "synthesizer": "placeholder",
-            "distill": "bert-base-uncased"
+            "distill": "distilbert-base-uncased",
         }
         return bert_map[self.bert]
 
@@ -1492,7 +1492,6 @@ class Manager():
                 "[CLS]": 101,
                 "[SEP]": 102,
             },
-
         }
         return special_token_map[self.bert][token]
 

@@ -63,7 +63,10 @@ python esm -m test -ck=150000
 - [ ] key terms/ keywords/ tokens
 - [ ] speed up inverted index
 - [ ] sparse recall 39, not good when used in conjunction with dense ranking
-- [ ]
+- [ ] organize experiment results
+- [ ] more experiment on extraction encoder
+- [ ] notation
+- [ ] synthesizer randomize
 
 ## Preprocess
 - [x] remove stop words

@@ -65,6 +65,17 @@ class PLM(TwoTowerBaseModel):
                 manager.get_bert_for_load(),
                 cache_dir=manager.path + 'bert_cache/'
             )
+            self.pooler = nn.Sequential(
+                nn.Linear(manager.bert_dim, manager.bert_dim),
+                nn.ReLU(),
+                nn.Dropout(0.2)
+            )
+
+        elif manager.bert == "newsbert":
+            bert = AutoModel.from_pretrained(
+                manager.get_bert_for_load(),
+                cache_dir=manager.path + 'bert_cache/'
+            )
             bert.encoder.layer = bert.encoder.layer[:4]
 
         else:
@@ -145,11 +156,12 @@ class PLM(TwoTowerBaseModel):
             his_news = x["his_encoded_index"].to(self.device).view(-1, self.signal_length)
             his_attn_mask = his_attn_mask.view(-1, self.signal_length)
             his_news_repr = self.bert(his_news, his_attn_mask)[-1]
+
             if hasattr(self, 'pooler'):
                 his_news_repr = self.pooler(his_news_repr[:, 0])
             his_news_repr = his_news_repr.view(batch_size, self.his_size, self.hidden_dim)
 
-        user_repr = self.encoderU(his_news_repr)
+        user_repr = self.encoderU(his_news_repr, his_mask=x['his_mask'])
         if hasattr(self, 'userBias'):
             user_repr = user_repr + self.userBias
 
