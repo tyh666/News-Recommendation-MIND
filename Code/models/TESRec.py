@@ -118,6 +118,8 @@ class TESRec(TwoTowerBaseModel):
         else:
             user_repr_ext = None
 
+        # print(user_repr_ext)
+
         ps_terms, ps_term_mask, kid = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr_ext, his_news_repr, his_attn_mask, his_refined_mask)
 
         _, user_repr, _ = self.bert(ps_terms, ps_term_mask, ps_term_input=True)
@@ -129,12 +131,3 @@ class TESRec(TwoTowerBaseModel):
             user_repr = user_repr + self.userBias
 
         return user_repr, kid
-
-
-    def predict_fast(self, x):
-        # [bs, cs, hd]
-        cdd_repr = self.news_reprs(x['cdd_id'].to(self.device))
-        user_repr, _ = self.encode_user(x)
-        scores = self.compute_score(cdd_repr, user_repr)
-        logits = torch.sigmoid(scores)
-        return logits

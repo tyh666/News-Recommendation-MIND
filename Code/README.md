@@ -59,15 +59,11 @@ python esm -m test -ck=150000
 
 ## TODO
 - [ ] case study
-- [ ] graphsage with selection
-- [x] sparse + dense recall
-  - [ ] faiss index start from 0
-- [x] encode user
-- [x] reformer
-- [ ] save_best
+- [x] graphsage with selection
 - [ ] key terms/ keywords/ tokens
 - [ ] speed up inverted index
-- [ ] strip DBLP from the big table, add 
+- [ ] sparse recall 39, not good when used in conjunction with dense ranking
+- [ ]
 
 ## Preprocess
 - [x] remove stop words

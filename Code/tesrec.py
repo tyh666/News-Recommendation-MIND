@@ -94,6 +94,8 @@ def main(rank, manager):
 
 if __name__ == "__main__":
     manager = Manager()
+    manager.save_epoch = True
+
     if manager.world_size > 1:
         mp.spawn(
             main,

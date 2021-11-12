@@ -78,9 +78,16 @@ class MINDBaseDataset(Dataset):
                 # target at one news
                 if manager.news is not None:
                     assert manager.mode == 'inspect', "target news only available in INSPECT mode"
+                    try:
+                        self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_{}.json".format(self.scale, self.mode))
+                    except FileNotFoundError:
+                        manager.construct_nid2idx(mode=self.mode)
+                        self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_{}.json".format(self.scale, self.mode))
+
                     logger.info("extracting users who browsed news {}".format(manager.news))
 
-                    news = manager.news
+                    news = self.nid2index[manager.news]
+
                     imprs = []
 
                     self.histories = behaviors['histories']
@@ -1030,7 +1037,7 @@ class MIND_history(MINDBaseDataset):
                 assert manager.mode == 'inspect', "target news only available in INSPECT mode"
                 logger.info("extracting users who browsed news {}".format(manager.news))
 
-                news = manager.news
+                news = self.nid2index[manager.news]
                 imprs = []
 
                 for i in self.imprs:

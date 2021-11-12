@@ -52,7 +52,7 @@ class Manager():
                                 help="device to run on, -1 means cpu", choices=[i for i in range(-1,10)], type=int, default=0)
             parser.add_argument("-p", "--path", dest="path", type=str, default="../../../Data/", help="root path for large-scale reusable data")
             parser.add_argument("-f", "--fast", dest="fast", help="enable fast evaluation/test", default=True)
-            parser.add_argument("-n", "--news", dest="news", help="which news to inspect", type=int, default=None)
+            parser.add_argument("-n", "--news", dest="news", help="which news to inspect", type=str, default=None)
             parser.add_argument("-c", "--case", dest="case", help="whether to return the sample for case study", action="store_true", default=False)
             parser.add_argument("-rt", "--recall_type", dest="recall_type", help="recall type", choices=["s","d","sd"], default=None)
             parser.add_argument("-it", "--inspect_type", dest="inspect_type", help="the dataset to inspect", choices=["dev","test"], default=None)
@@ -82,7 +82,7 @@ class Manager():
             parser.add_argument("-ck","--checkpoint", dest="checkpoint",
                                 help="load the model from checkpoint before training/evaluating", type=int, default=0)
             parser.add_argument("-hst","--hold_step", dest="hold_step",
-                                help="keep training until step > hold_step", type=int, default=30000)
+                                help="keep training until step > hold_step", type=int, default=50000)
             parser.add_argument("-se", "--save_epoch", help="save after each epoch if declared", action="store_true", default=False)
             parser.add_argument("-lr", dest="lr",
                                 help="learning rate of non-bert modules", type=float, default=1e-4)
@@ -185,7 +185,7 @@ class Manager():
 
 
     def __str__(self):
-        return json.dumps({k:v for k,v in vars(self).items() if k not in hparam_list}, sort_keys=True, indent=4)
+        return str({k:v for k,v in vars(self).items() if k not in hparam_list})
 
 
     def setup(self, rank):
@@ -976,7 +976,7 @@ class Manager():
 
         logger.info("press <ENTER> to continue")
 
-        target_news = self.news
+        target_news = loader_inspect.dataset.nid2index[self.news]
 
         for x in loader_inspect:
 
@@ -1158,6 +1158,8 @@ class Manager():
 
                     news_score_all = torch.zeros(news_num + 1, device=model.device)
                     recalled_news_ids = recalled_news_ids_and_scores[:, :, 0].long().unique()
+                    print(len(recalled_news_ids))
+
                     # recalled_news_scores = recalled_news_ids_and_scores[:, :, 1]
 
                     # for i,j in zip(recalled_news_ids, recalled_news_scores):
@@ -1166,11 +1168,11 @@ class Manager():
                     # news_score_all[recalled_news_ids] += recalled_news_ids_and_scores[:, :, 1]
 
                     # recalled_news_ids = news_score_all.argsort(descending=True)
-                    recalls += torch.sum(torch.from_numpy(cdd_id).to(device).unsqueeze(-1) == recalled_news_ids)
+                    # recalls += torch.sum(torch.from_numpy(cdd_id).to(device).unsqueeze(-1) == recalled_news_ids)
 
-                    # recalls[0] += torch.sum(torch.from_numpy(cdd_id).to(device).unsqueeze(-1) == recalled_news_ids[:10])
-                    # recalls[1] += torch.sum(torch.from_numpy(cdd_id).to(device).unsqueeze(-1) == recalled_news_ids[:50])
-                    # recalls[2] += torch.sum(torch.from_numpy(cdd_id).to(device).unsqueeze(-1) == recalled_news_ids[:100])
+                    recalls[0] += torch.sum(torch.from_numpy(cdd_id).to(device).unsqueeze(-1) == recalled_news_ids[-10:])
+                    recalls[1] += torch.sum(torch.from_numpy(cdd_id).to(device).unsqueeze(-1) == recalled_news_ids[-50:])
+                    recalls[2] += torch.sum(torch.from_numpy(cdd_id).to(device).unsqueeze(-1) == recalled_news_ids[-100:])
 
                     count += len(cdd_id)
 
@@ -1512,7 +1514,7 @@ class Manager():
             "bert": (512, 10),
             "deberta": (512, 10),
             "unilm": (512, 10),
-            "longformer": (1024, 21),
+            "longformer": (512, 11),
             "bigbird": (1024, 21),
             "reformer": (1280, 26),
         }
