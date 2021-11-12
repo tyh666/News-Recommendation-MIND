@@ -283,16 +283,22 @@ def construct_inverted_index(corpus, score_func):
         token_set = set()
         # strip [CLS]
         for token in document:
-            if token not in token_set:
+            if token not in token_set and token not in [0, 101, 102]:
                 inverted_index[token].append([i, score_func(token, i)])
                 token_set.add(token)
 
-    for k,v in inverted_index.items():
-        v = np.asarray(v)
-        # sort by the last column i.e. score
-        inverted_index[k] = v[v[:, 1].argsort()[::-1]]
+    inverted_array = np.zeros((30522, 100, 2))
+    # make sure that absent token doesn't recall news
+    inverted_array[:, :, 0] = 6997.
 
-    return inverted_index
+    for k,v in inverted_index.items():
+        v = sorted(v, key=lambda x: x[1], reverse=True)[:100] + [[6997.,0.]] * (100 - len(v))
+        inverted_array[k] = np.asarray(v)
+
+    inverted_array = torch.from_numpy(inverted_array)
+    torch.save(inverted_array, "data/recall/inverted_index_bm25.pt")
+    return inverted_array
+
     # inverted_index = [[]] * token_num
     # for i,document in enumerate(corpus):
     #     token_set = set()
@@ -308,7 +314,6 @@ def construct_inverted_index(corpus, score_func):
     #     inverted_index[i] = v[v[:, 1].argsort()[::-1]]
 
     # inverted_index = np.asarray(inverted_index, dtype=object)
-
     # return inverted_index
 
 

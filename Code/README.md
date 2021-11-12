@@ -66,6 +66,8 @@ python esm -m test -ck=150000
 - [x] reformer
 - [ ] save_best
 - [ ] key terms/ keywords/ tokens
+- [ ] speed up inverted index
+- [ ] strip DBLP from the big table, add 
 
 ## Preprocess
 - [x] remove stop words

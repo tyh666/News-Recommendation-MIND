@@ -1080,14 +1080,16 @@ class Manager():
         recall from the given corpus
         """
 
+        device = torch.device(model.device)
+
         if self.recall_type == "d":
             logger.info("dense recalling by user representation...")
             import faiss
             self.load(model, self.checkpoint)
 
-            news_set = torch.load('data/recall/news.pt', map_location=torch.device(model.device))
+            news_set = torch.load('data/recall/news.pt', map_location=device)
             try:
-                news_reprs = torch.load("data/cache/tensors/{}/large/dev/news.pt".format(self.name), map_location=torch.device(model.device))
+                news_reprs = torch.load("data/cache/tensors/{}/large/dev/news.pt".format(self.name), map_location=device)
             except:
                 raise FileNotFoundError("please run 'python xxx.py -m dev -ck=xx' first!")
 
@@ -1117,7 +1119,7 @@ class Manager():
                     recalls[0] += np.sum(np.in1d(cdd_id, index[i][:10]))
                     recalls[1] += np.sum(np.in1d(cdd_id, index[i][:50]))
                     recalls[2] += np.sum(np.in1d(cdd_id, index[i][:100]))
-                    count += 1
+                    count += len(cdd_id)
                 t4 = time.time()
                 # print("transfer time:{}, search time:{}, operation time:{}".format(t2-t1, t3-t2, t4-t3))
             model.destroy_embedding()
@@ -1126,23 +1128,20 @@ class Manager():
         elif self.recall_type == "s":
             logger.info("sparse recalling by extracted terms...")
             try:
-                with open("data/recall/inverted_index_bm25.pkl", "rb") as f:
-                    inverted_index = pickle.load(f)
-            except FileNotFoundError:
+                inverted_index = torch.load("data/recall/inverted_index_bm25.pt", map_location=device)
+            except:
                 from .utils import BM25_token, construct_inverted_index
                 with open("data/cache/MIND/news/bert/MINDlarge_dev/news.pkl", "rb") as f:
                     news = pickle.load(f)['encoded_news']
-                news_set = torch.load('data/recall/news.pt')
+                news_set = torch.load('data/recall/news.pt', map_location=device)
                 news_collection = news[news_set]
                 # initialize inverted index
                 bm25 = BM25_token(news_collection)
-                inverted_index = construct_inverted_index(news_collection, bm25)
-                with open("data/recall/inverted_index_bm25.pkl", "wb") as f:
-                    pickle.dump(inverted_index, f)
+                inverted_index = construct_inverted_index(news_collection, bm25).to(device)
 
             self.load(model, self.checkpoint)
 
-            recalls = np.array([0.,0.,0.])
+            recalls = torch.zeros(3, device=device)
             count = 0
             # total news number
             news_num = 6997
@@ -1154,83 +1153,74 @@ class Manager():
                 t2 = time.time()
 
                 for query, cdd_id in zip(ps_terms, x['cdd_id']):
-                    news_score_all = np.zeros(news_num)
-                    for token in query:
-                        news_and_scores = inverted_index[token]
-                        # this token not occured in news collection
-                        if len(news_and_scores) == 0:
-                            continue
-                        news_score_all[news_and_scores[:, 0].astype('int32')[:100]] += news_and_scores[:, 1][:100]
+                    # Q, N, 2
+                    recalled_news_ids_and_scores = inverted_index[query]
 
-                    recalled_news = np.argsort(news_score_all)[::-1]
-                    recalls[0] += np.sum(np.in1d(cdd_id, recalled_news[:10]))
-                    recalls[1] += np.sum(np.in1d(cdd_id, recalled_news[:50]))
-                    recalls[2] += np.sum(np.in1d(cdd_id, recalled_news[:100]))
+                    news_score_all = torch.zeros(news_num + 1, device=model.device)
+                    recalled_news_ids = recalled_news_ids_and_scores[:, :, 0].long().unique()
+                    # recalled_news_scores = recalled_news_ids_and_scores[:, :, 1]
 
-                    count += 1
+                    # for i,j in zip(recalled_news_ids, recalled_news_scores):
+                    #     news_score_all[i] += j
+
+                    # news_score_all[recalled_news_ids] += recalled_news_ids_and_scores[:, :, 1]
+
+                    # recalled_news_ids = news_score_all.argsort(descending=True)
+                    recalls += torch.sum(torch.from_numpy(cdd_id).to(device).unsqueeze(-1) == recalled_news_ids)
+
+                    # recalls[0] += torch.sum(torch.from_numpy(cdd_id).to(device).unsqueeze(-1) == recalled_news_ids[:10])
+                    # recalls[1] += torch.sum(torch.from_numpy(cdd_id).to(device).unsqueeze(-1) == recalled_news_ids[:50])
+                    # recalls[2] += torch.sum(torch.from_numpy(cdd_id).to(device).unsqueeze(-1) == recalled_news_ids[:100])
+
+                    count += len(cdd_id)
 
                 t3 = time.time()
                 # print("transfer time:{}, search time:{}".format(t2-t1, t3-t2))
 
         elif self.recall_type == "sd":
             logger.info("sparse recalling then dense ranking by extracted terms and user representation respectively...")
+
+            news_set = torch.load('data/recall/news.pt', map_location=device)
+            news_reprs = torch.load("data/cache/tensors/{}/large/dev/news.pt".format(self.name), map_location=device)
+            news = news_reprs[news_set]
+            news = torch.cat([news, torch.zeros(1, news.size(-1), device=device)], dim=0)
+
             try:
-                with open("data/recall/inverted_index_bm25.pkl", "rb") as f:
-                    inverted_index = pickle.load(f)
-            except FileNotFoundError:
+                inverted_index = torch.load("data/recall/inverted_index_bm25.pt", map_location=device)
+            except:
                 from .utils import BM25_token, construct_inverted_index
                 with open("data/cache/MIND/news/bert/MINDlarge_dev/news.pkl", "rb") as f:
                     news = pickle.load(f)['encoded_news']
-                news_set = torch.load('data/recall/news.pt')
-                news_collection = news[news_set]
+                news_collection = news[news_set.cpu().numpy()]
                 # initialize inverted index
                 bm25 = BM25_token(news_collection)
-                inverted_index = construct_inverted_index(news_collection, bm25)
-                with open("data/recall/inverted_index_bm25.pkl", "wb") as f:
-                    pickle.dump(inverted_index, f)
-
-            news_set = torch.load('data/recall/news.pt', map_location=torch.device(model.device))
-            news_reprs = torch.load("data/cache/tensors/{}/large/dev/news.pt".format(self.name), map_location=torch.device(model.device))
-            news = news_reprs[news_set]
-
-            hidden_dim = news.size(-1)
+                inverted_index = construct_inverted_index(news_collection, bm25).to(device)
 
             self.load(model, self.checkpoint)
 
             count = 0
-            recalls = np.array([0.,0.,0.])
+            recalls = torch.zeros(3, device=device)
             for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
                 t1 = time.time()
                 user_reprs, kid = model.encode_user(x)
                 batch_size = x['his_encoded_index'].size(0)
-                ps_terms = x['his_encoded_index'][:, :, 1:].to(self.device).gather(index=kid, dim=-1).view(batch_size, -1).cpu().numpy()
+                ps_terms = x['his_encoded_index'][:, :, 1:].to(device).gather(index=kid, dim=-1).view(batch_size, -1)
                 t2 = time.time()
 
                 for query, user_repr, cdd_id in zip(ps_terms, user_reprs, x['cdd_id']):
-                    recalled_news_ids = set()
-                    for token in query:
-                        news_and_scores = inverted_index[token]
-                        # this token not occured in news collection
-                        if len(news_and_scores) == 0:
-                            continue
+                    recalled_news_ids = inverted_index[query][:, :, 0].long().unique()
 
-                        # dedup recalled news
-                        recalled_news_ids.update(news_and_scores[:, 0].astype('int32'))#.tolist())
+                    # N, D
+                    recalled_news = news[recalled_news_ids]
+                    # N, 1
+                    recalled_news_score = recalled_news.matmul(user_repr.transpose(-1,-2)).squeeze(-1)
+                    # sort
+                    recalled_news_ids = recalled_news_ids[recalled_news_score.argsort(descending=True)][:100]
 
-                    recalls += np.sum(np.in1d(cdd_id, recalled_news_ids))
-
-                    # recalled_news_ids = torch.tensor(list(recalled_news_ids), device=news.device)
-                    # # N, D
-                    # recalled_news = news[recalled_news_ids]
-                    # # N, 1
-                    # recalled_news_score = recalled_news.matmul(user_repr.view(hidden_dim, 1)).squeeze(-1)
-                    # # sort
-                    # recalled_news_ids = recalled_news_ids[recalled_news_score.argsort(descending=True)[:100]].cpu().numpy()
-
-                    # recalls[0] += np.sum(np.in1d(cdd_id, recalled_news_ids[:10]))
-                    # recalls[1] += np.sum(np.in1d(cdd_id, recalled_news_ids[:50]))
-                    # recalls[2] += np.sum(np.in1d(cdd_id, recalled_news_ids[:100]))
-                    count += 1
+                    recalls[0] += torch.sum(torch.from_numpy(cdd_id).to(device).unsqueeze(-1) == recalled_news_ids[:10])
+                    recalls[1] += torch.sum(torch.from_numpy(cdd_id).to(device).unsqueeze(-1) == recalled_news_ids[:50])
+                    recalls[2] += torch.sum(torch.from_numpy(cdd_id).to(device).unsqueeze(-1) == recalled_news_ids[:100])
+                    count += len(cdd_id)
 
                 t3 = time.time()
 
