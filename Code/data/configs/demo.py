@@ -3,8 +3,7 @@ class config:
     mode = 'train'
     epochs = 8
     batch_size = 5
-    batch_size_news = 100
-    batch_size_history = 100
+    batch_size_news = 500
 
     k = 3
     threshold = -float('inf')
@@ -12,6 +11,7 @@ class config:
     abs_length = 40
     signal_length = 100
     news = None
+    case = False
 
     npratio = 4
     his_size = 50

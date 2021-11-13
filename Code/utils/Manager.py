@@ -1513,7 +1513,7 @@ class Manager():
             "bert": (512, 10),
             "deberta": (512, 10),
             "unilm": (512, 10),
-            "longformer": (512, 11),
+            "longformer": (1024, 21),
             "bigbird": (1024, 21),
             "reformer": (1280, 26),
         }
