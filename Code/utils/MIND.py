@@ -129,7 +129,7 @@ class MINDBaseDataset(Dataset):
             # synchronize all processes
             if manager.world_size > 1:
                 dist.barrier()
-                
+
             # logger.info("process NO.{} loading cached news tokenization from {}".format(manager.rank, self.news_cache_path))
             with open(self.news_cache_path, "rb") as f:
                 news = pickle.load(f)
@@ -243,40 +243,33 @@ class MINDBaseDataset(Dataset):
             subwords_all = []
             subwords_first = []
             for i, text in enumerate(tqdm(texts, ncols=120, leave=True)):
-                if i == 0:
-                    token_ids = [self.pad_token_id] * max_length
-                    attn_mask = [0] * max_length
-                    subword_first = [[0,0]] * max_length
-                    subword_all = [[0,0]] * max_length
+                token_ouput = tokenizer(text, padding='max_length', truncation=True, max_length=max_length)
+                token_ids = token_ouput['input_ids']
+                attn_mask = token_ouput['attention_mask']
+                tokens = tokenizer.convert_ids_to_tokens(token_ids)
 
-                else:
-                    token_ouput = tokenizer(text, padding='max_length', truncation=True, max_length=max_length)
-                    token_ids = token_ouput['input_ids']
-                    attn_mask = token_ouput['attention_mask']
-                    tokens = tokenizer.convert_ids_to_tokens(token_ids)
+                # maintain subword entry
+                subword_all = []
+                # mask subword entry
+                subword_first = []
 
-                    # maintain subword entry
-                    subword_all = []
-                    # mask subword entry
-                    subword_first = []
+                i = -1
+                j = -1
+                for token in tokens:
+                    if token == '[PAD]':
+                        subword_all.append([0,0])
+                        subword_first.append([0,0])
 
-                    i = -1
-                    j = -1
-                    for token in tokens:
-                        if token == '[PAD]':
-                            subword_all.append([0,0])
-                            subword_first.append([0,0])
+                    elif token.startswith("##"):
+                        j += 1
+                        subword_all.append([i,j])
+                        subword_first.append([0,0])
 
-                        elif token.startswith("##"):
-                            j += 1
-                            subword_all.append([i,j])
-                            subword_first.append([0,0])
-
-                        else:
-                            i += 1
-                            j += 1
-                            subword_all.append([i,j])
-                            subword_first.append([i,j])
+                    else:
+                        i += 1
+                        j += 1
+                        subword_all.append([i,j])
+                        subword_first.append([i,j])
 
                 text_toks.append(token_ids)
                 attention_masks.append(attn_mask)
@@ -310,43 +303,36 @@ class MINDBaseDataset(Dataset):
             subwords_all = []
             subwords_first = []
             for i, text in enumerate(texts):
-                if i == 0:
-                    token_ids = [self.pad_token_id] * max_length
-                    attn_mask = [0] * max_length
-                    subword_first = [[0,0]] * max_length
-                    subword_all = [[0,0]] * max_length
+                token_ouput = tokenizer(text, padding='max_length', truncation=True, max_length=max_length)
+                token_ids = token_ouput['input_ids']
+                attn_mask = token_ouput['attention_mask']
 
-                else:
-                    token_ouput = tokenizer(text, padding='max_length', truncation=True, max_length=max_length)
-                    token_ids = token_ouput['input_ids']
-                    attn_mask = token_ouput['attention_mask']
+                tokens = tokenizer.convert_ids_to_tokens(token_ids)
 
-                    tokens = tokenizer.convert_ids_to_tokens(token_ids)
+                # maintain subword entry
+                subword_all = []
+                # mask subword entry
+                subword_first = []
 
-                    # maintain subword entry
-                    subword_all = []
-                    # mask subword entry
-                    subword_first = []
+                i = -1
+                j = -1
+                for index,token in enumerate(tokens):
+                    if token == '[PAD]':
+                        subword_all.append([0,0])
+                        subword_first.append([0,0])
 
-                    i = -1
-                    j = -1
-                    for index,token in enumerate(tokens):
-                        if token == '[PAD]':
-                            subword_all.append([0,0])
-                            subword_first.append([0,0])
+                    # not subword
+                    elif index in [0,1] or token.startswith("Ġ") or token in r"[.&*()+=/\<>,!?;:~`@#$%^]":
+                        i += 1
+                        j += 1
+                        subword_all.append([i,j])
+                        subword_first.append([i,j])
 
-                        # not subword
-                        elif index in [0,1] or token.startswith("Ġ") or token in r"[.&*()+=/\<>,!?;:~`@#$%^]":
-                            i += 1
-                            j += 1
-                            subword_all.append([i,j])
-                            subword_first.append([i,j])
-
-                        # subword
-                        else:
-                            j += 1
-                            subword_all.append([i,j])
-                            subword_first.append([0,0])
+                    # subword
+                    else:
+                        j += 1
+                        subword_all.append([i,j])
+                        subword_first.append([0,0])
 
                 text_toks.append(token_ids)
                 attention_masks.append(attn_mask)
@@ -380,44 +366,37 @@ class MINDBaseDataset(Dataset):
             subwords_all = []
             subwords_first = []
             for i, text in enumerate(texts):
-                if i == 0:
-                    token_ids = [self.pad_token_id] * max_length
-                    attn_mask = [0] * max_length
-                    subword_first = [[0,0]] * max_length
-                    subword_all = [[0,0]] * max_length
+                token_ouput = tokenizer(text, padding='max_length', truncation=True, max_length=max_length)
+                token_ids = token_ouput['input_ids']
+                attn_mask = token_ouput['attention_mask']
 
-                else:
-                    token_ouput = tokenizer(text, padding='max_length', truncation=True, max_length=max_length)
-                    token_ids = token_ouput['input_ids']
-                    attn_mask = token_ouput['attention_mask']
+                tokens = tokenizer.convert_ids_to_tokens(token_ids)
 
-                    tokens = tokenizer.convert_ids_to_tokens(token_ids)
+                # maintain subword entry
+                subword_all = []
+                # mask subword entry
+                subword_first = []
 
-                    # maintain subword entry
-                    subword_all = []
-                    # mask subword entry
-                    subword_first = []
+                i = -1
+                j = -1
+                for index,token in enumerate(tokens):
+                    if token == '[PAD]':
+                        subword_all.append([0,0])
+                        subword_first.append([0,0])
 
-                    i = -1
-                    j = -1
-                    for index,token in enumerate(tokens):
-                        if token == '[PAD]':
-                            subword_all.append([0,0])
-                            subword_first.append([0,0])
+                    # not subword
+                    # index==0: [CLS], index==1: the first word
+                    elif index in [0,1] or token.startswith("▁") or token in r"[.&*()+=/\<>,!?;:~`@#$%^]":
+                        i += 1
+                        j += 1
+                        subword_all.append([i,j])
+                        subword_first.append([i,j])
 
-                        # not subword
-                        # index==0: [CLS], index==1: the first word
-                        elif index in [0,1] or token.startswith("▁") or token in r"[.&*()+=/\<>,!?;:~`@#$%^]":
-                            i += 1
-                            j += 1
-                            subword_all.append([i,j])
-                            subword_first.append([i,j])
-
-                        # subword
-                        else:
-                            j += 1
-                            subword_all.append([i,j])
-                            subword_first.append([0,0])
+                    # subword
+                    else:
+                        j += 1
+                        subword_all.append([i,j])
+                        subword_first.append([0,0])
 
                 text_toks.append(token_ids)
                 attention_masks.append(attn_mask)

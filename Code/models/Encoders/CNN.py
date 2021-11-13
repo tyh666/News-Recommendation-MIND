@@ -9,7 +9,7 @@ class CNN_Encoder(nn.Module):
         self.hidden_dim = manager.hidden_dim
 
         self.wordQueryProject = nn.Linear(self.hidden_dim, self.hidden_dim)
-
+        self.embedding_dim = manager.bert_dim
         self.cnn = nn.Conv1d(
             in_channels=self.embedding_dim,
             out_channels=self.hidden_dim,

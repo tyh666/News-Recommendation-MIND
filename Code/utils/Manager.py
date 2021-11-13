@@ -127,7 +127,7 @@ class Manager():
 
             parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=3)
             parser.add_argument("-thr", "--threshold", dest="threshold", help="threshold to mask terms", default=-float("inf"), type=float)
-            parser.add_argument("-b", "--bert", dest="bert", help="choose bert model", choices=["bert", "deberta", "unilm", "longformer", "bigbird", "reformer", "funnel", "synthesizer", "distill"], default="bert")
+            parser.add_argument("-b", "--bert", dest="bert", help="choose bert model", choices=["bert", "deberta", "unilm", "longformer", "bigbird", "reformer", "funnel", "synthesizer", "distill", "newsbert"], default="bert")
 
             parser.add_argument("--tb", dest="tb", action="store_true", default=False)
             parser.add_argument("-sd","--seed", dest="seed", default=42, type=int)
@@ -1422,6 +1422,7 @@ class Manager():
             "funnel": "funnel-transformer/small-base",
             "synthesizer": "bert-base-uncased",
             "distill": "distilbert-base-uncased",
+            "newsbert": "bert-base-uncased"
         }
         return bert_map[self.bert]
 
@@ -1439,7 +1440,8 @@ class Manager():
             "reformer": "reformer",
             "funnel": "bert",
             "synthesizer": "bert",
-            "distill": "distill"
+            "distill": "distill",
+            "newsbert": "bert"
         }
         return bert_map[self.bert]
 
@@ -1487,6 +1489,11 @@ class Manager():
                 "[SEP]": 102,
             },
             "distill":{
+                "[PAD]": 0,
+                "[CLS]": 101,
+                "[SEP]": 102,
+            },
+            "newsbert":{
                 "[PAD]": 0,
                 "[CLS]": 101,
                 "[SEP]": 102,
