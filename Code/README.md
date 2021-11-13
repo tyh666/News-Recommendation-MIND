@@ -60,13 +60,10 @@ python esm -m test -ck=150000
 ## TODO
 - [ ] case study
 - [x] graphsage with selection
-- [ ] key terms/ keywords/ tokens
 - [ ] speed up inverted index
-- [ ] sparse recall 39, not good when used in conjunction with dense ranking
-- [ ] organize experiment results
-- [ ] more experiment on extraction encoder
+- [ ] 128 dim one layer bert
 - [ ] notation
-- [ ] synthesizer randomize
+- [ ] recall, D vs D; S vs S; SD vs SD
 
 ## Preprocess
 - [x] remove stop words

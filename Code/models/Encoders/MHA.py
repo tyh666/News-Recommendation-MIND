@@ -68,7 +68,7 @@ class MHA_User_Encoder(nn.Module):
         if his_mask is not None:
             extended_attn_mask = get_attn_mask(his_mask.squeeze(-1))
             news_repr = self.mha(news_repr, extended_attn_mask)
-            user_repr = scaled_dp_attention(self.query_news, news_repr, news_repr, his_mask.squeeze(-1).unsqueeze(1))
+            user_repr = scaled_dp_attention(self.query_news, news_repr, news_repr, his_mask)
         else:
             news_repr = self.mha(news_repr)
             user_repr = scaled_dp_attention(self.query_news, news_repr, news_repr)
