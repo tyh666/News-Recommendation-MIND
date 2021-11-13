@@ -3,7 +3,8 @@ import torch
 import torch.nn as nn
 from transformers.modeling_utils import apply_chunking_to_forward
 from transformers.activations import ACT2FN
-from .Attention import XSoftmax
+from transformers import BertConfig
+from .Attention import XSoftmax, scaled_dp_attention
 
 class BertSelfAttention(nn.Module):
     def __init__(self, config):
@@ -11,9 +12,9 @@ class BertSelfAttention(nn.Module):
 
         self.all_head_size = config.all_head_size
 
-        self.query = nn.Linear(config.all_head_size, config.all_head_size)
-        self.key = nn.Linear(config.all_head_size, config.all_head_size)
-        self.value = nn.Linear(config.all_head_size, config.all_head_size)
+        self.query = nn.Linear(config.hidden_size, config.all_head_size)
+        self.key = nn.Linear(config.hidden_size, config.all_head_size)
+        self.value = nn.Linear(config.hidden_size, config.all_head_size)
 
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
 
@@ -28,7 +29,7 @@ class BertSelfAttention(nn.Module):
 
         # B, L, L
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
-        attention_scores = attention_scores / math.sqrt(self.all_head_size)
+        attention_scores = attention_scores / math.sqrt(self.attention_head_size)
         if attention_mask is not None:
             attention_probs = XSoftmax.apply(attention_scores, attention_mask, -1)
 
@@ -108,7 +109,7 @@ class BertOutput(nn.Module):
 class BertLayer(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.chunk_size_feed_forward = config.all_head_size
+        self.chunk_size_feed_forward = config.chunk_size_feed_forward
         self.seq_len_dim = 1
         self.attention = BertAttention(config)
         self.intermediate = BertIntermediate(config)
@@ -125,9 +126,12 @@ class BertLayer(nn.Module):
         )
         attention_output = self_attention_outputs[0]
 
-        attention_output = self.feed_forward_chunk(attention_output)
+        layer_output = apply_chunking_to_forward(
+            self.feed_forward_chunk, self.chunk_size_feed_forward, self.seq_len_dim, attention_output
+        )
+        outputs = (attention_output,)
 
-        return attention_output
+        return outputs
 
     def feed_forward_chunk(self, attention_output):
         intermediate_output = self.intermediate(attention_output)

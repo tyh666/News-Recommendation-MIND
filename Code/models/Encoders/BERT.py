@@ -151,64 +151,37 @@ class BERT_Encoder(nn.Module):
 
 
 class BERT_Onelayer_Encoder(nn.Module):
-    """
-        1. for news input, encode it with BERT and output news- and word-level representations
-        2. for ps_term input, insert [CLS] token at the head and insert [SEP] token at the end
-        3. add position embedding to the sequence, starting from 0 pos
-    """
     def __init__(self, manager):
-        from transformers import BertConfig
-        from ..Modules.OneLayerBert import BertLayer
-
         super().__init__()
+        from ..Modules.OneLayerBert import BertLayer
+        from transformers import BertConfig
 
-        # dimension for the final output embedding/representation
-        self.hidden_dim = manager.bert_dim
-        self.signal_length = manager.signal_length
+        bert_config = BertConfig()
+        bert_config.all_head_size = manager.hidden_dim
+        self.hidden_dim = manager.hidden_dim
 
-        self.pooler = manager.pooler
-        if manager.pooler == 'attn':
-            self.query = nn.Parameter(torch.randn(1, self.hidden_dim))
-            nn.init.xavier_normal_(self.query)
+        self.project = nn.Linear(bert_config.hidden_size, bert_config.all_head_size)
+        self.bert = BertLayer(bert_config)
+        self.query_words = nn.Parameter(torch.randn((1, self.hidden_dim)))
+        self.Tanh = nn.Tanh()
+        nn.init.xavier_normal_(self.query_words)
 
-        self.bert = BertLayer(BertConfig())
-        # project news representations into the same semantic space
-        self.projector = nn.Linear(manager.bert_dim, manager.bert_dim)
-        self.activation = manager.get_activation_func()
 
-        # if deberta, don't extend attention masks
-        self.extend_attn_mask = manager.bert != 'deberta'
-
-    def forward(self, news_embedding, attn_mask):
-        """ encode news with bert
+    def forward(self, news_embedding, attn_mask=None):
+        """ encode news by one-layer bert
 
         Args:
-            news_embedding: [batch_size, *, signal_length, embedding_dim]
-            attn_mask: [batch_size, *, signal_length]
+            news_embedding: tensor of [batch_size, *, signal_length, embedding_dim]
 
         Returns:
-            news_encoded_embedding: hidden vector of each token in news, of size [batch_size, *, signal_length, emedding_dim]
-            news_repr: news representation, of size [batch_size, *, embedding_dim]
+            news_embedding: hidden vector of each token in news, of size [batch_size, *, signal_length, hidden_dim]
+            news_repr: hidden vector of each news, of size [batch_size, *, hidden_dim]
         """
-        batch_size = news_embedding.size(0)
+        batch_size, news_num, signal_length, embedding_dim = news_embedding.shape
 
-        bert_input = news_embedding.view(-1, self.signal_length, self.hidden_dim)
-        bs = bert_input.size(0)
+        bert_input = self.project(news_embedding.view(-1, signal_length, embedding_dim))
+        attn_mask = attn_mask.view(-1, 1, signal_length)
 
-        if self.extend_attn_mask:
-            ext_attn_mask = (1.0 - attn_mask) * -10000.0
-            ext_attn_mask = ext_attn_mask.view(bs, 1, 1, -1)
-        else:
-            ext_attn_mask = attn_mask.view(bs, -1)
-
-        bert_output = self.bert(bert_input, ext_attn_mask)[0]
-
-        if self.pooler == "cls":
-            news_repr = bert_output[:, 0]
-        elif self.pooler == "attn":
-            news_repr = scaled_dp_attention(self.query, bert_output, bert_output, attn_mask=attn_mask.unsqueeze(1)).view(batch_size, -1, self.hidden_dim)
-        elif self.pooler == "avg":
-            news_repr = bert_output.mean(dim=-2).reshape(batch_size, -1, self.hidden_dim)
-        news_repr = self.activation(self.projector(news_repr))
-
-        return bert_output.view(batch_size, -1, self.signal_length, self.hidden_dim), news_repr
+        bert_output = self.bert(bert_input, attn_mask)
+        news_repr = scaled_dp_attention(self.query_words, bert_output, bert_output, attn_mask=attn_mask).view(batch_size, -1, self.hidden_dim)
+        return bert_output.view(batch_size, news_num, signal_length, self.hidden_dim), news_repr

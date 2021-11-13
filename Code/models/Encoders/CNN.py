@@ -7,7 +7,6 @@ class CNN_Encoder(nn.Module):
         super().__init__()
 
         self.hidden_dim = manager.hidden_dim
-        self.embedding_dim = manager.embedding_dim
 
         self.wordQueryProject = nn.Linear(self.hidden_dim, self.hidden_dim)
 
@@ -40,7 +39,7 @@ class CNN_Encoder(nn.Module):
             news_embedding: hidden vector of each token in news, of size [batch_size, *, signal_length, hidden_dim]
             news_repr: hidden vector of each news, of size [batch_size, *, hidden_dim]
         """
-        signal_length = news_embedding.size(2)
+        signal_length, embedding_dim = news_embedding.shape[-2:]
         cnn_input = news_embedding.view(-1, signal_length, self.embedding_dim).transpose(-2, -1)
         cnn_output = self.Relu(self.cnn(cnn_input)).transpose(-2, -1).view(*news_embedding.shape[:-1], self.hidden_dim)
 
