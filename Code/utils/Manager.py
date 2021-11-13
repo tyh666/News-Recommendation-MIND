@@ -69,7 +69,7 @@ class Manager():
                             help="length of the bert tokenized tokens", type=int, default=100)
 
             parser.add_argument("-hd", "--hidden_dim", dest="hidden_dim",
-                            help="number of hidden states", type=int, default=384)
+                            help="number of hidden states", type=int, default=150)
             parser.add_argument("-ed", "--embedding_dim", dest="embedding_dim",
                             help="number of embedding states", type=int, default=768)
             parser.add_argument("-bd", "--bert_dim", dest="bert_dim",
@@ -372,16 +372,15 @@ class Manager():
         torch.save(save_dict, save_path)
 
 
-    def load(self, model, checkpoint, optimizer=None, strict=True, best=False):
+    def load(self, model, checkpoint, optimizer=None, strict=True):
         """
             shortcut for loading model and optimizer parameters
         """
         if checkpoint == 0:
-            logger.warning("not loading any checkpoints!")
-            return
-
-        if best:
             save_path = "data/model_params/{}/best.model".format(self.name)
+            if not os.path.exists(save_path):
+                logger.warning("not loading any checkpoints!")
+                return
         else:
             save_path = "data/model_params/{}/{}_step{}.model".format(self.name, self.scale, checkpoint)
 
