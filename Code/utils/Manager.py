@@ -953,13 +953,7 @@ class Manager():
 
         loader_inspect = loaders[0]
 
-        with open(loader_inspect.dataset.news_cache_directory + "news.pkl", "rb") as f:
-            news = pickle.load(f)["encoded_news"][:, :self.signal_length]
-        with open(loader_inspect.dataset.news_cache_directory + "bm25.pkl", "rb") as f:
-            bm25_terms = pickle.load(f)["encoded_news"][:, :self.k + 1]
-        with open(loader_inspect.dataset.news_cache_directory + "entity.pkl", "rb") as f:
-            entities = pickle.load(f)["encoded_news"][:, :self.k + 1]
-
+        # manually set to 10
         try:
             self.load(model, self.checkpoint)
         except:
@@ -972,12 +966,22 @@ class Manager():
             self.load(model, self.checkpoint)
             self.name = old_name
 
+        with open(loader_inspect.dataset.news_cache_directory + "news.pkl", "rb") as f:
+            news = pickle.load(f)["encoded_news"][:, :self.signal_length]
+        with open(loader_inspect.dataset.news_cache_directory + "bm25.pkl", "rb") as f:
+            bm25_terms = pickle.load(f)["encoded_news"][:, :self.k + 1]
+        with open(loader_inspect.dataset.news_cache_directory + "entity.pkl", "rb") as f:
+            entities = pickle.load(f)["encoded_news"][:, :self.k + 1]
+
         t = AutoTokenizer.from_pretrained(self.get_bert_for_load(), cache_dir=self.path + "bert_cache/")
 
         logger.info("press <ENTER> to continue")
 
         if self.news is not None:
-            target_news = loader_inspect.dataset.nid2index[self.news]
+            if self.news.lower().startswith("n"):
+                target_news = loader_inspect.dataset.nid2index[self.news.upper()]
+            else:
+                target_news = int(self.news)
 
         for x in loader_inspect:
 
@@ -1245,9 +1249,9 @@ class Manager():
 
         def construct_heuristic_extracted_term_indice():
             logger.info("constructing heuristicly extracted term indices...")
-            news = pickle.load(open('data/cache/bert/MINDlarge_dev/news.pkl','rb'))['encoded_news']
-            bm25 = pickle.load(open('data/cache/bert/MINDlarge_dev/bm25.pkl','rb'))['encoded_news']
-            entity = pickle.load(open('data/cache/bert/MINDlarge_dev/entity.pkl','rb'))['encoded_news']
+            news = pickle.load(open('data/cache/MIND/news/bert/MINDlarge_dev/news.pkl','rb'))['encoded_news']
+            bm25 = pickle.load(open('data/cache/MIND/news/bert/MINDlarge_dev/bm25.pkl','rb'))['encoded_news']
+            entity = pickle.load(open('data/cache/MIND/news/bert/MINDlarge_dev/entity.pkl','rb'))['encoded_news']
 
             bm25_indice = []
             entity_indice = []
@@ -1285,19 +1289,20 @@ class Manager():
             entity_indice = np.asarray(entity_indice)
 
             os.makedirs("data/cache/kid", exist_ok=True)
-            np.save("data/cache/tensors/kid/bm25.npy", bm25_indice)
-            np.save("data/cache/tensors/kid/entity.npy", entity_indice)
+            np.save("data/cache/kid/bm25.npy", bm25_indice)
+            np.save("data/cache/kid/entity.npy", entity_indice)
             return bm25_indice, entity_indice
 
         try:
-            bm25_indice = np.load('data/cache/tensors/kid/bm25.npy')
-            entity_indice = np.load('data/cache/tensors/kid/entity.npy')
+            entity_indice = np.load('data/cache/kid/entity.npy')
         except:
-            bm25_indice, entity_indice = construct_heuristic_extracted_term_indice()
+            _, entity_indice = construct_heuristic_extracted_term_indice()
 
         # bm25_positions = np.array([0] * (self.signal_length - 1))
         # entity_positions = np.array([0] * (self.signal_length - 1))
-        kid_positions = np.array([0] * (self.signal_length + 1))
+        device = model.device
+        entity_indice = torch.from_numpy(entity_indice).to(device)
+        kid_positions = torch.zeros(self.signal_length + 1, dtype=torch.int32, device=device)
 
         count = 0
         entity_recall = 0.
@@ -1306,18 +1311,15 @@ class Manager():
             # strip off [CLS] and [SEP]
             kids = model.encode_user(x)[1]
             kids = kids.masked_fill(~(x['his_mask'].to(self.device).bool()), self.signal_length)
-            term_num = kids.numel()
-            kids = kids.cpu().numpy()
-            for kid, his_id in zip(kids.reshape(-1, self.k), x['his_id'].view(-1).cpu().numpy()):
+            for kid, his_id in zip(kids.reshape(-1, self.k), x['his_id'].to(device).view(-1)):
                 kid_positions[kid] += 1
 
-                entity_index = entity_indice[his_id]
+                # entity_index = entity_indice[his_id]
+                # entity_recall += torch.sum(entity_index.unsqueeze(-1) == kid)
+                # count += 1
 
-                entity_recall += np.sum(np.in1d(entity_index, kid))
-                count += 1
-
-        logger.info("entity recall rate: {}".format(entity_recall / count))
-        np.save("data/cache/tensors/kid_pos.npy", kid_positions)
+        # logger.info("entity recall rate: {}".format(entity_recall / count))
+        torch.save(kid_positions, "data/cache/kid/kid_pos.pt")
 
         # pos = []
         # for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):

@@ -15,6 +15,9 @@ class Matching_Reducer(nn.Module):
         super().__init__()
         self.name = "matching"
         self.k = manager.k
+        if manager.mode == "inspect":
+            self.k = 10
+            
         self.his_size = manager.his_size
         self.embedding_dim = manager.embedding_dim
 

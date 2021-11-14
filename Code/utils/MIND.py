@@ -84,9 +84,11 @@ class MINDBaseDataset(Dataset):
                         manager.construct_nid2idx(mode=self.mode)
                         self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_{}.json".format(self.scale, self.mode))
 
-                    logger.info("extracting users who browsed news {}".format(manager.news))
-
-                    news = self.nid2index[manager.news]
+                    if manager.news.startswith('n'):
+                        target = manager.news.upper()
+                        news = self.nid2index[target]
+                    else:
+                        news = int(manager.news)
 
                     imprs = []
 
@@ -1024,9 +1026,11 @@ class MIND_history(MINDBaseDataset):
 
             if manager.news is not None:
                 assert manager.mode == 'inspect', "target news only available in INSPECT mode"
-                logger.info("extracting users who browsed news {}".format(manager.news))
-
-                news = self.nid2index[manager.news]
+                if manager.news.lower().startswith('n'):
+                    target = manager.news.upper()
+                    news = self.nid2index[target]
+                else:
+                    news = int(manager.news)
                 imprs = []
 
                 for i in self.imprs:
