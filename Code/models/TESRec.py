@@ -118,6 +118,8 @@ class TESRec(TwoTowerBaseModel):
         else:
             user_repr_ext = None
 
+        # print(user_repr_ext)
+
         ps_terms, ps_term_mask, kid = self.reducer(his_news_encoded_embedding, his_news_embedding, user_repr_ext, his_news_repr, his_attn_mask, his_refined_mask)
 
         _, user_repr, _ = self.bert(ps_terms, ps_term_mask, ps_term_input=True)

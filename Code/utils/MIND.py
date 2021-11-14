@@ -84,7 +84,7 @@ class MINDBaseDataset(Dataset):
                         manager.construct_nid2idx(mode=self.mode)
                         self.nid2index = getId2idx("data/dictionaries/nid2idx_{}_{}.json".format(self.scale, self.mode))
 
-                    if manager.news.startswith('n'):
+                    if manager.news.lower().startswith('n'):
                         target = manager.news.upper()
                         news = self.nid2index[target]
                     else:

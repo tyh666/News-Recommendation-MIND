@@ -55,7 +55,7 @@ class Manager():
             parser.add_argument("-n", "--news", dest="news", help="which news to inspect", type=str, default=None)
             parser.add_argument("-c", "--case", dest="case", help="whether to return the sample for case study", action="store_true", default=False)
             parser.add_argument("-rt", "--recall_type", dest="recall_type", help="recall type", choices=["s","d","sd"], default=None)
-            parser.add_argument("-it", "--inspect_type", dest="inspect_type", help="the dataset to inspect", choices=["dev","test"], default=None)
+            parser.add_argument("-it", "--inspect_type", dest="inspect_type", help="the dataset to inspect", choices=["dev","test","all"], default=None)
 
             parser.add_argument("-bs", "--batch_size", dest="batch_size",
                                 help="batch size", type=int, default=32)
@@ -303,7 +303,10 @@ class Manager():
                 loader = DataLoader(dataset, batch_size=1, pin_memory=pin_memory,
                     num_workers=num_workers, drop_last=False)
             else:
-                file_directory = self.path + "MIND/MINDlarge_{}/".format(self.inspect_type)
+                if self.inspect_type == "all":
+                    file_directory = self.path + "MIND/MINDlarge_dev/"
+                else:
+                    file_directory = self.path + "MIND/MINDlarge_{}/".format(self.inspect_type)
                 dataset = MIND_history(self, file_directory)
                 loader = DataLoader(dataset, batch_size=1, pin_memory=pin_memory,
                     num_workers=num_workers, drop_last=False)
@@ -748,7 +751,7 @@ class Manager():
                     #     writer.add_scalar("data_loss",
                     #                     total_loss/total_steps)
 
-                if steps % save_step == 0 and (steps in [150000,180000,200000,210000,220000,230000,240000] and self.scale == "whole" or steps > self.hold_step and self.scale == "large" or steps > 0 and self.scale == "demo"):
+                if steps % save_step == 0 and (steps in [140000,150000,180000,200000,210000,220000,230000,240000] and self.scale == "whole" or steps > self.hold_step and self.scale == "large" or steps > 0 and self.scale == "demo"):
                     print("\n")
                     with torch.no_grad():
                         result = self.evaluate(model, loaders[1:], log=False)
@@ -983,63 +986,94 @@ class Manager():
             else:
                 target_news = int(self.news)
 
-        for x in loader_inspect:
+        if self.inspect_type == "all":
+            keyterm_matrix = np.zeros((self.get_news_num(), 10), dtype=int)
+            user_matrix = np.zeros(self.get_news_num(), dtype=int)
 
-            term_indexes = model.encode_user(x)[1]
+            for x in loader_inspect:
+                term_indexes = model.encode_user(x)[1].cpu().numpy()
+                # hs, 1
+                news_ids = x['his_id'][0].squeeze(-1).numpy()
+                user_ids = x['user_id'].numpy()
+                term_indexes = term_indexes[0]
 
-            his_encoded_index = x["his_encoded_index"][0][:, 1:]
-            if self.reducer == "bow":
-                his_encoded_index = his_encoded_index[ :, :, 0]
-            term_indexes = term_indexes[0].cpu().numpy()
-            his_ids = x["his_id"][0].tolist()
-            user_index = x["user_id"][0]
-
-            if self.news is not None:
-                for j, his_id in enumerate(his_ids):
-                    # skip untargetted news
-                    if his_id == target_news:
+                for his_id, term_index, user_id in zip(news_ids, term_indexes, user_ids):
+                    reference_term_index = keyterm_matrix[his_id]
+                    if (reference_term_index != term_index).any() and reference_term_index.sum() > 0:
+                        # strip [CLS]
+                        his_news = news[his_id][1:]
+                        prev_term = his_news[reference_term_index]
+                        now_term = his_news[term_index]
+                        prev_user = user_matrix[his_id]
+                        print("*************************{}:{}->{}******************************".format(his_id, prev_user, user_id))
+                        print(t.decode(prev_term, skip_special_tokens=True))
+                        print(t.decode(now_term, skip_special_tokens=True))
+                        print("[original news]\n\t {}".format(t.decode(news[his_id][:self.signal_length], skip_special_tokens=True)))
+                        print(user_id)
+                        input()
                         break
 
-                his_encoded_index = [his_encoded_index[j]]
-                term_indexes = [term_indexes[j]]
-                his_ids = [his_id]
-
-            for his_token_ids, term_index, his_id in zip(his_encoded_index, term_indexes, his_ids):
-
-                print("*************************{}******************************".format(user_index.item()))
-                tokens = t.convert_ids_to_tokens(his_token_ids)
-                if self.granularity != "token":
-                    terms = self.convert_tokens_to_words(tokens, punctuation=True)
-                    terms.extend(["[PAD]"] * (self.signal_length - len(terms)))
-                    terms = np.asarray(terms)
-                else:
-                    if self.embedding == 'deberta':
-                        # remove Ġ for clearity
-                        terms = []
-                        for token in tokens:
-                            if token.startswith('Ġ'):
-                                terms.append(token[1:])
-                            else:
-                                terms.append(token)
                     else:
-                        terms = tokens
-                    terms = np.asarray(terms)
+                        keyterm_matrix[his_id] = term_index
+                        user_matrix[his_id] = user_id
 
-                ps_terms = terms[term_index]
+        else:
+            for x in loader_inspect:
+                term_indexes = model.encode_user(x)[1]
 
-                if ps_terms[0] == "[PAD]":
-                    break
-                else:
-                    print("[personalized terms]\n\t {}".format(" ".join(ps_terms)))
-                    print("[bm25 terms]\n\t {}".format(t.decode(bm25_terms[his_id], skip_special_tokens=True)))
-                    print("[entities]\n\t {}".format(t.decode(entities[his_id], skip_special_tokens=True)))
-                    print("[original news]\n\t {}".format(t.decode(news[his_id][:self.signal_length], skip_special_tokens=True)))
+                his_encoded_index = x["his_encoded_index"][0][:, 1:]
+                if self.reducer == "bow":
+                    his_encoded_index = his_encoded_index[ :, :, 0]
+                term_indexes = term_indexes[0].cpu().numpy()
+                his_ids = x["his_id"][0].tolist()
+                user_index = x["user_id"][0]
 
-                command = input()
-                if command == "n":
-                    break
-                elif command == "q":
-                    return
+                if self.news is not None:
+                    for j, his_id in enumerate(his_ids):
+                        # skip untargetted news
+                        if his_id == target_news:
+                            break
+
+                    his_encoded_index = [his_encoded_index[j]]
+                    term_indexes = [term_indexes[j]]
+                    his_ids = [his_id]
+
+                for his_token_ids, term_index, his_id in zip(his_encoded_index, term_indexes, his_ids):
+
+                    print("*************************{}******************************".format(user_index.item()))
+                    tokens = t.convert_ids_to_tokens(his_token_ids)
+                    if self.granularity != "token":
+                        terms = self.convert_tokens_to_words(tokens, punctuation=True)
+                        terms.extend(["[PAD]"] * (self.signal_length - len(terms)))
+                        terms = np.asarray(terms)
+                    else:
+                        if self.embedding == 'deberta':
+                            # remove Ġ for clearity
+                            terms = []
+                            for token in tokens:
+                                if token.startswith('Ġ'):
+                                    terms.append(token[1:])
+                                else:
+                                    terms.append(token)
+                        else:
+                            terms = tokens
+                        terms = np.asarray(terms)
+
+                    ps_terms = terms[term_index]
+
+                    if ps_terms[0] == "[PAD]":
+                        break
+                    else:
+                        print("[personalized terms]\n\t {}".format(" ".join(ps_terms)))
+                        print("[bm25 terms]\n\t {}".format(t.decode(bm25_terms[his_id], skip_special_tokens=True)))
+                        print("[entities]\n\t {}".format(t.decode(entities[his_id], skip_special_tokens=True)))
+                        print("[original news]\n\t {}".format(t.decode(news[his_id][:self.signal_length], skip_special_tokens=True)))
+
+                    command = input()
+                    if command == "n":
+                        break
+                    elif command == "q":
+                        return
 
 
     @torch.no_grad()
@@ -1372,21 +1406,25 @@ class Manager():
             "demo":{
                 "train": 42416,
                 "dev": 42416,
+                "inspect": 42416,
                 "test": 120961
             },
             "small":{
                 "train": 42416,
                 "dev": 42416,
+                "inspect": 42416,
                 "test": 120961
             },
             "large":{
                 "train": 72023,
                 "dev": 72023,
+                "inspect": 72023,
                 "test": 120961
             },
             "whole":{
                 "train": 72023,
                 "dev": 72023,
+                "inspect": 72023,
                 "test": 120961
             }
         }

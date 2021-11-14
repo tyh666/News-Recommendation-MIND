@@ -59,9 +59,7 @@ python esm -m test -ck=150000
 
 ## TODO
 - [ ] case study
-- [ ] speed up inverted index
-- [ ] notation
-- [ ] recall, D vs D; S vs S; SD vs SD
+- [ ] whether to mention cascaded model in IR
 
 ## Preprocess
 - [x] remove stop words

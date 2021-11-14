@@ -17,7 +17,7 @@ class Matching_Reducer(nn.Module):
         self.k = manager.k
         if manager.mode == "inspect":
             self.k = 10
-            
+
         self.his_size = manager.his_size
         self.embedding_dim = manager.embedding_dim
 
@@ -87,7 +87,7 @@ class Matching_Reducer(nn.Module):
         # mask the padded term
         scores = scores.masked_fill(pad_pos, -float('inf'))
 
-        score_k, score_kid = scores.topk(dim=-1, k=self.k)
+        score_k, score_kid = scores.topk(dim=-1, k=self.k, sorted=False)
 
         ps_terms = news_embedding_text.gather(dim=-2,index=score_kid.unsqueeze(-1).expand(*score_kid.size(), news_embedding_text.size(-1)))
         # [bs, hs, k]
