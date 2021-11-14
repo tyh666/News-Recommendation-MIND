@@ -1089,6 +1089,7 @@ class Manager():
             self.load(model, self.checkpoint)
 
             news_set = torch.load('data/recall/news.pt', map_location=device)
+            print(len(news_set))
             try:
                 news_reprs = torch.load("data/cache/tensors/{}/large/dev/news.pt".format(self.name), map_location=device)
             except:
@@ -1134,7 +1135,7 @@ class Manager():
                 from .utils import BM25_token, construct_inverted_index
                 with open("data/cache/MIND/news/bert/MINDlarge_dev/news.pkl", "rb") as f:
                     news = pickle.load(f)['encoded_news']
-                news_set = torch.load('data/recall/news.pt', map_location=device)
+                news_set = torch.load('data/recall/news.pt', map_location="cpu").numpy()
                 news_collection = news[news_set]
                 # initialize inverted index
                 bm25 = BM25_token(news_collection)
@@ -1158,27 +1159,23 @@ class Manager():
                     recalled_news_ids_and_scores = inverted_index[query]
 
                     news_score_all = torch.zeros(news_num + 1, device=model.device)
-                    recalled_news_ids = recalled_news_ids_and_scores[:, :, 0].long().unique()
-                    print(len(recalled_news_ids))
+                    recalled_news_ids = recalled_news_ids_and_scores[:, :, 0].long()
+                    recalled_news_scores = recalled_news_ids_and_scores[:, :, 1]
+                    for i,j in zip(recalled_news_ids, recalled_news_scores):
+                        news_score_all[i] += j
 
-                    # recalled_news_scores = recalled_news_ids_and_scores[:, :, 1]
-
-                    # for i,j in zip(recalled_news_ids, recalled_news_scores):
-                    #     news_score_all[i] += j
-
-                    # news_score_all[recalled_news_ids] += recalled_news_ids_and_scores[:, :, 1]
-
-                    # recalled_news_ids = news_score_all.argsort(descending=True)
+                    recalled_news_ids = news_score_all.argsort(descending=True)
                     # recalls += torch.sum(torch.from_numpy(cdd_id).to(device).unsqueeze(-1) == recalled_news_ids)
 
-                    recalls[0] += torch.sum(torch.from_numpy(cdd_id).to(device).unsqueeze(-1) == recalled_news_ids[-10:])
-                    recalls[1] += torch.sum(torch.from_numpy(cdd_id).to(device).unsqueeze(-1) == recalled_news_ids[-50:])
-                    recalls[2] += torch.sum(torch.from_numpy(cdd_id).to(device).unsqueeze(-1) == recalled_news_ids[-100:])
+                    recalls[0] += torch.sum(torch.from_numpy(cdd_id).to(device).unsqueeze(-1) == recalled_news_ids[:10])
+                    recalls[1] += torch.sum(torch.from_numpy(cdd_id).to(device).unsqueeze(-1) == recalled_news_ids[:50])
+                    recalls[2] += torch.sum(torch.from_numpy(cdd_id).to(device).unsqueeze(-1) == recalled_news_ids[:100])
 
                     count += len(cdd_id)
 
                 t3 = time.time()
                 # print("transfer time:{}, search time:{}".format(t2-t1, t3-t2))
+
 
         elif self.recall_type == "sd":
             logger.info("sparse recalling then dense ranking by extracted terms and user representation respectively...")
@@ -1193,8 +1190,8 @@ class Manager():
             except:
                 from .utils import BM25_token, construct_inverted_index
                 with open("data/cache/MIND/news/bert/MINDlarge_dev/news.pkl", "rb") as f:
-                    news = pickle.load(f)['encoded_news']
-                news_collection = news[news_set.cpu().numpy()]
+                    news_ids = pickle.load(f)['encoded_news']
+                news_collection = news_ids[news_set.cpu().numpy()]
                 # initialize inverted index
                 bm25 = BM25_token(news_collection)
                 inverted_index = construct_inverted_index(news_collection, bm25).to(device)
@@ -1202,6 +1199,7 @@ class Manager():
             self.load(model, self.checkpoint)
 
             count = 0
+            print(news.shape)
             recalls = torch.zeros(3, device=device)
             for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
                 t1 = time.time()
@@ -1441,7 +1439,7 @@ class Manager():
             "reformer": "reformer",
             "funnel": "bert",
             "synthesizer": "bert",
-            "distill": "distill",
+            "distill": "bert",
             "newsbert": "bert"
         }
         return bert_map[self.bert]
@@ -1588,7 +1586,7 @@ class Manager():
         h.close()
 
 
-    def construct_cddidx_for_recall(self):
+    def construct_cddidx_for_recall(self, imprs):
         """
         map original cdd id to the one that's limited to the faiss index
         """
@@ -1598,8 +1596,6 @@ class Manager():
         try:
             news_set = torch.load('data/recall/news.pt', map_location='cpu')
         except:
-            behaviors = pickle.load(open('data/cache/bert/MINDlarge_dev/1000/behaviors.pkl','rb'))
-            imprs = behaviors['imprs']
             news_set = set()
 
             for impr in imprs:

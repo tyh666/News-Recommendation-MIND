@@ -116,6 +116,7 @@ class MINDBaseDataset(Dataset):
                 # FIXME: gather all reducer functions
                 if not os.path.exists(self.news_cache_path):
                     self.news_file = file_directory + "news.tsv"
+                    self.keyword_file = file_directory + "keywords.tsv"
                     logger.info("encoding news of {}...".format(self.news_file))
                     os.makedirs(news_cache_directory, exist_ok=True)
 
@@ -219,12 +220,12 @@ class MINDBaseDataset(Dataset):
 
         # load pre-defined keywords
         try:
-            with open(self.file_directory + "keywords.tsv", "r", encoding="utf-8") as rd:
+            with open(self.keyword_file, "r", encoding="utf-8") as rd:
                 for idx in tqdm(rd, ncols=120, leave=True):
                     keyword = idx.strip("\n")
                     keywords.append(keyword)
             no_keyword = False
-        except:
+        except FileNotFoundError:
             no_keyword = True
             logger.warning("no pre-defined keywords found")
 
@@ -1151,12 +1152,14 @@ class MIND_recall(MINDBaseDataset):
 
     def __init__(self, manager, file_directory):
         super().__init__(manager, file_directory)
+
+        self.imprs = self.imprs[:10000]
         # get mapping from original cdd index to the one in faiss
         try:
             with open("data/recall/cddid2idx_recall.pkl", "rb") as f:
                 self.cdd2index = pickle.load(f)
         except:
-            manager.construct_cddidx_for_recall()
+            manager.construct_cddidx_for_recall(self.imprs)
             with open("data/recall/cddid2idx_recall.pkl", "rb") as f:
                 self.cdd2index = pickle.load(f)
 

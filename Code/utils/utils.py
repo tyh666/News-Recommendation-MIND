@@ -288,11 +288,13 @@ def construct_inverted_index(corpus, score_func):
                 token_set.add(token)
 
     inverted_array = np.zeros((30522, 100, 2))
+    padding = len(corpus)
+    
     # make sure that absent token doesn't recall news
-    inverted_array[:, :, 0] = 6997.
+    inverted_array[:, :, 0] = padding
 
     for k,v in inverted_index.items():
-        v = sorted(v, key=lambda x: x[1], reverse=True)[:100] + [[6997.,0.]] * (100 - len(v))
+        v = sorted(v, key=lambda x: x[1], reverse=True)[:100] + [[padding,0.]] * (100 - len(v))
         inverted_array[k] = np.asarray(v)
 
     inverted_array = torch.from_numpy(inverted_array)
