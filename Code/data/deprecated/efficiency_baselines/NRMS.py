@@ -11,7 +11,8 @@ class NRMS(TwoTowerBaseModel):
     def __init__(self, manager):
         super().__init__(manager)
 
-        self.embedding = BERT_Embedding(manager)
+        # only used for test
+        self.embedding = nn.Embedding(30522, 300)
         self.encoderN = MHA_Encoder(manager)
         self.encoderU = MHA_User_Encoder(manager)
 

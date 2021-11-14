@@ -59,9 +59,7 @@ python esm -m test -ck=150000
 
 ## TODO
 - [ ] case study
-- [x] graphsage with selection
 - [ ] speed up inverted index
-- [x] 128 dim one layer bert
 - [ ] notation
 - [ ] recall, D vs D; S vs S; SD vs SD
 

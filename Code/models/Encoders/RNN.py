@@ -73,7 +73,7 @@ class RNN_User_Encoder(nn.Module):
         return user_repr.transpose(0,1)
 
 
-class LSTUR(nn.Module):
+class LSTUR_User_Encoder(nn.Module):
     def __init__(self, manager):
         super().__init__()
         self.hidden_dim = manager.hidden_dim

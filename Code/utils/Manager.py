@@ -88,6 +88,7 @@ class Manager():
                                 help="learning rate of non-bert modules", type=float, default=1e-4)
             parser.add_argument("-blr", "--bert_lr", dest="bert_lr",
                                 help="learning rate of bert based modules", type=float, default=6e-6)
+            parser.add_argument("-vb", "--verbose", help="tailing name for tesrec", type=str, default="norm")
 
             parser.add_argument("-div", "--diversify", dest="diversify", help="whether to diversify selection with news representation", action="store_true", default=False)
             parser.add_argument("--descend_history", dest="descend_history", help="whether to order history by time in descending", action="store_true", default=False)

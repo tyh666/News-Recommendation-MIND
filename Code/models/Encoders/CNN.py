@@ -9,7 +9,7 @@ class CNN_Encoder(nn.Module):
         self.hidden_dim = manager.hidden_dim
 
         self.wordQueryProject = nn.Linear(self.hidden_dim, self.hidden_dim)
-        self.embedding_dim = manager.bert_dim
+        self.embedding_dim = manager.embedding_dim
         self.cnn = nn.Conv1d(
             in_channels=self.embedding_dim,
             out_channels=self.hidden_dim,
@@ -84,24 +84,3 @@ class CNN_User_Encoder(nn.Module):
         encoded_reprs = self.SeqCNN1D(news_reprs.transpose(-2,-1)).view(batch_size, -1)
         user_repr = self.userProject(encoded_reprs).unsqueeze(1)
         return user_repr
-
-
-if __name__ == '__main__':
-    from models.Encoders.CNN import CNN_Encoder
-    from data.managers.demo import manager
-
-    manager.npratio = 1
-    manager.batch_size = 2
-    manager.his_size = 2
-    manager.k = 3
-    manager.embedding = 'bert'
-    manager.bert = 'bert-base-uncased'
-    manager.signal_length = 512
-
-    manager.embedding_dim = 768
-    manager.hidden_dim = 768
-
-    a = torch.rand(2,2,512,768)
-    enc = CNN_Encoder(manager)
-    res = enc(a)
-    print(res[0].shape, res[1].shape)

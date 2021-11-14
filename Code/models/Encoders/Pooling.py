@@ -10,7 +10,7 @@ class Attention_Pooling(nn.Module):
         self.query_news = nn.Parameter(torch.randn(1, manager.hidden_dim))
         nn.init.xavier_normal_(self.query_news)
 
-    def forward(self, news_reprs, *args, **kargs):
+    def forward(self, news_reprs, his_mask=None, *args, **kargs):
         """
         encode user history into a representation vector
 
@@ -20,7 +20,9 @@ class Attention_Pooling(nn.Module):
         Returns:
             user_repr: user representation (coarse), [batch_size, 1, hidden_dim]
         """
-        user_repr = scaled_dp_attention(self.query_news, news_reprs, news_reprs)
+        if his_mask is not None:
+            his_mask = his_mask.to(news_reprs.device).transpose(-1,-2)
+        user_repr = scaled_dp_attention(self.query_news, news_reprs, news_reprs, attn_mask=his_mask)
         return user_repr
 
 
