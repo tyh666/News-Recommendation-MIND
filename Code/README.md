@@ -60,6 +60,7 @@ python esm -m test -ck=150000
 ## TODO
 - [ ] case study
 - [ ] whether to mention cascaded model in IR
+- [ ] plot
 
 ## Preprocess
 - [x] remove stop words

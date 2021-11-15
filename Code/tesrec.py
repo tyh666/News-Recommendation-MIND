@@ -22,7 +22,7 @@ def main(rank, manager):
         encoderN = CNN_Encoder(manager)
     elif manager.encoderN == 'bert':
         from models.Encoders.BERT import BERT_Onelayer_Encoder
-        manager.hidden_dim = 768
+        manager.hidden_dim = 384
         encoderN = BERT_Onelayer_Encoder(manager)
     elif manager.encoderN == 'mha':
         from models.Encoders.MHA import MHA_Encoder

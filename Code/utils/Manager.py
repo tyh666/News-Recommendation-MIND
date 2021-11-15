@@ -999,7 +999,7 @@ class Manager():
 
                 for his_id, term_index, user_id in zip(news_ids, term_indexes, user_ids):
                     reference_term_index = keyterm_matrix[his_id]
-                    if (reference_term_index != term_index).any() and reference_term_index.sum() > 0:
+                    if np.sum(reference_term_index != term_index) > 4 and reference_term_index.sum() > 0:
                         # strip [CLS]
                         his_news = news[his_id][1:]
                         prev_term = his_news[reference_term_index]
