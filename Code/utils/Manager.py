@@ -972,9 +972,9 @@ class Manager():
         with open(loader_inspect.dataset.news_cache_directory + "news.pkl", "rb") as f:
             news = pickle.load(f)["encoded_news"][:, :self.signal_length]
         with open(loader_inspect.dataset.news_cache_directory + "bm25.pkl", "rb") as f:
-            bm25_terms = pickle.load(f)["encoded_news"][:, :self.k + 1]
+            bm25_terms = pickle.load(f)["encoded_news"][:, :10]
         with open(loader_inspect.dataset.news_cache_directory + "entity.pkl", "rb") as f:
-            entities = pickle.load(f)["encoded_news"][:, :self.k + 1]
+            entities = pickle.load(f)["encoded_news"][:, :10]
 
         t = AutoTokenizer.from_pretrained(self.get_bert_for_load(), cache_dir=self.path + "bert_cache/")
 
@@ -1061,7 +1061,7 @@ class Manager():
 
                     ps_terms = terms[term_index]
 
-                    if ps_terms[0] == "[PAD]":
+                    if his_id == 0:
                         break
                     else:
                         print("[personalized terms]\n\t {}".format(" ".join(ps_terms)))

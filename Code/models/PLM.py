@@ -77,6 +77,20 @@ class PLM(TwoTowerBaseModel):
             )
             bert.encoder.layer = bert.encoder.layer[:4]
 
+        elif manager.bert == "longformer":
+            from transformers import LongformerModel, LongformerConfig
+            bert_config = LongformerConfig()
+            bert_config.attention_window = 32
+            bert_config.vocab_size = 50265
+            bert = LongformerModel(bert_config)
+
+        elif manager.bert == "bigbird":
+            from transformers import BigBirdModel, BigBirdConfig
+            bert_config = BigBirdConfig()
+            bert_config.block_size = 64
+            # bert_config.num_random_block = 0
+            bert = BigBirdModel(bert_config)
+
         else:
             bert = AutoModel.from_pretrained(
                 manager.get_bert_for_load(),
