@@ -1,57 +1,42 @@
-import torch.multiprocessing as mp
-from torch.nn.parallel import DistributedDataParallel as DDP
+# Two tower baseline
+import math
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
-from utils.Manager import Manager
-from models.NAML import NAML
+from models.Modules.Attention import scaled_dp_attention
+from .Encoders.CNN import CNN_Encoder
+from .Encoders.Pooling import Attention_Pooling
+from .TwoTowerBaseModel import TwoTowerBaseModel
 
-def main(rank, manager):
-    """ train/dev/test/tune the model (in distributed)
+class NAML(TwoTowerBaseModel):
+    def __init__(self, manager):
+        super().__init__(manager)
 
-    Args:
-        rank: current process id
-        world_size: total gpus
-    """
-    manager.setup(rank)
-    loaders = manager.prepare()
+        # only used for test
+        self.embedding = nn.Embedding(30522, 300)
+        self.encoderN = CNN_Encoder(manager)
+        self.encoderU = Attention_Pooling(manager)
 
-    model = NAML(manager).to(rank)
-
-    if manager.world_size > 1:
-        model = DDP(model, device_ids=[rank], output_device=rank, find_unused_parameters=False)
-
-    if manager.mode == 'dev':
-        manager.evaluate(model, loaders, load=True)
-
-    elif manager.mode == 'train':
-        manager.train(model, loaders)
-
-    elif manager.mode == 'test':
-        manager.test(model, loaders)
-
-    elif manager.mode == 'inspect':
-        manager.inspect(model, loaders)
-
-    elif manager.mode == 'encode':
-        manager.encode(model, loaders)
-
-    elif manager.mode == 'recall':
-        manager.recall(model, loaders)
+        self.query = nn.Parameter(torch.rand((1, manager.hidden_dim)))
+        manager.name = "lstur"
+        # used in fast evaluate
+        self.name = manager.name
 
 
-if __name__ == "__main__":
-    manager = Manager()
+    def encode_user(self, x):
+        his_news = x["his_encoded_index"].to(self.device)
+        his_news_embedding = self.embedding(his_news)
 
-    # default settings
-    manager.reducer = 'none'
-    manager.hidden_dim = 150
-    manager.embedding_dim = 300
+        his_title = his_news_embedding[:, :, :30]
+        his_abs = his_news_embedding[:, :, 30:]
 
-    if manager.world_size > 1:
-        mp.spawn(
-            main,
-            args=(manager,),
-            nprocs=manager.world_size,
-            join=True
-        )
-    else:
-        main(manager.device, manager)
+        _, his_title_repr = self.encoderN(his_title)
+        _, his_abs_repr = self.encoderN(his_abs)
+
+        user_repr_1 = self.encoderU(his_title_repr).unsqueeze(-2)
+        user_repr_2 = self.encoderU(his_abs_repr).unsqueeze(-2)
+
+        user_reprs = torch.cat([user_repr_1, user_repr_2], dim=-2)
+        user_repr = scaled_dp_attention(self.query, user_reprs, user_reprs)
+        return user_repr, None
