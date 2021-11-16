@@ -13,28 +13,6 @@ source ~/.bashrc
 sleep infinity
 ```
 
-git config --global user.name 'namespace-Pt'
-git config --global user.email 'namespace.pt@gmail.com'
-sudo apt-get install screen -y
-sudo apt-get install rsync -y
-conda init
-echo 'alias nn="conda activate /data/v-pezhang/nn"' >> ~/.bashrc
-echo 'alias pt="screen -r -d pt"' >> ~/.bashrc
-echo 'alias gf="conda activate /data/v-pezhang/gf"' >> ~/.bashrc
-source ~/.bashrc
-
-cd /data/v-pezhang/
-git clone https://github.com/namespace-Pt/GraphSage-NewsFormer.git
-conda create --prefix /data/v-pezhang/rc python=3.8 -y
-
-conda activate /data/v-pezhang/rc
-
-/data/v-pezhang/rc/bin/pip install transformers==3.4.0 scikit-learn pandas
-/data/v-pezhang/rc/bin/pip install torch==1.9.1+cu111 -f https://download.pytorch.org/whl/torch_stable.html
-
-conda activate /data/v-pezhang/vc
-
-
 ## Instruction
 ```bash
 cd /data/v-pezhang/Code/Document-Reduction/Code
@@ -57,167 +35,39 @@ python plm.py -m test -ck=589
 python esm -m test -ck=150000
 ```
 
+## Insights of GateFormer
+- the selected terms largely depends on the data, unlike bm25 that panalize widely appeared terms, our method learn to balance the weight of each term
+- the selected terms of one piece of news inclines to be the same among different users
+
 ## TODO
-- [ ] case study
-- [ ] whether to mention cascaded model in IR
-- [ ] plot
+- [ ] whether to mention cascaded model in IR, threshold gating in recommendation
+- [ ] why bigbird slow -> it repetitively computes linear complexity attention
 
 ## Preprocess
-- [x] remove stop words
-  - not necessary
-- [ ] **currently we append the topic and subtopic at the tail of document, maybe at the front may be better?**
-- [ ] check the average length of title+abstract+vert
-  - [ ] propotion > 200
-  - [ ] propotion > 300
-  - [ ] propotion > 400
-- [x] **bag of words input**
+- tokenize all news articles, bm25 reordered articles, entities and pre-defined keywords
+- generate cache
 
 ## Embedding
-- [x] Random embedding
-- [x] Bert embedding
-  - [x] add absolute position embedding
-  - [x] add cls embedding
-  - [x] add token type embedding
-    - add in the final ranking stage
+- bert word embedding
 
 ## News Encoder
-- [x] CNN encoder
-- [x] FIM encoder
-- [x] Bert encoder
-  - [x] [CLS] as news repr
-  - [x] attention over the last layer as news repr
-    - not necessary, the CLS is already the attentive pooling output
+- CNN
+- RNN
+- Multi Head Attention
+- One layer bert
+- Pooling
 
 ## User Encoder
-- [x] RNN encoder
-- [x] NRMS
-- [x] LSTUR
-- [ ] Adaptive and time-aware LSTUR, see [29]
+- LSTM
+- MHA
+- LSTUR
+- Pooling
 
 ## Document Reducer
-- [ ] matching based
-  - [x] only topk
-  - [x] topk with threshold
-  - [x] extract after masking
-  - [ ] diversified
-    - [x] use document vector as an extraction input
-    - [ ] design methods to extract non-duplicated terms within an article
-      - [x] attention mask
-      - [x] input bag-of-words
-  - [x] extract origin embedding, not after cnn
-  - [ ] dynamic allocation of top k
-    - [x] read paper of yi xiaoyuan
-  - [x] extract terms from every historical news when the history is updated
-  - [ ] extract terms incrementally
-  - [ ] long and short term extraction
-  - [x] **modify his_attn_mask to excludes repetitve terms from selection**
-
+- [ ] extract terms incrementally
+- [ ] long and short term extraction
 - [ ] Seq2Seq based
 - [ ] RL based
-
-## Term Fuser
-- [x] differentiable and efficient
-  - basically impossible to implement
-
-## Ranker
-- [ ] Bert
-  - [x] order embedding across the whole user history
-  - [x] cls pooling
-  - [x] one-pass bert
-  - [x] personalized terms do not interact with each other?
-  - [x] candidate news attention mask
-  - [x] insert CLS in embedding layer, not fusion
-    - fobiddable, otherwise the [CLS] would be extracted
-  - [x] position embedding in Ranker
-  - [x] one entry to define term_num
-  - [x] speed compare between onepass bert and overlook bert
-    - onepass is faster when training
-    - overlook is faster when evaluating
-  - [x] recent K
-
-## Workflow
-- [x] auto-regressive user modeling
-- [x] distributed training
-- [x] **config.filter_num -> config.hidden_dim**
-- [x] **config.signal_length**
-- [x] **config.embedding_dim**
-- [x] modify load_config
-- [x] cache dataset
-  - [x] refactor dataset: encode all tokens, and dispatch/truncate when getting items
-- [x] integrate manager and config
-- [x] distributed evaluate
-- [ ] customized docker image
-- [x] prepare modify dataset.vocab
-- [ ] specify .vscode-sever location to avoid repeatedly downloading extensions
-- [x] manager.encode
-- [x] distributed evaluate
-- [x] reverse history when learning user profile
-- [x] which part consumes time most?
-
-## Experiments
-- [ ] no order embedding, no scheduler, token level
-- [ ]
-
-## Questions
-- use bag-of-words to encode user history?
-  - currently yes
-- remove stop words like "-" in bow?
-- focus on which task?
-  - two tower with bow?
-  - two tower with sequence input?
-- can only select tokens, rather than words
-- padded news: [CLS] [SEP] [PAD] [PAD] ... or [PAD] [PAD] ...
-
-1. Performance on dev is far better than test (71.8 vs 69.76)
-2. Can I write manuscipt now? Why should we select personalized terms?
-3. Do I need to rerun fastformers?
-
-## Issue
-- the gradient after docReducer is sharp
-- if we concat title with abstract, then there must be many duplicated words, how about removing them when preprocessing?
-- learning rate of bert
-- use selected document for final bert is terrible
-- **history in MIND, the more recent is at the front or the tail**, we now use the head as the latest news by default
-  - its ascending by time
-- **one tower is not better than two tower, why?**
-
-## Ablation
-- Two Tower
-  - [ ] encode user representation from news/bag-of-words
-  - [69.93] signal_length=30
-
-  - user representation as [CLS] of historical news sequence
-    - [ ] signal_length=5
-    - [69.59] bm25 top 5
-    - selected top 5
-      - [ ] non-mask, non-deduplicate, non-BoW
-      - [ ] +mask
-      - [71.21] +deduplicate
-      - [70.9] +BoW
-
-  - user representation as aggregation of historical news
-    - [ ] bm25 top 30
-    - selected top 5
-      - [ ] non-mask, non-deduplicate, non-BoW
-      - [ ] +mask
-      - [ ] +deduplicate
-      - [ ] +BoW
-    - [ ] signal_length=80
-      - [ ] speedyfeed
-    - user encoder
-      - [ ] RNN
-      - [ ] CNN
-      - [ ] MHA
-
-- One Tower
-  - [ ] signal_length=5
-  - [ ] bm25 top 5
-  - [69.91] selected top 5
-
-## Need to update
-- [x] Encoders.MHA,
-- [ ] NPA
-- [ ] Pipeline
 
 ## Phylosiphy
 ### manager
@@ -250,12 +100,3 @@ map dataset for MIND
 - `bow`:
   - `encoded_news`: news token-count pairs, truncated to `signal_length`
   - `attn_mask`: attention mask of token-count pairs
-
-
-## Function
-### Embedding
-### Encoder
-- output no levels
-
-### DocReducer
-- no level
