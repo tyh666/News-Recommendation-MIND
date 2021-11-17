@@ -42,14 +42,10 @@ class Manager():
         """
         if config is None:
             parser = argparse.ArgumentParser()
-            parser.add_argument("-s", "--scale", dest="scale", help="data scale",
-                                choices=["demo", "small", "large", "whole"], default="large")
-            parser.add_argument("-m", "--mode", dest="mode", help="train or test",
-                                choices=["train", "dev", "test", "encode", "inspect", "analyse", "recall"], default="train")
-            parser.add_argument("-e", "--epochs", dest="epochs",
-                                help="epochs to train the model", type=int, default=10)
-            parser.add_argument("-d","--device", dest="device",
-                                help="device to run on, -1 means cpu", choices=[i for i in range(-1,10)], type=int, default=0)
+            parser.add_argument("-s", "--scale", dest="scale", help="data scale", choices=["demo", "small", "large", "whole"], default="large")
+            parser.add_argument("-m", "--mode", dest="mode", help="train or test", choices=["train", "dev", "test", "encode", "inspect", "analyse", "recall"], default="train")
+            parser.add_argument("-e", "--epochs", dest="epochs", help="epochs to train the model", type=int, default=10)
+            parser.add_argument("-d","--device", dest="device", help="device to run on, -1 means cpu", choices=[i for i in range(-1,10)], type=int, default=0)
             parser.add_argument("-p", "--path", dest="path", type=str, default="../../../Data/", help="root path for large-scale reusable data")
             parser.add_argument("-f", "--fast", dest="fast", help="enable fast evaluation/test", default=True)
             parser.add_argument("-n", "--news", dest="news", help="which news to inspect", type=str, default=None)
@@ -57,37 +53,24 @@ class Manager():
             parser.add_argument("-rt", "--recall_type", dest="recall_type", help="recall type", choices=["s","d","sd"], default=None)
             parser.add_argument("-it", "--inspect_type", dest="inspect_type", help="the dataset to inspect", choices=["dev","test","all"], default=None)
 
-            parser.add_argument("-bs", "--batch_size", dest="batch_size",
-                                help="batch size", type=int, default=32)
-            parser.add_argument("-bsn", "--batch_size_news", dest="batch_size_news",
-                                help="batch size of loader_news", type=int, default=500)
-            parser.add_argument("-hs", "--his_size", dest="his_size",
-                                help="history size", type=int, default=50)
-            parser.add_argument("-is", "--impr_size", dest="impr_size",
-                                help="impression size for evaluating", type=int, default=2000)
-            parser.add_argument("-sl", "--signal_length", dest="signal_length",
-                            help="length of the bert tokenized tokens", type=int, default=100)
+            parser.add_argument("-bs", "--batch_size", dest="batch_size", help="batch size in training", type=int, default=32)
+            parser.add_argument("-bsn", "--batch_size_news", dest="batch_size_news", help="batch size of loader_news", type=int, default=500)
+            parser.add_argument("-hs", "--his_size", dest="his_size",help="history size", type=int, default=50)
+            parser.add_argument("-is", "--impr_size", dest="impr_size", help="impression size for evaluating", type=int, default=2000)
+            parser.add_argument("-sl", "--signal_length", dest="signal_length", help="length of the bert tokenized tokens", type=int, default=30)
 
-            parser.add_argument("-hd", "--hidden_dim", dest="hidden_dim",
-                            help="number of hidden states", type=int, default=150)
-            parser.add_argument("-ed", "--embedding_dim", dest="embedding_dim",
-                            help="number of embedding states", type=int, default=768)
-            parser.add_argument("-bd", "--bert_dim", dest="bert_dim",
-                            help="number of hidden states in pre-trained language models", type=int, default=768)
-            parser.add_argument("-dp", "--dropout_p", dest="dropout_p",
-                            help="dropout probability", type=float, default=0.2)
+            parser.add_argument("-hd", "--hidden_dim", dest="hidden_dim", help="number of hidden states", type=int, default=150)
+            parser.add_argument("-ed", "--embedding_dim", dest="embedding_dim", help="number of embedding states", type=int, default=768)
+            parser.add_argument("-bd", "--bert_dim", dest="bert_dim", help="number of hidden states in pre-trained language models", type=int, default=768)
+            parser.add_argument("-dp", "--dropout_p", dest="dropout_p", help="dropout probability", type=float, default=0.2)
+            parser.add_argument("-hn", "--head_num", dest="head_num", help="number of multi-heads", type=int, default=12)
 
-            parser.add_argument("-st","--step", dest="step",
-                                help="save/evaluate the model every step", type=int, default=10000)
-            parser.add_argument("-ck","--checkpoint", dest="checkpoint",
-                                help="load the model from checkpoint before training/evaluating", type=int, default=0)
-            parser.add_argument("-hst","--hold_step", dest="hold_step",
-                                help="keep training until step > hold_step", type=int, default=50000)
+            parser.add_argument("-st","--step", dest="step", help="save/evaluate the model every step", type=int, default=10000)
+            parser.add_argument("-ck","--checkpoint", dest="checkpoint", help="load the model from checkpoint before training/evaluating", type=int, default=0)
+            parser.add_argument("-hst","--hold_step", dest="hold_step", help="keep training until step > hold_step", type=int, default=50000)
             parser.add_argument("-se", "--save_epoch", help="save after each epoch if declared", action="store_true", default=False)
-            parser.add_argument("-lr", dest="lr",
-                                help="learning rate of non-bert modules", type=float, default=1e-4)
-            parser.add_argument("-blr", "--bert_lr", dest="bert_lr",
-                                help="learning rate of bert based modules", type=float, default=6e-6)
+            parser.add_argument("-lr", dest="lr", help="learning rate of non-bert modules", type=float, default=1e-4)
+            parser.add_argument("-blr", "--bert_lr", dest="bert_lr", help="learning rate of bert based modules", type=float, default=6e-6)
             parser.add_argument("-vb", "--verbose", help="tailing name for tesrec", type=str, default="norm")
 
             parser.add_argument("-div", "--diversify", dest="diversify", help="whether to diversify selection with news representation", action="store_true", default=False)
@@ -113,7 +96,6 @@ class Manager():
 
             parser.add_argument("--npratio", dest="npratio", help="the number of unclicked news to sample when training", type=int, default=4)
             parser.add_argument("--metrics", dest="metrics", help="metrics for evaluating the model", type=str, default="")
-            parser.add_argument("-rr", "--recall_ratio", dest="recall_ratio", help="recall@K", type=int, default=10)
 
             parser.add_argument("-g", "--granularity", dest="granularity", help="the granularity for reduction", choices=["token", "avg", "first", "sum"], default="token")
             parser.add_argument("-emb", "--embedding", dest="embedding", help="choose embedding", choices=["bert","random","deberta"], default="bert")
@@ -121,25 +103,18 @@ class Manager():
             parser.add_argument("-encu", "--encoderU", dest="encoderU", help="choose user encoder", choices=["avg","attn","cnn","lstm","gru","lstur","mha"], default="lstm")
             parser.add_argument("-slc", "--selector", dest="selector", help="choose history selector", choices=["recent","sfi"], default="sfi")
             parser.add_argument("-red", "--reducer", dest="reducer", help="choose document reducer", choices=["bm25","matching","bow","entity","first","none","keyword"], default="matching")
-            parser.add_argument("-fus", "--fuser", dest="fuser", help="choose term fuser", choices=["union"], default="union")
             parser.add_argument("-pl", "--pooler", dest="pooler", help="choose bert pooler", choices=["avg","attn","cls"], default="attn")
             parser.add_argument("-rk", "--ranker", dest="ranker", help="choose ranker", choices=["onepass","original","cnn","knrm"], default="onepass")
             parser.add_argument("-agg", "--aggregator", dest="aggregator", help="choose history aggregator, only used in TESRec", choices=["avg","attn","cnn","rnn","lstur","mha"], default=None)
 
             parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=3)
-            parser.add_argument("-thr", "--threshold", dest="threshold", help="threshold to mask terms", default=-float("inf"), type=float)
             parser.add_argument("-b", "--bert", dest="bert", help="choose bert model", choices=["bert", "deberta", "unilm", "longformer", "bigbird", "reformer", "funnel", "synthesizer", "distill", "newsbert"], default="bert")
 
-            parser.add_argument("--tb", dest="tb", action="store_true", default=False)
             parser.add_argument("-sd","--seed", dest="seed", default=42, type=int)
-
-            parser.add_argument("-hn", "--head_num", dest="head_num", help="number of multi-heads", type=int, default=12)
             parser.add_argument("-ws", "--world_size", dest="world_size", help="total number of gpus", default=0, type=int)
-            parser.add_argument("-br", "--base_rank", dest="base_rank", help="modify port when launching multiple tasks on one node", default=0, type=int)
 
             args = parser.parse_args()
 
-            # args.script = re.search("(\w*).py", sys.argv[0]).group(1)
             args.cdd_size = args.npratio + 1
             args.metrics = "auc,mean_mrr,ndcg@5,ndcg@10".split(",") + [i for i in args.metrics.split(",") if i]
 

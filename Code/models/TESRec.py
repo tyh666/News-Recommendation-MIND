@@ -21,10 +21,15 @@ class TESRec(TwoTowerBaseModel):
         # only these reducers need selection encoding
         if manager.reducer in manager.get_need_encode_reducers():
             self.encoderN = encoderN
-            self.encoderU = encoderU
+            # self.encoderU = encoderU
         self.reducer = reducer
         self.aggregator = aggregator
         self.bert = BERT_Encoder(manager)
+        self.query = nn.Parameter(torch.randn(1, manager.bert_dim))
+
+        self.queryProject = nn.Linear(manager.bert_dim, encoderN.hidden_dim)
+
+        nn.init.xavier_uniform_(self.query)
 
         if manager.debias:
             self.userBias = nn.Parameter(torch.randn(1,self.bert.hidden_dim))
@@ -75,8 +80,8 @@ class TESRec(TwoTowerBaseModel):
         """
         encoder user
         """
+        batch_size = x['his_encoded_index'].size(0)
         if self.granularity != 'token':
-            batch_size = x['his_encoded_index'].size(0)
             his_dest = self.his_dest[:batch_size]
 
             his_subword_index = x['his_subword_index'].to(self.device)
@@ -114,7 +119,8 @@ class TESRec(TwoTowerBaseModel):
         # no need to calculate this if ps_terms are fixed in advance
 
         if self.reducer.name == 'matching':
-            user_repr_ext = self.encoderU(his_news_repr, his_mask=x['his_mask'], user_index=x['user_id'].to(self.device))
+            user_repr_ext = self.queryProject(self.query).expand(batch_size, 1, -1)
+            # user_repr_ext = self.encoderU(his_news_repr, his_mask=x['his_mask'], user_index=x['user_id'].to(self.device))
         else:
             user_repr_ext = None
 
