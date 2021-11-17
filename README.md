@@ -1,1 +1,1 @@
-# A Repo for Benchmarking News Recommendation on MIND
+# A Repo for Efficient News Recommendation on MIND
