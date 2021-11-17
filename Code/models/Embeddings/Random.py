@@ -6,15 +6,9 @@ class Random_Embedding(nn.Module):
     """
     def __init__(self, manager, vocab):
         super().__init__()
-        self.name = 'random'
+        self.embedding_dim = manager.bert_dim
 
-        self.embedding_dim = manager.embedding_dim
-
-        self.embedding = nn.Embedding(vocab)
-            sparse=manager.spadam,
-            freeze=False
-        )
-
+        self.embedding = nn.Embedding(manager.get_vocab_size(), manager.bert_dim)
         self.dropOut = nn.Dropout(manager.dropout_p)
 
     def forward(self, news_batch):

@@ -57,56 +57,27 @@ def convert_tokens_to_words_bert(tokens):
     return words
 
 
-def convert_tokens_to_words_wordpiece(tokens):
-    """
-    transform the tokens output by tokenizer to words (connecting subwords)
+def _group_lists(impr_indexes, *associated_lists):
+        """
+            group lists by impr_index
+        Args:
+            associated_lists: list of lists, where list[i] is associated with the impr_indexes[i]
 
-    Args:
-        tokens: list of tokens
+        Returns:
+            Iterable: grouped labels (if inputted) and preds
+        """
+        list_num = len(associated_lists)
+        dicts = [defaultdict(list) for i in range(list_num)]
 
-    Returns:
-        words: list of words, without [PAD]
-    """
-    words = []
-    for i,tok in enumerate(tokens):
-        # [CLS] and the beginning of a word
-        if i in [0,1]:
-            words.append(tok)
-        elif tok == "[PAD]":
-            break
-        elif tok.startswith("Ġ"):
-            words.append(tok[1:])
-        else:
-            words[-1] += tok
+        for x in zip(impr_indexes, *associated_lists):
+            key = x[0]
+            values = x[1:]
+            for i in range(list_num):
+                dicts[i][key].extend(values[i])
 
-    return words
+        grouped_lists = [list(d.values()) for d in dicts]
 
-
-def convert_tokens_to_words_wordpiece_punctuation(tokens):
-    """
-    transform the tokens output by tokenizer to words (connecting subwords)
-
-    Args:
-        tokens: list of tokens
-
-    Returns:
-        words: list of words, without [PAD]
-    """
-    words = []
-    for i,tok in enumerate(tokens):
-        # the beginning of a word
-        if i in [0,1]:
-            words.append(tok)
-        elif tok == "[PAD]":
-            break
-        elif tok.startswith("Ġ"):
-            words.append(tok[1:])
-        elif tok in r"[.&*()+=/\<>,!?;:~`@#$%^]":
-            words.append(tok)
-        else:
-            words[-1] += tok
-
-    return words
+        return grouped_lists
 
 
 def newsample(news, ratio):
@@ -125,58 +96,6 @@ def newsample(news, ratio):
         return news + [0] * (ratio - len(news)), len(news)
     else:
         return random.sample(news, ratio), ratio
-
-
-def tailor_data(tsvFile, num):
-    """ tailor num rows of tsvFile to create demo data file
-
-    Args:
-        tsvFile: str of data path
-    Returns:
-        create tailored data file
-    """
-    pattern = re.search("(.*)MIND(.*)_(.*)/(.*).tsv", tsvFile)
-
-    directory = pattern.group(1)
-    mode = pattern.group(3)
-    behavior_file = pattern.group(4)
-
-    if not os.path.exists(directory + "MINDdemo" + "_{}/".format(mode)):
-        os.makedirs(directory + "MINDdemo" + "_{}/".format(mode))
-
-    behavior_file = directory + "MINDdemo" + \
-        "_{}/".format(mode) + behavior_file + ".tsv"
-
-    f = open(behavior_file, "w", encoding="utf-8")
-    count = 0
-    with open(tsvFile, "r", encoding="utf-8") as g:
-        for line in g:
-            if count >= num:
-                f.close()
-                break
-            f.write(line)
-            count += 1
-    news_file = re.sub("behaviors", "news", tsvFile)
-    news_file_new = re.sub("behaviors", "news", behavior_file)
-
-    os.system("cp {} {}".format(news_file, news_file_new))
-    logger.info("tailored {} behaviors to {}, copied news file also".format(
-        num, behavior_file))
-    return
-
-
-def expand_data():
-    """ Beta
-    """
-    a = pd.read_table(r"D:\Data\MIND\MINDlarge_train\behaviors.tsv",
-                      index_col=0, names=["a", "b", "c", "d", "e"], quoting=3)
-    b = pd.read_table(r"D:\Data\MIND\MINDlarge_dev\behaviors.tsv",
-                      index_col=0, names=["a", "b", "c", "d", "e"], quoting=3)
-    c = pd.concat([a, b]).drop_duplicates().reset_index(inplace=True)
-    c = c[["b", "c", "d", "e"]]
-
-    c.to_csv(r"D:\Data\MIND\MINDlarge_whole\behaviors.tsv",
-             index=True, sep="\t", header=False)
 
 
 def construct_sequential_behaviors(path):
@@ -219,22 +138,66 @@ def construct_sequential_behaviors(path):
                 f.write("\t".join(behav) + "\n")
 
 
+def statistic_MIND(config):
+        """
+            analyse over MIND
+        """
+        mind_path = config.path + "MIND"
+
+        avg_title_length = 0
+        avg_abstract_length = 0
+        avg_his_length = 0
+        avg_imp_length = 0
+        cnt_his_lg_50 = 0
+        cnt_his_eq_0 = 0
+        cnt_imp_multi = 0
+
+        news_file = mind_path + \
+            "/MIND{}_{}/news.tsv".format(config.scale, config.mode)
+
+        behavior_file = mind_path + \
+            "/MIND{}_{}/behaviors.tsv".format(config.scale, config.mode)
+
+        with open(news_file, "r", encoding="utf-8") as rd:
+            count = 0
+            for idx in rd:
+                nid, vert, subvert, title, ab, url, _, _ = idx.strip(
+                    "\n").split("\t")
+                avg_title_length += len(title.split(" "))
+                avg_abstract_length += len(ab.split(" "))
+                count += 1
+        avg_title_length = avg_title_length/count
+        avg_abstract_length = avg_abstract_length/count
+
+        with open(behavior_file, "r", encoding="utf-8") as rd:
+            count = 0
+            for idx in rd:
+                uid, time, history, impr = idx.strip("\n").split("\t")[-4:]
+                his = history.split(" ")
+                imp = impr.split(" ")
+                if len(his) > 50:
+                    cnt_his_lg_50 += 1
+                if len(imp) > 50:
+                    cnt_imp_multi += 1
+                if not his[0]:
+                    cnt_his_eq_0 += 1
+                avg_his_length += len(his)
+                avg_imp_length += len(imp)
+                count += 1
+        avg_his_length = avg_his_length/count
+        avg_imp_length = avg_imp_length/count
+
+        print("avg_title_length:{}\n avg_abstract_length:{}\n avg_his_length:{}\n avg_impr_length:{}\n cnt_his_lg_50:{}\n cnt_his_eq_0:{}\n cnt_imp_multi:{}".format(
+            avg_title_length, avg_abstract_length, avg_his_length, avg_imp_length, cnt_his_lg_50, cnt_his_eq_0, cnt_imp_multi))
+
+
+
 def getId2idx(file):
     """
         get Id2idx dictionary from json file
     """
     g = open(file, "r", encoding="utf-8")
     dic = json.load(g)
-    g.close()
-    return dic
-
-
-def getVocab(file):
-    """
-        get Vocabulary from pkl file
-    """
-    g = open(file, "rb")
-    dic = pickle.load(g)
     g.close()
     return dic
 
@@ -250,25 +213,6 @@ def collate_recall(data):
         else:
             result[k] = v
     return dict(result)
-
-
-class Partition_Sampler():
-    def __init__(self, dataset, num_replicas, rank) -> None:
-        super().__init__()
-        len_per_worker, extra_len = divmod(len(dataset), num_replicas)
-        self.start = len_per_worker * rank
-        self.end = self.start + len_per_worker + extra_len * (rank + 1 == num_replicas)
-        # store the partition points
-        self.partition_points = list(range(0, len(dataset) + 1, len_per_worker))
-
-    def __iter__(self):
-        start = self.start
-        end = self.end
-
-        return iter(range(start, end, 1))
-
-    def __len__(self):
-        return self.end - self.start
 
 
 
@@ -289,7 +233,7 @@ def construct_inverted_index(corpus, score_func):
 
     inverted_array = np.zeros((30522, 100, 2))
     padding = len(corpus)
-    
+
     # make sure that absent token doesn't recall news
     inverted_array[:, :, 0] = padding
 
@@ -317,6 +261,26 @@ def construct_inverted_index(corpus, score_func):
 
     # inverted_index = np.asarray(inverted_index, dtype=object)
     # return inverted_index
+
+
+
+class Partition_Sampler():
+    def __init__(self, dataset, num_replicas, rank) -> None:
+        super().__init__()
+        len_per_worker, extra_len = divmod(len(dataset), num_replicas)
+        self.start = len_per_worker * rank
+        self.end = self.start + len_per_worker + extra_len * (rank + 1 == num_replicas)
+        # store the partition points
+        self.partition_points = list(range(0, len(dataset) + 1, len_per_worker))
+
+    def __iter__(self):
+        start = self.start
+        end = self.end
+
+        return iter(range(start, end, 1))
+
+    def __len__(self):
+        return self.end - self.start
 
 
 

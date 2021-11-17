@@ -7,26 +7,23 @@ class CNN_Encoder(nn.Module):
         super().__init__()
 
         self.hidden_dim = manager.hidden_dim
+        self.embedding_dim = manager.bert_dim
 
         self.wordQueryProject = nn.Linear(self.hidden_dim, self.hidden_dim)
-        self.embedding_dim = manager.embedding_dim
+        nn.init.xavier_normal_(self.wordQueryProject.weight)
         self.cnn = nn.Conv1d(
             in_channels=self.embedding_dim,
             out_channels=self.hidden_dim,
             kernel_size=3,
             padding=1
         )
-        # self.layerNorm = nn.LayerNorm(self.hidden_dim)
-
-        self.query_words = nn.Parameter(torch.randn(
-            (1, self.hidden_dim), requires_grad=True))
+        nn.init.xavier_normal_(self.cnn.weight)
+        # self.query_words = nn.Parameter(torch.randn(
+        #     (1, self.hidden_dim), requires_grad=True))
+        nn.init.xavier_normal_(self.query_words)
 
         self.Relu = nn.ReLU()
-        self.Tanh = nn.Tanh()
-
-        nn.init.xavier_normal_(self.wordQueryProject.weight)
-        nn.init.xavier_normal_(self.cnn.weight)
-        nn.init.xavier_normal_(self.query_words)
+        # self.Tanh = nn.Tanh()
 
 
     def forward(self, news_embedding, attn_mask=None):
@@ -43,44 +40,8 @@ class CNN_Encoder(nn.Module):
         cnn_input = news_embedding.view(-1, signal_length, self.embedding_dim).transpose(-2, -1)
         cnn_output = self.Relu(self.cnn(cnn_input)).transpose(-2, -1).view(*news_embedding.shape[:-1], self.hidden_dim)
 
-        if attn_mask is not None:
-            news_repr = scaled_dp_attention(self.query_words, self.Tanh(self.wordQueryProject(cnn_output)), cnn_output, attn_mask.unsqueeze(-2)).squeeze(dim=-2)
-        else:
-            news_repr = scaled_dp_attention(self.query_words, self.Tanh(self.wordQueryProject(cnn_output)), cnn_output).squeeze(dim=-2)
-        return cnn_output, news_repr
-
-
-class CNN_User_Encoder(nn.Module):
-    def __init__(self, manager):
-        super().__init__()
-        self.name = 'cnn-u'
-
-        self.hidden_dim = manager.hidden_dim
-        self.SeqCNN1D = nn.Sequential(
-            nn.Conv1d(self.hidden_dim, self.hidden_dim//2, 3, 1, 1),
-            nn.ReLU(),
-            nn.MaxPool1d(3,3),
-            nn.Conv1d(self.hidden_dim//2, self.hidden_dim//2//2, 3, 1, 1),
-            nn.ReLU(),
-            nn.MaxPool1d(3,3)
-        )
-        self.userProject = nn.Linear((self.hidden_dim // 2 // 2) * (manager.his_size // 3 // 3), self.hidden_dim)
-
-        nn.init.xavier_normal_(self.SeqCNN1D[0].weight)
-        nn.init.xavier_normal_(self.SeqCNN1D[3].weight)
-        nn.init.xavier_normal_(self.userProject.weight)
-
-    def forward(self, news_reprs):
-        """
-        encode user history into a representation vector by 1D CNN and Max Pooling
-
-        Args:
-            news_reprs: batch of news representations, [batch_size, *, hidden_dim]
-
-        Returns:
-            user_repr: user representation (coarse), [batch_size, 1, hidden_dim]
-        """
-        batch_size = news_reprs.size(0)
-        encoded_reprs = self.SeqCNN1D(news_reprs.transpose(-2,-1)).view(batch_size, -1)
-        user_repr = self.userProject(encoded_reprs).unsqueeze(1)
-        return user_repr
+        # if attn_mask is not None:
+        #     news_repr = scaled_dp_attention(self.query_words, self.Tanh(self.wordQueryProject(cnn_output)), cnn_output, attn_mask.unsqueeze(-2)).squeeze(dim=-2)
+        # else:
+        #     news_repr = scaled_dp_attention(self.query_words, self.Tanh(self.wordQueryProject(cnn_output)), cnn_output).squeeze(dim=-2)
+        return cnn_output, #news_repr

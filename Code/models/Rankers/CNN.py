@@ -49,11 +49,3 @@ class CNN_Ranker(nn.Module):
         reduced_tensor = self.SeqCNN2D(matching_tensor).view(batch_size, cdd_size, self.final_dim)
 
         return reduced_tensor
-
-if __name__ == '__main__':
-    import torch
-    a = torch.rand(2,2,10,2,5)
-    b = torch.rand(2,5,2,2,5)
-    drm = CNN_Interactor(10,10,2,5)
-    c = drm(a,b)
-    print(c, c.shape)

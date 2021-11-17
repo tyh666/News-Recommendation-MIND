@@ -6,7 +6,7 @@ class MHA_Encoder(nn.Module):
     def __init__(self, manager):
         super().__init__()
         self.hidden_dim = manager.hidden_dim
-        self.embedding_dim = manager.embedding_dim
+        self.embedding_dim = manager.bert_dim
         self.head_num = manager.head_num
 
         value_dim, x = divmod(self.hidden_dim, self.head_num)

@@ -9,7 +9,7 @@ import numpy as np
 import torch.distributed as dist
 from tqdm import tqdm
 from torch.utils.data import Dataset
-from utils.utils import newsample, getId2idx, tokenize, getVocab
+from utils.utils import newsample, getId2idx
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,6 @@ class MINDBaseDataset(Dataset):
         self.descend_history = manager.descend_history
 
         self.reducer = manager.reducer
-        self.granularity = manager.granularity
 
         pat = re.search('/(MIND(\w*?)_(.*))/', file_directory)
         self.file_name = pat.group(1)
@@ -138,12 +137,6 @@ class MINDBaseDataset(Dataset):
                 news = pickle.load(f)
                 self.encoded_news = news["encoded_news"][:, :self.signal_length]
                 self.attn_mask = news["attn_mask"][:, :self.signal_length]
-                if self.granularity in ["avg","sum"]:
-                    self.subwords = news["subwords_all"][:, :self.signal_length]
-                elif self.granularity == "first":
-                    self.subwords = news["subwords_first"][:, :self.signal_length]
-                else:
-                    self.subwords = None
 
             if self.reducer in ["bm25", "entity", "first", "keyword"]:
                 # prune encoded news index
@@ -157,12 +150,6 @@ class MINDBaseDataset(Dataset):
                     news = pickle.load(f)
                     self.encoded_news_original = news["encoded_news"][:, :self.signal_length]
                     self.attn_mask_original = news["attn_mask"][:, :self.signal_length]
-                    if self.granularity in ["avg","sum"]:
-                        self.subwords_original = news["subwords_all"][:, :self.signal_length]
-                    elif self.granularity == "first":
-                        self.subwords_original = news["subwords_first"][:, :self.signal_length]
-                    else:
-                        self.subwords_original = None
 
             # refine
             if manager.reducer == "matching":
@@ -237,300 +224,42 @@ class MINDBaseDataset(Dataset):
         bm25 = BM25()
         articles_bm25 = bm25(articles)
 
-        def parse_texts_bert(tokenizer, texts, news_path, max_length):
+        def parse_texts(tokenizer, texts, news_path, max_length):
             """
             convert texts to tokens indices and get subword indices
             """
             text_toks = []
             attention_masks = []
-            subwords_all = []
-            subwords_first = []
             for i, text in enumerate(tqdm(texts, ncols=120, leave=True)):
                 token_ouput = tokenizer(text, padding='max_length', truncation=True, max_length=max_length)
                 token_ids = token_ouput['input_ids']
                 attn_mask = token_ouput['attention_mask']
-                tokens = tokenizer.convert_ids_to_tokens(token_ids)
-
-                # maintain subword entry
-                subword_all = []
-                # mask subword entry
-                subword_first = []
-
-                i = -1
-                j = -1
-                for token in tokens:
-                    if token == '[PAD]':
-                        subword_all.append([0,0])
-                        subword_first.append([0,0])
-
-                    elif token.startswith("##"):
-                        j += 1
-                        subword_all.append([i,j])
-                        subword_first.append([0,0])
-
-                    else:
-                        i += 1
-                        j += 1
-                        subword_all.append([i,j])
-                        subword_first.append([i,j])
 
                 text_toks.append(token_ids)
                 attention_masks.append(attn_mask)
-                subwords_all.append(subword_all)
-                subwords_first.append(subword_first)
 
             # encode news
             encoded_news = np.asarray(text_toks)
             attn_mask = np.asarray(attention_masks)
 
-            subwords_all = np.asarray(subwords_all)
-            subwords_first = np.asarray(subwords_first)
-
             with open(news_path, "wb") as f:
                 pickle.dump(
                     {
                         "encoded_news": encoded_news,
-                        "subwords_first": subwords_first,
-                        "subwords_all": subwords_all,
                         "attn_mask": attn_mask
                     },
                     f
                 )
 
-        def parse_texts_wordpiece(tokenizer, texts, news_path, max_length):
-            """
-            convert texts to tokens indices and get subword indices
-            """
-            text_toks = []
-            attention_masks = []
-            subwords_all = []
-            subwords_first = []
-            for i, text in enumerate(texts):
-                token_ouput = tokenizer(text, padding='max_length', truncation=True, max_length=max_length)
-                token_ids = token_ouput['input_ids']
-                attn_mask = token_ouput['attention_mask']
-
-                tokens = tokenizer.convert_ids_to_tokens(token_ids)
-
-                # maintain subword entry
-                subword_all = []
-                # mask subword entry
-                subword_first = []
-
-                i = -1
-                j = -1
-                for index,token in enumerate(tokens):
-                    if token == '[PAD]':
-                        subword_all.append([0,0])
-                        subword_first.append([0,0])
-
-                    # not subword
-                    elif index in [0,1] or token.startswith("Ġ") or token in r"[.&*()+=/\<>,!?;:~`@#$%^]":
-                        i += 1
-                        j += 1
-                        subword_all.append([i,j])
-                        subword_first.append([i,j])
-
-                    # subword
-                    else:
-                        j += 1
-                        subword_all.append([i,j])
-                        subword_first.append([0,0])
-
-                text_toks.append(token_ids)
-                attention_masks.append(attn_mask)
-                subwords_all.append(subword_all)
-                subwords_first.append(subword_first)
-
-            # encode news
-            encoded_news = np.asarray(text_toks)
-            attn_mask = np.asarray(attention_masks)
-
-            subwords_all = np.asarray(subwords_all)
-            subwords_first = np.asarray(subwords_first)
-
-            with open(news_path, "wb") as f:
-                pickle.dump(
-                    {
-                        "encoded_news": encoded_news,
-                        "subwords_first": subwords_first,
-                        "subwords_all": subwords_all,
-                        "attn_mask": attn_mask
-                    },
-                    f
-                )
-
-        def parse_texts_sentencepiece(tokenizer, texts, news_path, max_length):
-            """
-            convert texts to tokens indices and get subword indices
-            """
-            text_toks = []
-            attention_masks = []
-            subwords_all = []
-            subwords_first = []
-            for i, text in enumerate(texts):
-                token_ouput = tokenizer(text, padding='max_length', truncation=True, max_length=max_length)
-                token_ids = token_ouput['input_ids']
-                attn_mask = token_ouput['attention_mask']
-
-                tokens = tokenizer.convert_ids_to_tokens(token_ids)
-
-                # maintain subword entry
-                subword_all = []
-                # mask subword entry
-                subword_first = []
-
-                i = -1
-                j = -1
-                for index,token in enumerate(tokens):
-                    if token == '[PAD]':
-                        subword_all.append([0,0])
-                        subword_first.append([0,0])
-
-                    # not subword
-                    # index==0: [CLS], index==1: the first word
-                    elif index in [0,1] or token.startswith("▁") or token in r"[.&*()+=/\<>,!?;:~`@#$%^]":
-                        i += 1
-                        j += 1
-                        subword_all.append([i,j])
-                        subword_first.append([i,j])
-
-                    # subword
-                    else:
-                        j += 1
-                        subword_all.append([i,j])
-                        subword_first.append([0,0])
-
-                text_toks.append(token_ids)
-                attention_masks.append(attn_mask)
-                subwords_all.append(subword_all)
-                subwords_first.append(subword_first)
-
-            # encode news
-            encoded_news = np.asarray(text_toks)
-            attn_mask = np.asarray(attention_masks)
-
-            subwords_all = np.asarray(subwords_all)
-            subwords_first = np.asarray(subwords_first)
-
-            with open(news_path, "wb") as f:
-                pickle.dump(
-                    {
-                        "encoded_news": encoded_news,
-                        "subwords_first": subwords_first,
-                        "subwords_all": subwords_all,
-                        "attn_mask": attn_mask
-                    },
-                    f
-                )
-
-        def parse_texts_xformer(tokenizer, texts, news_path, max_length):
-            """
-            convert texts to tokens indices and get subword indices
-            """
-            # manually set padding token
-            # tokenizer.pad_token = tokenizer.eos_token
-
-            text_toks = []
-            attention_masks = []
-            # subwords_all = []
-            # subwords_first = []
-            for i, text in enumerate(tqdm(texts, ncols=120, leave=True)):
-                token_ouput = tokenizer(text, padding='max_length', truncation=True, max_length=max_length - 1)
-                token_ouput["input_ids"].insert(0, 2)
-                token_ouput["attention_mask"].insert(0, 1)
-
-                token_ids = token_ouput['input_ids']
-                attn_mask = token_ouput['attention_mask']
-                # tokens = tokenizer.convert_ids_to_tokens(token_ids)
-
-                # maintain subword entry
-                # subword_all = []
-                # mask subword entry
-                # subword_first = []
-                # i = -1
-                # j = -1
-                # for token in tokens:
-                #     if token == '[PAD]':
-                #         subword_all.append([0,0])
-                #         subword_first.append([0,0])
-
-                #     elif token.startswith("##"):
-                #         j += 1
-                #         subword_all.append([i,j])
-                #         subword_first.append([0,0])
-
-                #     else:
-                #         i += 1
-                #         j += 1
-                #         subword_all.append([i,j])
-                #         subword_first.append([i,j])
-
-                text_toks.append(token_ids)
-                attention_masks.append(attn_mask)
-                # subwords_all.append(subword_all)
-                # subwords_first.append(subword_first)
-
-            # encode news
-            encoded_news = np.asarray(text_toks)
-            attn_mask = np.asarray(attention_masks)
-
-            # subwords_all = np.asarray(subwords_all)
-            # subwords_first = np.asarray(subwords_first)
-
-            with open(news_path, "wb") as f:
-                pickle.dump(
-                    {
-                        "encoded_news": encoded_news,
-                        "attn_mask": attn_mask,
-                        # "subwords_first": subwords_first,
-                        # "subwords_all": subwords_all,
-                    },
-                    f
-                )
-
-        if self.bert in ['bert', 'unilm']:
-            logger.info("tokenizing news...")
-            parse_texts_bert(self.tokenizer, articles, self.news_cache_directory + "news.pkl", self.max_token_length)
-            logger.info("tokenizing bm25 ordered news...")
-            parse_texts_bert(self.tokenizer, articles_bm25, self.news_cache_directory + "bm25.pkl", self.max_reduction_length)
-            logger.info("tokenizing entities...")
-            parse_texts_bert(self.tokenizer, entities, self.news_cache_directory + "entity.pkl", self.max_reduction_length)
-            if not no_keyword:
-                logger.info("tokenizing keywords...")
-                parse_texts_bert(self.tokenizer, keywords, self.news_cache_directory + "keyword.pkl", self.max_reduction_length)
-
-        elif self.bert in ['deberta']:
-            logger.info("tokenizing news...")
-            parse_texts_wordpiece(self.tokenizer, articles, self.news_cache_directory + "news.pkl", self.max_token_length)
-            logger.info("tokenizing bm25 ordered news...")
-            parse_texts_wordpiece(self.tokenizer, articles_bm25, self.news_cache_directory + "bm25.pkl", self.max_reduction_length)
-            logger.info("tokenizing entities...")
-            parse_texts_wordpiece(self.tokenizer, entities, self.news_cache_directory + "entity.pkl", self.max_reduction_length)
-            if not no_keyword:
-                logger.info("tokenizing keywords...")
-                parse_texts_wordpiece(self.tokenizer, keywords, self.news_cache_directory + "keyword.pkl", self.max_reduction_length)
-
-        # elif self.bert in ['']:
-        #     logger.info("tokenizing news...")
-        #     parse_texts_sentencepiece(self.tokenizer, articles, self.news_cache_directory + "news.pkl", self.max_token_length)
-        #     logger.info("tokenizing bm25 ordered news...")
-        #     parse_texts_sentencepiece(self.tokenizer, articles_bm25, self.news_cache_directory + "bm25.pkl", self.max_reduction_length)
-        #     logger.info("tokenizing entities...")
-        #     parse_texts_sentencepiece(self.tokenizer, entities, self.news_cache_directory + "entity.pkl", self.max_reduction_length)
-        #     if not no_keyword:
-        #         logger.info("tokenizing keywords...")
-        #         parse_texts_sentencepiece(self.tokenizer, keywords, self.news_cache_directory + "keyword.pkl", self.max_reduction_length)
-
-        # avoid processing subwords
-        # elif self.bert in ['reformer', "tiny", "longformer", "synthesizer", "funnel", "bigbird"]:
-        else:
-            logger.info("tokenizing news...")
-            parse_texts_xformer(self.tokenizer, articles, self.news_cache_directory + "news.pkl", self.max_token_length)
-            logger.info("tokenizing bm25 ordered news...")
-            parse_texts_xformer(self.tokenizer, articles_bm25, self.news_cache_directory + "bm25.pkl", self.max_reduction_length)
-            logger.info("tokenizing entities...")
-            parse_texts_xformer(self.tokenizer, entities, self.news_cache_directory + "entity.pkl", self.max_reduction_length)
+        logger.info("tokenizing news...")
+        parse_texts(self.tokenizer, articles, self.news_cache_directory + "news.pkl", self.max_token_length)
+        logger.info("tokenizing bm25 ordered news...")
+        parse_texts(self.tokenizer, articles_bm25, self.news_cache_directory + "bm25.pkl", self.max_reduction_length)
+        logger.info("tokenizing entities...")
+        parse_texts(self.tokenizer, entities, self.news_cache_directory + "entity.pkl", self.max_reduction_length)
+        if not no_keyword:
+            logger.info("tokenizing keywords...")
+            parse_texts(self.tokenizer, keywords, self.news_cache_directory + "keyword.pkl", self.max_reduction_length)
 
 
     def init_behaviors(self):
@@ -772,19 +501,6 @@ class MIND(MINDBaseDataset):
                 "label": label
             }
 
-            # word-level
-            if self.subwords is not None:
-                if self.reducer in ["bm25","entity","first"]:
-                    # subwords of history news don't accord with candidate news
-                    cdd_subword_index = self.subwords_original[cdd_ids]
-                    his_subword_index = self.subwords[his_ids]
-                else:
-                    # matching
-                    cdd_subword_index = self.subwords[cdd_ids]
-                    his_subword_index = self.subwords[his_ids]
-                back_dic["cdd_subword_index"] = cdd_subword_index
-                back_dic["his_subword_index"] = his_subword_index
-
             if self.reducer == "matching" and hasattr(self, "attn_mask_dedup"):
                 his_attn_mask_dedup = self.attn_mask_dedup[his_ids]
                 back_dic["his_refined_mask"] = his_attn_mask_dedup
@@ -839,16 +555,6 @@ class MIND(MINDBaseDataset):
                 "label": np.asarray(label)
             }
 
-            if self.subwords is not None:
-                if self.reducer in ["bm25","entity","first"]:
-                    cdd_subword_index = self.subwords_original[cdd_ids]
-                    his_subword_index = self.subwords[his_ids]
-                else:
-                    cdd_subword_index = self.subwords[cdd_ids]
-                    his_subword_index = self.subwords[his_ids]
-                back_dic["cdd_subword_index"] = cdd_subword_index
-                back_dic["his_subword_index"] = his_subword_index
-
             if self.reducer == "matching":
                 his_attn_mask_dedup = self.attn_mask_dedup[his_ids]
                 back_dic["his_refined_mask"] = his_attn_mask_dedup
@@ -898,16 +604,6 @@ class MIND(MINDBaseDataset):
                 "his_attn_mask": his_attn_mask,
                 "his_mask": his_mask,
             }
-
-            if self.subwords is not None:
-                if self.reducer in ["bm25","entity","first"]:
-                    cdd_subword_index = self.subwords_original[cdd_ids]
-                    his_subword_index = self.subwords[his_ids]
-                else:
-                    cdd_subword_index = self.subwords[cdd_ids]
-                    his_subword_index = self.subwords[his_ids]
-                back_dic["cdd_subword_index"] = cdd_subword_index
-                back_dic["his_subword_index"] = his_subword_index
 
             if self.reducer == "matching":
                 his_attn_mask_dedup = self.attn_mask_dedup[his_ids]
@@ -986,10 +682,6 @@ class MIND_news(MINDBaseDataset):
             "cdd_encoded_index": cdd_encoded_index,
             "cdd_attn_mask": cdd_attn_mask,
         }
-
-        if self.subwords is not None:
-            cdd_subword_index = self.subwords[[idx]]
-            back_dic["cdd_subword_index"] = cdd_subword_index
 
         return back_dic
 
@@ -1124,13 +816,6 @@ class MIND_history(MINDBaseDataset):
             "his_attn_mask": his_attn_mask,
             "his_mask": his_mask,
         }
-
-        if self.subwords is not None:
-            if self.reducer in ["bm25","entity","first"]:
-                his_subword_index = self.subwords[his_ids]
-            else:
-                his_subword_index = self.subwords[his_ids]
-            back_dic["his_subword_index"] = his_subword_index
 
         if self.reducer == "matching":
             his_attn_mask_dedup = self.attn_mask_dedup[his_ids]
@@ -1272,19 +957,6 @@ class MIND_recall(MINDBaseDataset):
             "his_attn_mask": his_attn_mask,
             "his_mask": his_mask,
         }
-
-        # word-level
-        if self.subwords is not None:
-            if self.reducer in ["bm25","entity","first"]:
-                # subwords of history news don't accord with candidate news
-                cdd_subword_index = self.subwords_original[cdd_ids]
-                his_subword_index = self.subwords[his_ids]
-            else:
-                # matching
-                cdd_subword_index = self.subwords[cdd_ids]
-                his_subword_index = self.subwords[his_ids]
-            back_dic["cdd_subword_index"] = cdd_subword_index
-            back_dic["his_subword_index"] = his_subword_index
 
         if self.reducer == "matching" and hasattr(self, "attn_mask_dedup"):
             his_attn_mask_dedup = self.attn_mask_dedup[his_ids]

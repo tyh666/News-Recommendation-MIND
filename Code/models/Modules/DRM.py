@@ -37,10 +37,6 @@ class Matching_Reducer(nn.Module):
             self.newsUserAlign = nn.Linear(manager.hidden_dim * 2, manager.hidden_dim)
             nn.init.xavier_normal_(self.newsUserAlign.weight)
 
-        if manager.threshold != -float('inf'):
-            threshold = torch.tensor([manager.threshold])
-            self.register_buffer('threshold', threshold)
-
         if self.sep_his:
             manager.term_num += (self.his_size - 1)
             self.sep_embedding = nn.Parameter(torch.randn(1, 1, self.embedding_dim))

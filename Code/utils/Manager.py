@@ -27,6 +27,7 @@ from sklearn.metrics import roc_auc_score, log_loss, mean_squared_error, accurac
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 
+from .utils import _group_lists
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +90,7 @@ class Manager():
             parser.add_argument("--shuffle_pos", dest="shuffle_pos", help="whether to shuffle the candidate news and its negtive samples", action="store_true", default=False)
             parser.add_argument("--pin_memory", dest="pin_memory", help="whether to pin memory to speed up tensor transfer", action="store_true", default=False)
             parser.add_argument("--anomaly", dest="anomaly", help="whether to detect abnormal parameters", action="store_true", default=False)
-            parser.add_argument("--scheduler", dest="scheduler", help="choose schedule scheme for optimizer", choices=["linear","none"], default="linear")
+            parser.add_argument("--scheduler", dest="scheduler", help="choose schedule scheme for optimizer", choices=["linear","none"], default="none")
             parser.add_argument("--warmup", dest="warmup", help="warmup steps of scheduler", type=int, default=10000)
             parser.add_argument("--interval", dest="interval", help="the step interval to update processing bar", default=10, type=int)
             parser.add_argument("--no_email", dest="no_email", help="whether to email the result", action='store_true', default=False)
@@ -170,18 +171,14 @@ class Manager():
         """
         if self.world_size > 1:
             os.environ["MASTER_ADDR"] = "localhost"
-            os.environ["MASTER_PORT"] = str(12355 + self.base_rank)
+            os.environ["MASTER_PORT"] = "12355"
             # prevent warning of transformers
             os.environ["TOKENIZERS_PARALLELISM"] = "True"
-
             os.environ["TORCH_DISTRIBUTED_DEBUG"] = "DETAIL"
 
             # initialize the process group
             # set timeout to inf to prevent timeout error
             dist.init_process_group("nccl", rank=rank, world_size=self.world_size, timeout=timedelta(0, 1000000))
-
-            # if self.fast:
-            #     os.environ["NCCL_ASYNC_ERROR_HANDLING"] = '0'
 
             # manager.rank will be invoked in creating DistributedSampler
             self.rank = rank
@@ -466,29 +463,6 @@ class Manager():
         return optimizer, scheduler
 
 
-    def _group_lists(self, impr_indexes, *associated_lists):
-        """
-            group lists by impr_index
-        Args:
-            associated_lists: list of lists, where list[i] is associated with the impr_indexes[i]
-
-        Returns:
-            Iterable: grouped labels (if inputted) and preds
-        """
-        list_num = len(associated_lists)
-        dicts = [defaultdict(list) for i in range(list_num)]
-
-        for x in zip(impr_indexes, *associated_lists):
-            key = x[0]
-            values = x[1:]
-            for i in range(list_num):
-                dicts[i][key].extend(values[i])
-
-        grouped_lists = [list(d.values()) for d in dicts]
-
-        return grouped_lists
-
-
     @torch.no_grad()
     def _eval(self, model, loader_dev):
         """ making prediction and gather results into groups according to impression_id
@@ -528,10 +502,10 @@ class Manager():
                     labels.extend(output[1])
                     preds.extend(output[2])
 
-                labels, preds = self._group_lists(impr_indexes, labels, preds)
+                labels, preds = _group_lists(impr_indexes, labels, preds)
 
         else:
-            labels, preds = self._group_lists(impr_indexes, labels, preds)
+            labels, preds = _group_lists(impr_indexes, labels, preds)
 
 
         return labels, preds
@@ -600,10 +574,10 @@ class Manager():
                     labels.extend(output[1])
                     preds.extend(output[2])
 
-                labels, preds = self._group_lists(impr_indexes, labels, preds)
+                labels, preds = _group_lists(impr_indexes, labels, preds)
 
         else:
-            labels, preds = self._group_lists(impr_indexes, labels, preds)
+            labels, preds = _group_lists(impr_indexes, labels, preds)
 
         return labels, preds
 
@@ -809,9 +783,9 @@ class Manager():
                     impr_indexes.extend(output[0])
                     preds.extend(output[1])
 
-                preds = self._group_lists(impr_indexes, preds)[0]
+                preds = _group_lists(impr_indexes, preds)[0]
         else:
-            preds = self._group_lists(impr_indexes, preds)[0]
+            preds = _group_lists(impr_indexes, preds)[0]
 
         return preds
 
@@ -872,9 +846,9 @@ class Manager():
                     impr_indexes.extend(output[0])
                     preds.extend(output[1])
 
-                preds = self._group_lists(impr_indexes, preds)[0]
+                preds = _group_lists(impr_indexes, preds)[0]
         else:
-            preds = self._group_lists(impr_indexes, preds)[0]
+            preds = _group_lists(impr_indexes, preds)[0]
 
         return preds
 
@@ -1068,24 +1042,6 @@ class Manager():
 
         end_time = time.time()
         logger.info("total encoding time: {}".format(end_time - start_time))
-
-        # user_reprs = torch.cat(user_reprs, dim=0)
-        # cache_directory = "data/cache/{}/{}/{}/".format(self.name, self.scale, self.encode_mode)
-        # os.makedirs(cache_directory, exist_ok=True)
-        # torch.save(user_reprs, cache_directory + "user.pt")
-
-        # return user_reprs
-
-        # if report_time:
-        #     try:
-        #         subject = "[Performance Report] {}".format(self.name)
-        #         email_server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
-        #         email_server.login(email, password)
-        #         message = "Subject: {}\n\nencoding time: {}".format(subject, str(end_time - start_time))
-        #         email_server.sendmail(email, email, message)
-        #         email_server.close()
-        #     except:
-        #         logger.info("error in connecting SMTP")
 
 
     @torch.no_grad()
@@ -1338,29 +1294,6 @@ class Manager():
         # unique, count = torch.cat(pos, dim=-1).unique(return_counts=True)
         # result = dict(zip(unique.tolist(), count.tolist()))
         # json.dump(result, "data/cache/kid_pos.json")
-
-
-    def convert_tokens_to_words(self, tokens, punctuation=False):
-        """
-        wrapping bert/deberta
-        """
-        if self.embedding in ['bert','random']:
-            from utils.utils import convert_tokens_to_words_bert
-            return convert_tokens_to_words_bert(tokens)
-        elif self.embedding == 'deberta':
-            if punctuation:
-                from utils.utils import convert_tokens_to_words_wordpiece_punctuation
-                return convert_tokens_to_words_wordpiece_punctuation(tokens)
-            else:
-                from utils.utils import convert_tokens_to_words_wordpiece
-                return convert_tokens_to_words_wordpiece(tokens)
-
-
-    def get_need_encode_reducers(self):
-        """
-        get reducers that need selection encoder
-        """
-        return ['matching', 'bow']
 
 
     def get_user_num(self):
@@ -1715,59 +1648,6 @@ class Manager():
             with open(behav_path,"w",encoding="utf-8") as f:
                 for record in behavs:
                     f.write('\t'.join(record) + '\n')
-
-
-    def statistic_MIND(config):
-        """
-            analyse over MIND
-        """
-        mind_path = config.path + "MIND"
-
-        avg_title_length = 0
-        avg_abstract_length = 0
-        avg_his_length = 0
-        avg_imp_length = 0
-        cnt_his_lg_50 = 0
-        cnt_his_eq_0 = 0
-        cnt_imp_multi = 0
-
-        news_file = mind_path + \
-            "/MIND{}_{}/news.tsv".format(config.scale, config.mode)
-
-        behavior_file = mind_path + \
-            "/MIND{}_{}/behaviors.tsv".format(config.scale, config.mode)
-
-        with open(news_file, "r", encoding="utf-8") as rd:
-            count = 0
-            for idx in rd:
-                nid, vert, subvert, title, ab, url, _, _ = idx.strip(
-                    "\n").split("\t")
-                avg_title_length += len(title.split(" "))
-                avg_abstract_length += len(ab.split(" "))
-                count += 1
-        avg_title_length = avg_title_length/count
-        avg_abstract_length = avg_abstract_length/count
-
-        with open(behavior_file, "r", encoding="utf-8") as rd:
-            count = 0
-            for idx in rd:
-                uid, time, history, impr = idx.strip("\n").split("\t")[-4:]
-                his = history.split(" ")
-                imp = impr.split(" ")
-                if len(his) > 50:
-                    cnt_his_lg_50 += 1
-                if len(imp) > 50:
-                    cnt_imp_multi += 1
-                if not his[0]:
-                    cnt_his_eq_0 += 1
-                avg_his_length += len(his)
-                avg_imp_length += len(imp)
-                count += 1
-        avg_his_length = avg_his_length/count
-        avg_imp_length = avg_imp_length/count
-
-        print("avg_title_length:{}\n avg_abstract_length:{}\n avg_his_length:{}\n avg_impr_length:{}\n cnt_his_lg_50:{}\n cnt_his_eq_0:{}\n cnt_imp_multi:{}".format(
-            avg_title_length, avg_abstract_length, avg_his_length, avg_imp_length, cnt_his_lg_50, cnt_his_eq_0, cnt_imp_multi))
 
 
 def mrr_score(y_true, y_score):

@@ -1,4 +1,3 @@
-# Two tower baseline
 import math
 import torch
 import torch.nn as nn
@@ -10,14 +9,8 @@ from models.UniLM.configuration_tnlrv3 import TuringNLRv3Config
 from models.UniLM.modeling import TuringNLRv3ForSequenceClassification, relative_position_bucket
 
 class PLM(TwoTowerBaseModel):
-    """
-    Tow tower model with selection
-
-    1. encode candidate news with bert
-    2. encode ps terms with the same bert, using [CLS] embedding as user representation
-    3. predict by scaled dot product
-    """
     def __init__(self, manager, encoderU):
+        # Pretrained language model naive baseline
         super().__init__(manager)
 
         self.encoderU = encoderU
@@ -110,26 +103,9 @@ class PLM(TwoTowerBaseModel):
         """
         # encode news with MIND_news
         batch_size = x['cdd_encoded_index'].size(0)
-        if self.granularity != 'token':
-            cdd_dest = self.cdd_dest[:batch_size]
-            cdd_subword_index = x['cdd_subword_index'].to(self.device)
-            cdd_subword_index = cdd_subword_index[:, :, 0] * self.signal_length + cdd_subword_index[:, :, 1]
-
-            cdd_subword_prefix = cdd_dest.scatter(dim=-1, index=cdd_subword_index, value=1)
-            cdd_subword_prefix = cdd_subword_prefix.view(batch_size, self.signal_length, self.signal_length)
-
-            if self.granularity == 'avg':
-                # average subword embeddings as the word embedding
-                cdd_subword_prefix = F.normalize(cdd_subword_prefix, p=1, dim=-1)
-
-            cdd_attn_mask = cdd_subword_prefix.matmul(x['cdd_attn_mask'].to(self.device).float().unsqueeze(-1)).squeeze(-1)
-
-        else:
-            cdd_subword_prefix = None
-            cdd_attn_mask = x['cdd_attn_mask'].to(self.device)
-
         cdd_news = x["cdd_encoded_index"].to(self.device).view(-1, self.signal_length)
-        cdd_attn_mask = cdd_attn_mask.view(-1, self.signal_length)
+        cdd_attn_mask = x['cdd_attn_mask'].to(self.device).view(-1, self.signal_length)
+
         cdd_news_repr = self.bert(cdd_news, cdd_attn_mask)[-1]
         if hasattr(self, 'pooler'):
             cdd_news_repr = self.pooler(cdd_news_repr[:, 0])
@@ -145,30 +121,9 @@ class PLM(TwoTowerBaseModel):
 
         # slow encoding user, PLM per historical piece
         else:
-            batch_size = x['his_encoded_index'].size(0)
+            his_news = x["his_encoded_index"].to(self.device)
+            his_attn_mask = x["his_attn_mask"].to(self.device)
 
-            if self.granularity != 'token':
-                batch_size = x['his_encoded_index'].size(0)
-                his_dest = self.his_dest[:batch_size]
-
-                his_subword_index = x['his_subword_index'].to(self.device)
-                his_signal_length = his_subword_index.size(-2)
-                his_subword_index = his_subword_index[:, :, :, 0] * his_signal_length + his_subword_index[:, :, :, 1]
-
-                his_subword_prefix = his_dest.scatter(dim=-1, index=his_subword_index, value=1) * x["his_mask"].to(self.device)
-                his_subword_prefix = his_subword_prefix.view(batch_size, self.his_size, his_signal_length, his_signal_length)
-
-                if self.granularity == 'avg':
-                    # average subword embeddings as the word embedding
-                    his_subword_prefix = F.normalize(his_subword_prefix, p=1, dim=-1)
-
-                his_attn_mask = his_subword_prefix.matmul(x["his_attn_mask"].to(self.device).float().unsqueeze(-1)).squeeze(-1)
-            else:
-                his_subword_prefix = None
-                his_attn_mask = x["his_attn_mask"].to(self.device)
-
-            his_news = x["his_encoded_index"].to(self.device).view(-1, self.signal_length)
-            his_attn_mask = his_attn_mask.view(-1, self.signal_length)
             his_news_repr = self.bert(his_news, his_attn_mask)[-1]
 
             if hasattr(self, 'pooler'):
