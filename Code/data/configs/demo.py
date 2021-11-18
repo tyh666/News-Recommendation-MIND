@@ -47,7 +47,6 @@ class config:
     seed = 42
     interval = 10
 
-    granularity = 'token'
     debias = False
     full_attn = True
     descend_history = False

@@ -9,8 +9,6 @@ class CNN_Encoder(nn.Module):
         self.hidden_dim = manager.hidden_dim
         self.embedding_dim = manager.bert_dim
 
-        self.wordQueryProject = nn.Linear(self.hidden_dim, self.hidden_dim)
-        nn.init.xavier_normal_(self.wordQueryProject.weight)
         self.cnn = nn.Conv1d(
             in_channels=self.embedding_dim,
             out_channels=self.hidden_dim,
@@ -18,12 +16,16 @@ class CNN_Encoder(nn.Module):
             padding=1
         )
         nn.init.xavier_normal_(self.cnn.weight)
-        # self.query_words = nn.Parameter(torch.randn(
-        #     (1, self.hidden_dim), requires_grad=True))
-        nn.init.xavier_normal_(self.query_words)
+
+        if manager.reducer != "global":
+            self.query_words = nn.Parameter(torch.randn(
+                (1, self.hidden_dim), requires_grad=True))
+            nn.init.xavier_normal_(self.query_words)
+            self.wordQueryProject = nn.Linear(self.hidden_dim, self.hidden_dim)
+            nn.init.xavier_normal_(self.wordQueryProject.weight)
+            self.Tanh = nn.Tanh()
 
         self.Relu = nn.ReLU()
-        # self.Tanh = nn.Tanh()
 
 
     def forward(self, news_embedding, attn_mask=None):
@@ -40,8 +42,11 @@ class CNN_Encoder(nn.Module):
         cnn_input = news_embedding.view(-1, signal_length, self.embedding_dim).transpose(-2, -1)
         cnn_output = self.Relu(self.cnn(cnn_input)).transpose(-2, -1).view(*news_embedding.shape[:-1], self.hidden_dim)
 
-        # if attn_mask is not None:
-        #     news_repr = scaled_dp_attention(self.query_words, self.Tanh(self.wordQueryProject(cnn_output)), cnn_output, attn_mask.unsqueeze(-2)).squeeze(dim=-2)
-        # else:
-        #     news_repr = scaled_dp_attention(self.query_words, self.Tanh(self.wordQueryProject(cnn_output)), cnn_output).squeeze(dim=-2)
-        return cnn_output, #news_repr
+        if hasattr(self, "query_words"):
+            if attn_mask is not None:
+                news_repr = scaled_dp_attention(self.query_words, self.Tanh(self.wordQueryProject(cnn_output)), cnn_output, attn_mask.unsqueeze(-2)).squeeze(dim=-2)
+            else:
+                news_repr = scaled_dp_attention(self.query_words, self.Tanh(self.wordQueryProject(cnn_output)), cnn_output).squeeze(dim=-2)
+        else:
+            news_repr = None
+        return cnn_output, news_repr

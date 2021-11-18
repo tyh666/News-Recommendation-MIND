@@ -51,7 +51,7 @@ class XFormer(TwoTowerBaseModel):
             self.userBias = nn.Parameter(torch.randn(1,manager.bert_dim))
             nn.init.xavier_normal_(self.userBias)
 
-        manager.name = '__'.join(['xformer', manager.bert, manager.granularity])
+        manager.name = '__'.join(['xformer', manager.bert])
         # used in fast evaluate
         self.name = manager.name
 

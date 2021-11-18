@@ -92,7 +92,7 @@ class PLM(TwoTowerBaseModel):
 
         self.bert = bert
 
-        manager.name = '__'.join(["plm", manager.bert, manager.encoderU, manager.granularity])
+        manager.name = '__'.join(["plm", manager.bert, manager.encoderU])
         # used in fast evaluate
         self.name = manager.name
 

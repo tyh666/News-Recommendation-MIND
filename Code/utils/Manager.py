@@ -79,7 +79,7 @@ class Manager():
             parser.add_argument("--save_pos", dest="save_pos", help="whether to save token positions", action="store_true", default=False)
             parser.add_argument("--sep_his", dest="sep_his", help="whether to separate personalized terms from different news with an extra token", action="store_true", default=False)
             parser.add_argument("--full_attn", dest="full_attn", help="whether to interact among personalized terms (only in one-pass bert models)", action="store_true", default=False)
-            parser.add_argument("--debias", dest="debias", help="whether to add a learnable bias to each candidate news's score", action='store_true', default=False)
+            parser.add_argument("--debias", dest="debias", help="whether to add a learnable bias to each candidate news's score", type=bool, default=True)
             parser.add_argument("--no_dedup", dest="no_dedup", help="whether to deduplicate tokens", action="store_true", default=False)
             parser.add_argument("--no_rm_punc", dest="no_rm_punc", help="whether to mask punctuations when selecting", action="store_true", default=False)
             parser.add_argument("--segment_embed", dest="segment_embed", help="whether to add an extra embedding to ps terms from the same historical news", action="store_true", default=False)
@@ -98,14 +98,13 @@ class Manager():
             parser.add_argument("--npratio", dest="npratio", help="the number of unclicked news to sample when training", type=int, default=4)
             parser.add_argument("--metrics", dest="metrics", help="metrics for evaluating the model", type=str, default="")
 
-            parser.add_argument("-g", "--granularity", dest="granularity", help="the granularity for reduction", choices=["token", "avg", "first", "sum"], default="token")
             parser.add_argument("-emb", "--embedding", dest="embedding", help="choose embedding", choices=["bert","random","deberta"], default="bert")
             parser.add_argument("-encn", "--encoderN", dest="encoderN", help="choose news encoder", choices=["cnn","rnn","npa","fim","mha","bert"], default="cnn")
             parser.add_argument("-encu", "--encoderU", dest="encoderU", help="choose user encoder", choices=["avg","attn","cnn","lstm","gru","lstur","mha"], default="lstm")
             parser.add_argument("-slc", "--selector", dest="selector", help="choose history selector", choices=["recent","sfi"], default="sfi")
-            parser.add_argument("-red", "--reducer", dest="reducer", help="choose document reducer", choices=["bm25","matching","bow","entity","first","none","keyword"], default="matching")
+            parser.add_argument("-red", "--reducer", dest="reducer", help="choose document reducer", choices=["bm25","personalized","global","bow","entity","first","none","keyword"], default="personalized")
             parser.add_argument("-pl", "--pooler", dest="pooler", help="choose bert pooler", choices=["avg","attn","cls"], default="attn")
-            parser.add_argument("-rk", "--ranker", dest="ranker", help="choose ranker", choices=["onepass","original","cnn","knrm"], default="onepass")
+            parser.add_argument("-rk", "--ranker", dest="ranker", help="choose ranker", choices=["onepass","original","cnn","knrm"], default="original")
             parser.add_argument("-agg", "--aggregator", dest="aggregator", help="choose history aggregator, only used in TESRec", choices=["avg","attn","cnn","rnn","lstur","mha"], default=None)
 
             parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=3)
@@ -905,18 +904,7 @@ class Manager():
 
         loader_inspect = loaders[0]
 
-        # manually set to 10
-        try:
-            self.load(model, self.checkpoint)
-        except:
-            # in case we want to test the model trained with token granularity with other granularity
-            old_name = self.name
-            new_name = re.sub(self.granularity, 'token', self.name)
-            logger.warning("failed to load {}, resort to load {}".format(self.name, new_name))
-
-            self.name = new_name
-            self.load(model, self.checkpoint)
-            self.name = old_name
+        self.load(model, self.checkpoint)
 
         with open(loader_inspect.dataset.news_cache_directory + "news.pkl", "rb") as f:
             news = pickle.load(f)["encoded_news"][:, :self.signal_length]
@@ -972,7 +960,7 @@ class Manager():
 
                 his_encoded_index = x["his_encoded_index"][0][:, 1:]
                 if self.reducer == "bow":
-                    his_encoded_index = his_encoded_index[ :, :, 0]
+                    his_encoded_index = his_encoded_index[ :, 1:, 0]
                 term_indexes = term_indexes[0].cpu().numpy()
                 his_ids = x["his_id"][0].tolist()
                 user_index = x["user_id"][0]
@@ -991,22 +979,9 @@ class Manager():
 
                     print("*************************{}******************************".format(user_index.item()))
                     tokens = t.convert_ids_to_tokens(his_token_ids)
-                    if self.granularity != "token":
-                        terms = self.convert_tokens_to_words(tokens, punctuation=True)
-                        terms.extend(["[PAD]"] * (self.signal_length - len(terms)))
-                        terms = np.asarray(terms)
-                    else:
-                        if self.embedding == 'deberta':
-                            # remove Ġ for clearity
-                            terms = []
-                            for token in tokens:
-                                if token.startswith('Ġ'):
-                                    terms.append(token[1:])
-                                else:
-                                    terms.append(token)
-                        else:
-                            terms = tokens
-                        terms = np.asarray(terms)
+
+                    terms = tokens
+                    terms = np.asarray(terms)
 
                     ps_terms = terms[term_index]
 
@@ -1345,7 +1320,8 @@ class Manager():
         """
         reducer_map = {
             "none": "news.pkl",
-            "matching": "news.pkl",
+            "personalized": "news.pkl",
+            "global": "news.pkl",
             "bm25": "bm25.pkl",
             "bow": "news.pkl",
             "entity": "entity.pkl",

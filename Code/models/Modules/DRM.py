@@ -13,7 +13,6 @@ class Matching_Reducer(nn.Module):
     """
     def __init__(self, manager):
         super().__init__()
-        self.name = "matching"
         self.k = manager.k
         if manager.mode == "inspect":
             self.k = 10
@@ -124,7 +123,6 @@ class Identical_Reducer(nn.Module):
     """
     def __init__(self, manager):
         super().__init__()
-        self.name = "identical"
 
         self.k = manager.k
         self.his_size = manager.his_size
@@ -194,7 +192,6 @@ class Truncating_Reducer(nn.Module):
     """
     def __init__(self, manager):
         super().__init__()
-        self.name = "truncating"
 
         self.k = manager.k
         self.his_size = manager.his_size

@@ -152,7 +152,7 @@ class MINDBaseDataset(Dataset):
                     self.attn_mask_original = news["attn_mask"][:, :self.signal_length]
 
             # refine
-            if manager.reducer == "matching":
+            if manager.reducer in ["personalized", "global"]:
                 if not manager.no_dedup:
                     from utils.utils import DeDuplicate
                     refiner = DeDuplicate(manager)
@@ -395,7 +395,7 @@ class MINDBaseDataset(Dataset):
         if refiner is None:
             return
 
-        if self.reducer == "matching":
+        if self.reducer in ["personalized", "global"]:
             refined_news, refined_mask = refiner(self.encoded_news, self.attn_mask)
             self.attn_mask_dedup = refined_mask
 
@@ -501,7 +501,7 @@ class MIND(MINDBaseDataset):
                 "label": label
             }
 
-            if self.reducer == "matching" and hasattr(self, "attn_mask_dedup"):
+            if self.reducer in ["personalized", "global"] and hasattr(self, "attn_mask_dedup"):
                 his_attn_mask_dedup = self.attn_mask_dedup[his_ids]
                 back_dic["his_refined_mask"] = his_attn_mask_dedup
 
@@ -555,7 +555,7 @@ class MIND(MINDBaseDataset):
                 "label": np.asarray(label)
             }
 
-            if self.reducer == "matching":
+            if self.reducer in ["personalized", "global"]:
                 his_attn_mask_dedup = self.attn_mask_dedup[his_ids]
                 back_dic["his_refined_mask"] = his_attn_mask_dedup
 
@@ -605,7 +605,7 @@ class MIND(MINDBaseDataset):
                 "his_mask": his_mask,
             }
 
-            if self.reducer == "matching":
+            if self.reducer in ["personalized", "global"]:
                 his_attn_mask_dedup = self.attn_mask_dedup[his_ids]
                 back_dic["his_refined_mask"] = his_attn_mask_dedup
 
@@ -817,7 +817,7 @@ class MIND_history(MINDBaseDataset):
             "his_mask": his_mask,
         }
 
-        if self.reducer == "matching":
+        if self.reducer in ["personalized", "global"]:
             his_attn_mask_dedup = self.attn_mask_dedup[his_ids]
             back_dic["his_refined_mask"] = his_attn_mask_dedup
 
@@ -958,7 +958,7 @@ class MIND_recall(MINDBaseDataset):
             "his_mask": his_mask,
         }
 
-        if self.reducer == "matching" and hasattr(self, "attn_mask_dedup"):
+        if self.reducer in ["personalized", "global"] and hasattr(self, "attn_mask_dedup"):
             his_attn_mask_dedup = self.attn_mask_dedup[his_ids]
             back_dic["his_refined_mask"] = his_attn_mask_dedup
 

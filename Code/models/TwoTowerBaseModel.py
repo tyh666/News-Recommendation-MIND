@@ -28,8 +28,6 @@ class TwoTowerBaseModel(nn.Module):
         """
         prepare for fast encoding
         """
-        if self.granularity != 'token':
-            self.cdd_dest = torch.zeros((self.batch_size_news, self.signal_length * self.signal_length), device=self.device)
         self.encoding = True
 
 
@@ -42,8 +40,6 @@ class TwoTowerBaseModel(nn.Module):
 
 
     def destroy_encoding(self):
-        if self.granularity != 'token':
-            self.cdd_dest = torch.zeros((self.batch_size, self.impr_size, self.signal_length * self.signal_length), device=self.device)
         self.encoding = False
 
 

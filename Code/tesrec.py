@@ -44,7 +44,7 @@ def main(rank, manager):
         from models.Encoders.RNN import LSTUR
         encoderU = LSTUR(manager)
 
-    if manager.reducer in ['matching', 'bow']:
+    if manager.reducer in ['personalized', "global"]:
         from models.Modules.DRM import Matching_Reducer
         reducer = Matching_Reducer(manager)
     elif manager.reducer in ['bm25', "entity", "first", "keyword"]:
@@ -66,31 +66,31 @@ def main(rank, manager):
     else:
         aggregator = None
 
-    tesrec = TESRec(manager, embedding, encoderN, encoderU, reducer, aggregator).to(rank)
+    model = TESRec(manager, embedding, encoderN, encoderU, reducer, aggregator).to(rank)
 
     if manager.world_size > 1:
-        tesrec = DDP(tesrec, device_ids=[rank], output_device=rank, find_unused_parameters=False)
+        model = DDP(model, device_ids=[rank], output_device=rank, find_unused_parameters=False)
 
     if manager.mode == 'dev':
-            manager.evaluate(tesrec, loaders, load=True)
+        manager.evaluate(model, loaders, load=True)
 
     elif manager.mode == 'train':
-        manager.train(tesrec, loaders)
+        manager.train(model, loaders)
 
     elif manager.mode == 'test':
-        manager.test(tesrec, loaders)
+        manager.test(model, loaders)
 
     elif manager.mode == 'inspect':
-        manager.inspect(tesrec, loaders)
+        manager.inspect(model, loaders)
 
     elif manager.mode == 'encode':
-        manager.encode(tesrec, loaders)
+        manager.encode(model, loaders)
 
     elif manager.mode == 'analyse':
-        manager.collect_kid(tesrec, loaders)
+        manager.collect_kid(model, loaders)
 
     elif manager.mode == 'recall':
-        manager.recall(tesrec, loaders)
+        manager.recall(model, loaders)
 
 
 if __name__ == "__main__":
