@@ -41,7 +41,7 @@ class TESRec(TwoTowerBaseModel):
         self.hidden_dim = manager.bert_dim
 
         if aggregator is not None:
-            manager.name = '__'.join(['tesrec', manager.bert, manager.encoderN, manager.encoderU, manager.reducer, manager.aggregator, str(manager.k)])
+            manager.name = '__'.join(['tesrec', manager.bert, manager.encoderN, manager.encoderU, manager.reducer, manager.aggregator, "token", str(manager.k)])
         else:
             manager.name = '__'.join(['tesrec', manager.bert, manager.encoderN, manager.encoderU, manager.reducer, str(manager.k), manager.verbose])
         # used in fast evaluate

@@ -92,17 +92,18 @@ class BERT_Original_Ranker(nn.Module):
         his_seq = torch.cat([self.bert_cls_embedding.expand(bs, 1, self.hidden_dim), his_seq, self.bert_sep_embedding.expand(bs, 1, self.hidden_dim)], dim=-2)
         his_seq_attn_mask = torch.cat([self.extra_attn_mask.expand(bs, 1), his_seq_attn_mask, self.extra_attn_mask.expand(bs, 1)], dim=-1)
         signal_length += 2
+
         if self.bert_token_type_embedding is not None:
-            his_seq += self.bert_token_type_embedding[1]
+            his_seq += self.bert_token_type_embedding[0]
+            cdd_news_embedding = cdd_news_embedding[:, :, 1:] + self.bert_token_type_embedding[1]
+        # [bs, sl - 1, hd] strip [CLS]
+        cdd_news_embedding = cdd_news_embedding.view(bs, self.signal_length - 1, self.hidden_dim)
 
-        # [bs, cs*sl, hd]
-        cdd_news_embedding = (cdd_news_embedding + self.bert_token_type_embedding[0]).view(bs, self.signal_length, self.hidden_dim)
-
-        bert_input = torch.cat([cdd_news_embedding, his_seq], dim=-2)
-        pos_ids = torch.arange(signal_length + self.signal_length, device=cdd_news_embedding.device)
-
+        pos_ids = torch.arange(signal_length + self.signal_length - 1, device=cdd_news_embedding.device)
+        bert_input = torch.cat([his_seq, cdd_news_embedding], dim=-2)
         bert_input = self.dropOut(self.layerNorm(bert_input + self.bert_pos_embedding(pos_ids)))
-        attn_mask = torch.cat([cdd_attn_mask.view(bs, -1), his_seq_attn_mask], dim=-1)
+
+        attn_mask = torch.cat([his_seq_attn_mask, cdd_attn_mask.view(bs, -1)[:, 1:]], dim=-1)
 
         if self.extend_attn_mask:
             ext_attn_mask = (1.0 - attn_mask) * -10000.0

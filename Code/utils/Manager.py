@@ -16,7 +16,6 @@ import torch.optim as optim
 import torch.distributed as dist
 from torch.utils.data import sampler
 
-from data.configs.email import email,password
 from datetime import datetime, timedelta
 from tqdm.auto import tqdm
 from typing import OrderedDict
@@ -404,6 +403,8 @@ class Manager():
 
             if not self.no_email:
                 try:
+                    from data.configs.email import email,password
+
                     subject = "[Performance Report] {} : {}".format(d["name"], res["auc"])
                     email_server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
                     email_server.login(email, password)
