@@ -17,14 +17,13 @@ class CNN_Encoder(nn.Module):
         )
         nn.init.xavier_normal_(self.cnn.weight)
 
-        if manager.reducer != "global":
-            self.query_words = nn.Parameter(torch.randn(
-                (1, self.hidden_dim), requires_grad=True))
-            nn.init.xavier_normal_(self.query_words)
-            self.wordQueryProject = nn.Linear(self.hidden_dim, self.hidden_dim)
-            nn.init.xavier_normal_(self.wordQueryProject.weight)
-            self.Tanh = nn.Tanh()
-
+        self.query_words = nn.Parameter(torch.randn(
+            (1, self.hidden_dim), requires_grad=True))
+        nn.init.xavier_normal_(self.query_words)
+        self.wordQueryProject = nn.Linear(self.hidden_dim, self.hidden_dim)
+        nn.init.xavier_normal_(self.wordQueryProject.weight)
+        
+        self.Tanh = nn.Tanh()
         self.Relu = nn.ReLU()
 
 

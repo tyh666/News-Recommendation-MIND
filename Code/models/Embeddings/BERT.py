@@ -1,7 +1,5 @@
 import torch.nn as nn
 from transformers import AutoModel
-from models.UniLM.configuration_tnlrv3 import TuringNLRv3Config
-from models.UniLM.modeling import TuringNLRv3ForSequenceClassification, relative_position_bucket
 
 class BERT_Embedding(nn.Module):
     """
@@ -15,24 +13,15 @@ class BERT_Embedding(nn.Module):
 
         self.hidden_dim = manager.bert_dim
 
-        if manager.bert == 'unilm':
-            config = TuringNLRv3Config.from_pretrained(manager.unilm_config_path)
-            # config.pooler = None
-            bert = TuringNLRv3ForSequenceClassification.from_pretrained(manager.unilm_path, config=config).bert
-
-        else:
-            bert = AutoModel.from_pretrained(
-                manager.get_bert_for_load(),
-                cache_dir=manager.path + 'bert_cache/'
-            )
+        bert = AutoModel.from_pretrained(
+            manager.get_bert_for_load(),
+            cache_dir=manager.path + 'bert_cache/'
+        )
 
         self.bert_word_embedding = bert.embeddings.word_embeddings
 
-        if manager.reducer == 'bow':
-            self.freq_embedding = nn.Embedding(manager.signal_length // 2, self.hidden_dim)
-            nn.init.xavier_normal_(self.freq_embedding.weight)
 
-    def forward(self, news_batch, subword_prefix=None):
+    def forward(self, news_batch):
         """ encode news with bert
 
         Args:
@@ -48,9 +37,5 @@ class BERT_Embedding(nn.Module):
 
         else:
             word_embeds = self.bert_word_embedding(news_batch)
-
-        # word-level
-        if subword_prefix is not None:
-            word_embeds = subword_prefix.matmul(word_embeds)
 
         return word_embeds

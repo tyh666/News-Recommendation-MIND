@@ -4,7 +4,7 @@ class Random_Embedding(nn.Module):
     """
         pretrained glove embedding
     """
-    def __init__(self, manager, vocab):
+    def __init__(self, manager):
         super().__init__()
         self.embedding_dim = manager.bert_dim
 

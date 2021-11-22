@@ -18,7 +18,6 @@ class MINDBaseDataset(Dataset):
         self.his_size = manager.his_size
         self.impr_size = manager.impr_size
 
-        self.k = manager.k
         self.signal_length = manager.signal_length
 
         self.npratio = manager.npratio

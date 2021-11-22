@@ -4,9 +4,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from transformers import AutoModel
 from .TwoTowerBaseModel import TwoTowerBaseModel
-from .Encoders.BERT import BERT_Encoder
-from models.UniLM.configuration_tnlrv3 import TuringNLRv3Config
-from models.UniLM.modeling import TuringNLRv3ForSequenceClassification, relative_position_bucket
 
 class PLM(TwoTowerBaseModel):
     def __init__(self, manager, encoderU):
@@ -19,11 +16,7 @@ class PLM(TwoTowerBaseModel):
             self.userBias = nn.Parameter(torch.randn(1,manager.bert_dim))
             nn.init.xavier_normal_(self.userBias)
 
-        if manager.bert == 'unilm':
-            config = TuringNLRv3Config.from_pretrained(manager.unilm_config_path)
-            bert = TuringNLRv3ForSequenceClassification.from_pretrained(manager.unilm_path, config=config).bert
-
-        elif manager.bert == 'deberta':
+        if manager.bert == 'deberta':
             # add a pooler
             bert = AutoModel.from_pretrained(
                 manager.get_bert_for_load(),
@@ -121,8 +114,9 @@ class PLM(TwoTowerBaseModel):
 
         # slow encoding user, PLM per historical piece
         else:
-            his_news = x["his_encoded_index"].to(self.device)
-            his_attn_mask = x["his_attn_mask"].to(self.device)
+            batch_size = x["his_encoded_index"].size(0)
+            his_news = x["his_encoded_index"].to(self.device).view(-1, self.signal_length)
+            his_attn_mask = x["his_attn_mask"].to(self.device).view(-1, self.signal_length)
 
             his_news_repr = self.bert(his_news, his_attn_mask)[-1]
 
