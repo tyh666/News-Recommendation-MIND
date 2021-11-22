@@ -46,13 +46,18 @@ class MINDBaseDataset(Dataset):
 
             if manager.mode == "recall":
                 self.behav_cache_path = "/".join([behav_cache_directory, "recall.pkl"])
+            elif manager.mode == "encode":
+                self.behav_cache_path = "/".join([behav_cache_directory, "encode.pkl"])
             else:
                 self.behav_cache_path = "/".join([behav_cache_directory, "behaviors.pkl"])
+
             # initialize all caches on master node
             if manager.rank in [-1, 0]:
                 # only do this in the basic modes
                 if not os.path.exists(self.behav_cache_path):
                     self.behaviors_file = file_directory + "behaviors.tsv"
+                    if manager.mode == "encode":
+                        self.behaviors_file = file_directory + "behaviors-uni.tsv"
                     logger.info("encoding user behaviors of {}...".format(self.behaviors_file))
                     os.makedirs(behav_cache_directory, exist_ok=True)
                     try:
