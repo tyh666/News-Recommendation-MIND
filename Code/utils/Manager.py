@@ -14,7 +14,6 @@ import scipy.stats as ss
 import torch.nn as nn
 import torch.optim as optim
 import torch.distributed as dist
-from torch.utils.data import sampler
 
 from datetime import datetime, timedelta
 from tqdm.auto import tqdm
@@ -73,15 +72,8 @@ class Manager():
             parser.add_argument("-blr", "--bert_lr", dest="bert_lr", help="learning rate of bert based modules", type=float, default=6e-6)
             parser.add_argument("-vb", "--verbose", help="tailing name for tesrec", type=str, default="norm")
 
-            parser.add_argument("-div", "--diversify", dest="diversify", help="whether to diversify selection with news representation", action="store_true", default=False)
             parser.add_argument("--descend_history", dest="descend_history", help="whether to order history by time in descending", action="store_true", default=False)
-            parser.add_argument("--save_pos", dest="save_pos", help="whether to save token positions", action="store_true", default=False)
-            parser.add_argument("--sep_his", dest="sep_his", help="whether to separate personalized terms from different news with an extra token", action="store_true", default=False)
-            parser.add_argument("--full_attn", dest="full_attn", help="whether to interact among personalized terms (only in one-pass bert models)", action="store_true", default=False)
             parser.add_argument("--debias", dest="debias", help="whether to add a learnable bias to each candidate news's score", type=bool, default=True)
-            parser.add_argument("--no_dedup", dest="no_dedup", help="whether to deduplicate tokens", action="store_true", default=False)
-            parser.add_argument("--no_rm_punc", dest="no_rm_punc", help="whether to mask punctuations when selecting", action="store_true", default=False)
-            parser.add_argument("--segment_embed", dest="segment_embed", help="whether to add an extra embedding to ps terms from the same historical news", action="store_true", default=False)
 
             parser.add_argument("-sm", "--smoothing", dest="smoothing", help="smoothing factor of tqdm", type=float, default=0.3)
             parser.add_argument("--num_workers", dest="num_workers", help="worker number of a dataloader", type=int, default=0)
@@ -100,13 +92,9 @@ class Manager():
             parser.add_argument("-emb", "--embedding", dest="embedding", help="choose embedding", choices=["bert","random","deberta"], default="bert")
             parser.add_argument("-encn", "--encoderN", dest="encoderN", help="choose news encoder", choices=["cnn","rnn","npa","fim","mha","bert"], default="cnn")
             parser.add_argument("-encu", "--encoderU", dest="encoderU", help="choose user encoder", choices=["avg","attn","cnn","lstm","gru","lstur","mha"], default="lstm")
-            parser.add_argument("-slc", "--selector", dest="selector", help="choose history selector", choices=["recent","sfi"], default="sfi")
-            parser.add_argument("-red", "--reducer", dest="reducer", help="choose document reducer", choices=["bm25","personalized","global","bow","entity","first","none","keyword"], default="personalized")
             parser.add_argument("-pl", "--pooler", dest="pooler", help="choose bert pooler", choices=["avg","attn","cls"], default="attn")
             parser.add_argument("-rk", "--ranker", dest="ranker", help="choose ranker", choices=["onepass","original","cnn","knrm"], default="original")
-            parser.add_argument("-agg", "--aggregator", dest="aggregator", help="choose history aggregator, only used in TESRec", choices=["avg","attn","cnn","rnn","lstur","mha"], default=None)
 
-            parser.add_argument("-k", dest="k", help="the number of the terms to extract from each news article", type=int, default=3)
             parser.add_argument("-b", "--bert", dest="bert", help="choose bert model", choices=["bert", "deberta", "unilm", "longformer", "bigbird", "reformer", "funnel", "synthesizer", "distill", "newsbert"], default="bert")
 
             parser.add_argument("-sd","--seed", dest="seed", default=42, type=int)
@@ -265,24 +253,6 @@ class Manager():
 
             return loader_dev,
 
-        elif self.mode == "inspect":
-            # if case study
-            if self.case:
-                file_directory = "data/case/MINDlarge_{}/".format(self.inspect_type)
-                dataset = MIND_history(self, file_directory)
-                loader = DataLoader(dataset, batch_size=1, pin_memory=pin_memory,
-                    num_workers=num_workers, drop_last=False)
-            else:
-                if self.inspect_type == "all":
-                    file_directory = self.path + "MIND/MINDlarge_dev/"
-                else:
-                    file_directory = self.path + "MIND/MINDlarge_{}/".format(self.inspect_type)
-                dataset = MIND_history(self, file_directory)
-                loader = DataLoader(dataset, batch_size=1, pin_memory=pin_memory,
-                    num_workers=num_workers, drop_last=False)
-
-            return loader,
-
         elif self.mode == "test":
             file_directory_test = self.path + "MIND/MINDlarge_test/"
             dataset_test = MIND(self, file_directory_test)
@@ -304,7 +274,7 @@ class Manager():
 
             return loader_test,
 
-        elif self.mode in ["encode", "analyse"]:
+        elif self.mode == "encode":
             file_directory = self.path + "MIND/MIND{}_dev/".format(self.scale)
 
             dataset = MIND_history(self, file_directory)
@@ -312,17 +282,6 @@ class Manager():
 
             loader = DataLoader(dataset, batch_size=self.batch_size, pin_memory=pin_memory,
                                     num_workers=num_workers, drop_last=False, shuffle=shuffle, sampler=sampler)
-
-            return loader,
-
-        elif self.mode == "recall":
-            from .MIND import MIND_recall
-            from .utils import collate_recall
-            file_directory = self.path + "MIND/MINDlarge_dev/"
-
-            dataset = MIND_recall(self, file_directory)
-            loader = DataLoader(dataset, batch_size=self.batch_size_news, pin_memory=pin_memory,
-                                    num_workers=num_workers, drop_last=False, collate_fn=collate_recall)
 
             return loader,
 
@@ -894,114 +853,6 @@ class Manager():
 
 
     @torch.no_grad()
-    def inspect(self, model, loaders):
-        """
-        inspect personalized terms
-        """
-        from transformers import AutoTokenizer
-
-        model.eval()
-        logger.info("inspecting {}...".format(self.name))
-
-        loader_inspect = loaders[0]
-
-        self.load(model, self.checkpoint)
-
-        with open(loader_inspect.dataset.news_cache_directory + "news.pkl", "rb") as f:
-            news = pickle.load(f)["encoded_news"][:, :self.signal_length]
-        with open(loader_inspect.dataset.news_cache_directory + "bm25.pkl", "rb") as f:
-            bm25_terms = pickle.load(f)["encoded_news"][:, :10]
-        with open(loader_inspect.dataset.news_cache_directory + "entity.pkl", "rb") as f:
-            entities = pickle.load(f)["encoded_news"][:, :10]
-
-        t = AutoTokenizer.from_pretrained(self.get_bert_for_load(), cache_dir=self.path + "bert_cache/")
-
-        logger.info("press <ENTER> to continue")
-
-        if self.news is not None:
-            if self.news.lower().startswith("n"):
-                target_news = loader_inspect.dataset.nid2index[self.news.upper()]
-            else:
-                target_news = int(self.news)
-
-        if self.inspect_type == "all":
-            keyterm_matrix = np.zeros((self.get_news_num(), 10), dtype=int)
-            user_matrix = np.zeros(self.get_news_num(), dtype=int)
-
-            for x in loader_inspect:
-                term_indexes = model.encode_user(x)[1].cpu().numpy()
-                # hs, 1
-                news_ids = x['his_id'][0].squeeze(-1).numpy()
-                user_ids = x['user_id'].numpy()
-                term_indexes = term_indexes[0]
-
-                for his_id, term_index, user_id in zip(news_ids, term_indexes, user_ids):
-                    reference_term_index = keyterm_matrix[his_id]
-                    if np.sum(reference_term_index != term_index) > 4 and reference_term_index.sum() > 0:
-                        # strip [CLS]
-                        his_news = news[his_id][1:]
-                        prev_term = his_news[reference_term_index]
-                        now_term = his_news[term_index]
-                        prev_user = user_matrix[his_id]
-                        print("*************************{}:{}->{}******************************".format(his_id, prev_user, user_id))
-                        print(t.decode(prev_term, skip_special_tokens=True))
-                        print(t.decode(now_term, skip_special_tokens=True))
-                        print("[original news]\n\t {}".format(t.decode(news[his_id][:self.signal_length], skip_special_tokens=True)))
-                        print(user_id)
-                        input()
-                        break
-
-                    else:
-                        keyterm_matrix[his_id] = term_index
-                        user_matrix[his_id] = user_id
-
-        else:
-            for x in loader_inspect:
-                term_indexes = model.encode_user(x)[1]
-
-                his_encoded_index = x["his_encoded_index"][0][:, 1:]
-                if self.reducer == "bow":
-                    his_encoded_index = his_encoded_index[ :, 1:, 0]
-                term_indexes = term_indexes[0].cpu().numpy()
-                his_ids = x["his_id"][0].tolist()
-                user_index = x["user_id"][0]
-
-                if self.news is not None:
-                    for j, his_id in enumerate(his_ids):
-                        # skip untargetted news
-                        if his_id == target_news:
-                            break
-
-                    his_encoded_index = [his_encoded_index[j]]
-                    term_indexes = [term_indexes[j]]
-                    his_ids = [his_id]
-
-                for his_token_ids, term_index, his_id in zip(his_encoded_index, term_indexes, his_ids):
-
-                    print("*************************{}******************************".format(user_index.item()))
-                    tokens = t.convert_ids_to_tokens(his_token_ids)
-
-                    terms = tokens
-                    terms = np.asarray(terms)
-
-                    ps_terms = terms[term_index]
-
-                    if his_id == 0:
-                        break
-                    else:
-                        print("[personalized terms]\n\t {}".format(" ".join(ps_terms)))
-                        print("[bm25 terms]\n\t {}".format(t.decode(bm25_terms[his_id], skip_special_tokens=True)))
-                        print("[entities]\n\t {}".format(t.decode(entities[his_id], skip_special_tokens=True)))
-                        print("[original news]\n\t {}".format(t.decode(news[his_id][:self.signal_length], skip_special_tokens=True)))
-
-                    command = input()
-                    if command == "n":
-                        break
-                    elif command == "q":
-                        return
-
-
-    @torch.no_grad()
     def encode(self, model, loaders):
         """
         encode user
@@ -1018,258 +869,6 @@ class Manager():
 
         end_time = time.time()
         logger.info("total encoding time: {}".format(end_time - start_time))
-
-
-    @torch.no_grad()
-    def recall(self, model, loaders):
-        """
-        recall from the given corpus
-        """
-
-        device = torch.device(model.device)
-
-        if self.recall_type == "d":
-            logger.info("dense recalling by user representation...")
-            import faiss
-            self.load(model, self.checkpoint)
-
-            news_set = torch.load('data/recall/news.pt', map_location=device)
-            print(len(news_set))
-            try:
-                news_reprs = torch.load("data/cache/tensors/{}/large/dev/news.pt".format(self.name), map_location=device)
-            except:
-                raise FileNotFoundError("please run 'python xxx.py -m dev -ck=xx' first!")
-
-            news = news_reprs[news_set]
-
-            del news_set
-            del news_reprs
-            ngpus = faiss.get_num_gpus()
-
-            INDEX = faiss.IndexFlatIP(news.size(-1))
-            # INDEX = faiss.index_cpu_to_all_gpus(INDEX)
-            INDEX = faiss.index_cpu_to_gpu(faiss.StandardGpuResources(), self.device, INDEX)
-            INDEX.add(news.cpu().numpy())
-
-            recalls = np.array([0.,0.,0.])
-            count = 0
-
-            model.init_embedding()
-            for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
-                # t1 = time.time()
-                user_repr = model.encode_user(x)[0].squeeze(-2).cpu().numpy()
-                # t2 = time.time()
-                _, index = INDEX.search(user_repr, 100)
-                # t3 = time.time()
-
-                for i,cdd_id in enumerate(x['cdd_id']):
-                    recalls[0] += np.sum(np.in1d(cdd_id, index[i][:10]))
-                    recalls[1] += np.sum(np.in1d(cdd_id, index[i][:50]))
-                    recalls[2] += np.sum(np.in1d(cdd_id, index[i][:100]))
-                    count += len(cdd_id)
-                t4 = time.time()
-                # print("transfer time:{}, search time:{}, operation time:{}".format(t2-t1, t3-t2, t4-t3))
-            model.destroy_embedding()
-
-
-        elif self.recall_type == "s":
-            logger.info("sparse recalling by extracted terms...")
-            try:
-                inverted_index = torch.load("data/recall/inverted_index_bm25.pt", map_location=device)
-            except:
-                from .utils import BM25_token, construct_inverted_index
-                with open("data/cache/MIND/news/bert/MINDlarge_dev/news.pkl", "rb") as f:
-                    news = pickle.load(f)['encoded_news']
-                news_set = torch.load('data/recall/news.pt', map_location="cpu").numpy()
-                news_collection = news[news_set]
-                # initialize inverted index
-                bm25 = BM25_token(news_collection)
-                inverted_index = construct_inverted_index(news_collection, bm25).to(device)
-
-            self.load(model, self.checkpoint)
-
-            recalls = torch.zeros(3, device=device)
-            count = 0
-            # total news number
-            news_num = 6997
-            for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
-                t1 = time.time()
-                kid = model.encode_user(x)[1]
-                batch_size = x['his_encoded_index'].size(0)
-                ps_terms = x['his_encoded_index'][:, :, 1:].to(self.device).gather(index=kid, dim=-1).view(batch_size, -1).cpu().numpy()
-                t2 = time.time()
-
-                for query, cdd_id in zip(ps_terms, x['cdd_id']):
-                    # Q, N, 2
-                    recalled_news_ids_and_scores = inverted_index[query]
-
-                    news_score_all = torch.zeros(news_num + 1, device=model.device)
-                    recalled_news_ids = recalled_news_ids_and_scores[:, :, 0].long()
-                    recalled_news_scores = recalled_news_ids_and_scores[:, :, 1]
-                    for i,j in zip(recalled_news_ids, recalled_news_scores):
-                        news_score_all[i] += j
-
-                    recalled_news_ids = news_score_all.argsort(descending=True)
-                    # recalls += torch.sum(torch.from_numpy(cdd_id).to(device).unsqueeze(-1) == recalled_news_ids)
-
-                    recalls[0] += torch.sum(torch.from_numpy(cdd_id).to(device).unsqueeze(-1) == recalled_news_ids[:10])
-                    recalls[1] += torch.sum(torch.from_numpy(cdd_id).to(device).unsqueeze(-1) == recalled_news_ids[:50])
-                    recalls[2] += torch.sum(torch.from_numpy(cdd_id).to(device).unsqueeze(-1) == recalled_news_ids[:100])
-
-                    count += len(cdd_id)
-
-                t3 = time.time()
-                # print("transfer time:{}, search time:{}".format(t2-t1, t3-t2))
-
-
-        elif self.recall_type == "sd":
-            logger.info("sparse recalling then dense ranking by extracted terms and user representation respectively...")
-
-            news_set = torch.load('data/recall/news.pt', map_location=device)
-            news_reprs = torch.load("data/cache/tensors/{}/large/dev/news.pt".format(self.name), map_location=device)
-            news = news_reprs[news_set]
-            news = torch.cat([news, torch.zeros(1, news.size(-1), device=device)], dim=0)
-
-            try:
-                inverted_index = torch.load("data/recall/inverted_index_bm25.pt", map_location=device)
-            except:
-                from .utils import BM25_token, construct_inverted_index
-                with open("data/cache/MIND/news/bert/MINDlarge_dev/news.pkl", "rb") as f:
-                    news_ids = pickle.load(f)['encoded_news']
-                news_collection = news_ids[news_set.cpu().numpy()]
-                # initialize inverted index
-                bm25 = BM25_token(news_collection)
-                inverted_index = construct_inverted_index(news_collection, bm25).to(device)
-
-            self.load(model, self.checkpoint)
-
-            count = 0
-            print(news.shape)
-            recalls = torch.zeros(3, device=device)
-            for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
-                t1 = time.time()
-                user_reprs, kid = model.encode_user(x)
-                batch_size = x['his_encoded_index'].size(0)
-                ps_terms = x['his_encoded_index'][:, :, 1:].to(device).gather(index=kid, dim=-1).view(batch_size, -1)
-                t2 = time.time()
-
-                for query, user_repr, cdd_id in zip(ps_terms, user_reprs, x['cdd_id']):
-                    recalled_news_ids = inverted_index[query][:, :, 0].long().unique()
-
-                    # N, D
-                    recalled_news = news[recalled_news_ids]
-                    # N, 1
-                    recalled_news_score = recalled_news.matmul(user_repr.transpose(-1,-2)).squeeze(-1)
-                    # sort
-                    recalled_news_ids = recalled_news_ids[recalled_news_score.argsort(descending=True)][:100]
-
-                    recalls[0] += torch.sum(torch.from_numpy(cdd_id).to(device).unsqueeze(-1) == recalled_news_ids[:10])
-                    recalls[1] += torch.sum(torch.from_numpy(cdd_id).to(device).unsqueeze(-1) == recalled_news_ids[:50])
-                    recalls[2] += torch.sum(torch.from_numpy(cdd_id).to(device).unsqueeze(-1) == recalled_news_ids[:100])
-                    count += len(cdd_id)
-
-                t3 = time.time()
-
-                # print("transfer time:{}, search time:{}".format(t2-t1, t3-t2))
-
-        recall_rates = recalls / count
-        logger.info("recall@10 : {}; recall@50 : {}; recall@100 : {}".format(recall_rates[0], recall_rates[1], recall_rates[2]))
-
-
-    @torch.no_grad()
-    def collect_kid(self, model, loaders):
-        """
-        1. collect end-to-end extracted terms' position
-        2. compute recall rate of entity
-        3. compute recall rate of non-entity
-        """
-        if self.rank in [-1, 0]:
-            logger.info("collecting extracted terms' position distribution...")
-
-        self.load(model, self.checkpoint)
-
-        def construct_heuristic_extracted_term_indice():
-            logger.info("constructing heuristicly extracted term indices...")
-            news = pickle.load(open('data/cache/MIND/news/bert/MINDlarge_dev/news.pkl','rb'))['encoded_news']
-            bm25 = pickle.load(open('data/cache/MIND/news/bert/MINDlarge_dev/bm25.pkl','rb'))['encoded_news']
-            entity = pickle.load(open('data/cache/MIND/news/bert/MINDlarge_dev/entity.pkl','rb'))['encoded_news']
-
-            bm25_indice = []
-            entity_indice = []
-
-            for n,b,e in zip(news, bm25, entity):
-                # strip [CLS]
-                bm25_index = []
-                entity_index = []
-
-                # for each token in the first 3 bm25, find its position in the original news
-                for tok1 in b[1:self.k + 1]:
-                    found = False
-                    for i,tok2 in enumerate(n[1:100]):
-                        if tok1 == tok2:
-                            bm25_index.append(i)
-                            found = True
-                            break
-                    if not found:
-                        bm25_index.append(-1)
-
-                for tok1 in e[1:self.k + 1]:
-                    found = False
-                    for i,tok2 in enumerate(n[1:100]):
-                        if tok1 == tok2:
-                            found = True
-                            entity_index.append(i)
-                            break
-                    if not found:
-                        entity_index.append(-1)
-
-                bm25_indice.append(bm25_index)
-                entity_indice.append(entity_index)
-
-            bm25_indice = np.asarray(bm25_indice)
-            entity_indice = np.asarray(entity_indice)
-
-            os.makedirs("data/cache/kid", exist_ok=True)
-            np.save("data/cache/kid/bm25.npy", bm25_indice)
-            np.save("data/cache/kid/entity.npy", entity_indice)
-            return bm25_indice, entity_indice
-
-        try:
-            entity_indice = np.load('data/cache/kid/entity.npy')
-        except:
-            _, entity_indice = construct_heuristic_extracted_term_indice()
-
-        # bm25_positions = np.array([0] * (self.signal_length - 1))
-        # entity_positions = np.array([0] * (self.signal_length - 1))
-        device = model.device
-        entity_indice = torch.from_numpy(entity_indice).to(device)
-        kid_positions = torch.zeros(self.signal_length + 1, dtype=torch.int32, device=device)
-
-        count = 0
-        entity_recall = 0.
-
-        for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
-            # strip off [CLS] and [SEP]
-            kids = model.encode_user(x)[1]
-            kids = kids.masked_fill(~(x['his_mask'].to(self.device).bool()), self.signal_length)
-            for kid, his_id in zip(kids.reshape(-1, self.k), x['his_id'].to(device).view(-1)):
-                kid_positions[kid] += 1
-
-                # entity_index = entity_indice[his_id]
-                # entity_recall += torch.sum(entity_index.unsqueeze(-1) == kid)
-                # count += 1
-
-        # logger.info("entity recall rate: {}".format(entity_recall / count))
-        torch.save(kid_positions, "data/cache/kid/kid_pos.pt")
-
-        # pos = []
-        # for x in tqdm(loaders[0], smoothing=self.smoothing, ncols=120, leave=True):
-        #     # strip off [CLS] and [SEP]
-        #     kids = model.encode_user(x)[1]
-        #     pos.append(kids.view(-1))
-        # unique, count = torch.cat(pos, dim=-1).unique(return_counts=True)
-        # result = dict(zip(unique.tolist(), count.tolist()))
-        # json.dump(result, "data/cache/kid_pos.json")
 
 
     def get_user_num(self):
@@ -1315,23 +914,6 @@ class Manager():
         return news_num_map[self.scale][self.mode]
 
 
-    def get_news_file_for_load(self):
-        """
-        map different reducer to different news cache file
-        """
-        reducer_map = {
-            "none": "news.pkl",
-            "personalized": "news.pkl",
-            "global": "news.pkl",
-            "bm25": "bm25.pkl",
-            "bow": "news.pkl",
-            "entity": "entity.pkl",
-            "first": "news.pkl",
-            "keyword": "keyword.pkl"
-        }
-        return reducer_map[self.reducer]
-
-
     def get_bert_for_load(self):
         """
         transfer unilm to bert
@@ -1339,7 +921,6 @@ class Manager():
         bert_map = {
             "bert": "bert-base-uncased",
             "deberta": "microsoft/deberta-base",
-            "unilm": "bert-base-uncased",
             "longformer": "allenai/longformer-base-4096",
             "bigbird": "google/bigbird-roberta-base",
             "reformer": "google/reformer-crime-and-punishment",
@@ -1358,7 +939,6 @@ class Manager():
         bert_map = {
             "bert": "bert",
             "deberta": "deberta",
-            "unilm": "bert",
             "longformer": "longformer",
             "bigbird": "bigbird",
             "reformer": "reformer",
@@ -1381,11 +961,6 @@ class Manager():
                 "[PAD]": 0,
                 "[CLS]": 1,
                 "[SEP]": 2,
-            },
-            "unilm":{
-                "[PAD]": 0,
-                "[CLS]": 101,
-                "[SEP]": 102,
             },
             "longformer":{
                 "[PAD]": 1,

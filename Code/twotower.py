@@ -20,10 +20,10 @@ def main(rank, manager):
     if manager.encoderN == 'cnn':
         from models.Encoders.CNN import CNN_Encoder
         encoderN = CNN_Encoder(manager)
-    elif manager.encoderN == 'bert':
-        from models.Encoders.BERT import BERT_Onelayer_Encoder
-        manager.hidden_dim = 384
-        encoderN = BERT_Onelayer_Encoder(manager)
+    elif manager.encoderN == 'transformer':
+        from models.Encoders.Transformer import Transformer_Encoder
+        manager.hidden_dim = 768
+        encoderN = Transformer_Encoder(manager)
     elif manager.encoderN == 'mha':
         from models.Encoders.MHA import MHA_Encoder
         encoderN = MHA_Encoder(manager)

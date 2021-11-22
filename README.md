@@ -52,7 +52,7 @@ in `models/Enocders`
 - CNN
 - RNN
 - Multi Head Attention
-- One layer bert
+- Transformer
 - Pooling
 
 ### User Encoder

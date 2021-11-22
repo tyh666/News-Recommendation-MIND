@@ -28,9 +28,6 @@ def main(rank, manager):
     elif manager.mode == 'test':
         manager.test(model, loaders)
 
-    elif manager.mode == 'inspect':
-        manager.inspect(model, loaders)
-
     elif manager.mode == 'encode':
         manager.encode(model, loaders)
 

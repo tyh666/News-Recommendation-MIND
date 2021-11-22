@@ -50,9 +50,6 @@ def main(rank, manager):
     elif manager.mode == 'encode':
         manager.encode(model, loaders)
 
-    elif manager.mode == 'recall':
-        manager.recall(model, loaders)
-
 
 if __name__ == "__main__":
     manager = Manager()

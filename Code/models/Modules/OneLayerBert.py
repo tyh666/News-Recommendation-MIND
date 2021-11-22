@@ -1,7 +1,6 @@
 import math
 import torch
 import torch.nn as nn
-from transformers.modeling_utils import apply_chunking_to_forward
 from transformers.activations import ACT2FN
 from .Attention import XSoftmax
 
