@@ -1,6 +1,5 @@
-# A Repo for Benchmarking News Recommendation on MIND
-
-This repository is ready-to-use for designing->training->testing a News Recommendation Model on [MIND](https://msnews.github.io/) dataset. It offers comprehensive classes and utilities to [load data](Code/utils/MIND.py) and [train/evaluate](Code/utils/Manager.py) the model.
+# This brunch is MY WORK
+Since the paper is under review, I cannot release more details.
 
 ## Environment
 ```
@@ -12,52 +11,23 @@ torch==1.9.1
 ```bash
 cd Code
 
-# manager will email you the training result, so you should add your gmail and password as follows:
-mkdir data/configs
-echo "email = 'namespace.pt@gmail.com'" >> data/configs/email.py
-echo "password = 'your password'" >> data/configs/email.py
-
-# train a basic twotower model with CNN news encoder and LSTM user encoder
-python twotower.py
+# train
+python tesrec.py
 
 # test
-python twotower.py -m test
+python tesrec.py -m test
 ```
 
-- specify `-p=/your/path/to/MIND/root`
-- specify `-d=x` if you want to train/test on the `x`-th gpu
-- specify `-ws=x` if you want to train/test with `x` gpus
-- for more hyper parameters, run `python twotower.py --help`
+``` bash
+git config --global user.name 'namespace-Pt'
+git config --global user.email 'namespace.pt@gmail.com'
+sudo apt-get install screen -y
+sudo apt-get install rsync -y
+conda init
+echo 'alias nn="conda activate /data/v-pezhang/nn"' >> ~/.bashrc
+echo 'alias pt="screen -r -d pt"' >> ~/.bashrc
+echo 'alias gf="conda activate /data/v-pezhang/gf"' >> ~/.bashrc
 
-
-## How to define your own model
-1. design your model in `models/` referring to `TwoTower.py`
-2. write a script in `./` referring to `twotower.py`
-
-
-## Basic Introduction
-### Preprocess
-in `utils/MIND.py`
-- tokenize
-- generate cache
-
-### Manager
-in `utils/Manager.py`
-- handle hyper parameters
-- prepare dataloaders
-- handle the training/evaluation process
-
-### News Encoder
-in `models/Enocders`
-- CNN
-- RNN
-- Multi Head Attention
-- One layer bert
-- Pooling
-
-### User Encoder
-in `models/Enocders`
-- LSTM
-- MHA
-- LSTUR
-- Pooling
+source ~/.bashrc
+sleep infinity
+```
