@@ -45,7 +45,7 @@ class Manager():
             parser.add_argument("-m", "--mode", dest="mode", help="train or test", choices=["train", "dev", "test", "encode", "inspect", "analyse", "recall"], default="train")
             parser.add_argument("-e", "--epochs", dest="epochs", help="epochs to train the model", type=int, default=10)
             parser.add_argument("-d","--device", dest="device", help="device to run on, -1 means cpu", choices=[i for i in range(-1,10)], type=int, default=0)
-            parser.add_argument("-p", "--path", dest="path", type=str, default="../../../Data/", help="root path for large-scale reusable data")
+            parser.add_argument("-p", "--path", dest="path", type=str, default="../../Data/", help="root path for large-scale reusable data")
             parser.add_argument("-f", "--fast", dest="fast", help="enable fast evaluation/test", default=True)
             parser.add_argument("-n", "--news", dest="news", help="which news to inspect", type=str, default=None)
             parser.add_argument("-c", "--case", dest="case", help="whether to return the sample for case study", action="store_true", default=False)
