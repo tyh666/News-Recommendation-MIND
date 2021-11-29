@@ -221,7 +221,7 @@ class Manager():
             dataset_dev = MIND(self, file_directory_dev)
 
             if self.world_size > 0:
-                sampler_train = DistributedSampler(dataset_train, num_replicas=self.world_size, rank=self.rank, shuffle=shuffle)
+                sampler_train = DistributedSampler(dataset_train, num_replicas=self.world_size, rank=self.rank, shuffle=True)
                 sampler_dev = Partition_Sampler(dataset_dev, num_replicas=self.world_size, rank=self.rank)
             else:
                 sampler_train = None
