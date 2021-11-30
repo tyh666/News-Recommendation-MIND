@@ -1,6 +1,6 @@
 # A Repo for Benchmarking News Recommendation on MIND
 
-This repository is ready-to-use for designing->training->testing a News Recommendation Model on [MIND](https://msnews.github.io/) dataset. It offers comprehensive classes and utilities to [load data](Code/utils/MIND.py) and [train/evaluate](Code/utils/Manager.py) the model.
+This repository is ready-to-use for designing->training->testing a News Recommendation Model on [MIND](https://msnews.github.io/) dataset. It offers comprehensive classes and utilities to [load data](utils/MIND.py) and [train/evaluate](utils/Manager.py) the model.
 
 ## Environment
 ```
