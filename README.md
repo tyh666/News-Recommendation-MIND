@@ -9,8 +9,6 @@ torch==1.9.1
 
 ## Instruction
 ```bash
-cd Code
-
 # train
 python tesrec.py
 
