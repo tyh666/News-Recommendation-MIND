@@ -10,8 +10,6 @@ torch==1.9.1
 
 ## Instruction
 ```bash
-cd Code
-
 # manager will email you the training result, so you should add your gmail and password as follows:
 mkdir data/configs
 echo "email = 'namespace.pt@gmail.com'" >> data/configs/email.py
