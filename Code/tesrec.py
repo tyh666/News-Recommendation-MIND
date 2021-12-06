@@ -2,10 +2,11 @@ import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from utils.Manager import Manager
-from models.GateFormer import GateFormer
+from models.TESRec import TESRec
 
 def main(rank, manager):
     """ train/dev/test/tune the model (in distributed)
+
     Args:
         rank: current process id
         world_size: total gpus
@@ -65,7 +66,7 @@ def main(rank, manager):
     else:
         aggregator = None
 
-    model = GateFormer(manager, embedding, encoderN, encoderU, reducer, aggregator).to(rank)
+    model = TESRec(manager, embedding, encoderN, encoderU, reducer, aggregator).to(rank)
 
     if manager.world_size > 1:
         model = DDP(model, device_ids=[rank], output_device=rank, find_unused_parameters=False)

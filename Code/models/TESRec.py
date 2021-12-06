@@ -5,9 +5,10 @@ import torch.nn.functional as F
 from .TwoTowerBaseModel import TwoTowerBaseModel
 from .Encoders.BERT import BERT_Encoder
 
-class GateFormer(TwoTowerBaseModel):
+class TESRec(TwoTowerBaseModel):
     """
     Tow tower model with selection, one tower user modeling
+
     1. encode candidate news with bert
     2. encode ps terms with the same bert
     3. predict by scaled dot product
@@ -40,7 +41,7 @@ class GateFormer(TwoTowerBaseModel):
         self.hidden_dim = manager.bert_dim
 
         if aggregator is not None:
-            manager.name = '__'.join(['tesrec', manager.bert, manager.encoderN, manager.encoderU, manager.reducer, manager.aggregator, str(manager.k)])
+            manager.name = '__'.join(['tesrec', manager.bert, manager.encoderN, manager.encoderU, manager.reducer, manager.aggregator, "token", str(manager.k)])
         else:
             manager.name = '__'.join(['tesrec', manager.bert, manager.encoderN, manager.encoderU, manager.reducer, str(manager.k), manager.verbose])
         # used in fast evaluate
